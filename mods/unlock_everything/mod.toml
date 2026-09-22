@@ -1,0 +1,27 @@
+[manifest]
+id = "snap64_unlock_everything"
+version = "1.0.0"
+display_name = "Unlock Everything"
+description = """
+Every course open from the start, with the Apple, the Pester Ball, the \
+Poke Flute and the Dash Engine in hand and the Beach tutorial marked done. \
+It writes these into your save the way the game itself would have, so they \
+stay when the game next saves; your Pokemon Report and your album are not \
+touched. Back up saves/ first if you want to go back.
+
+Source: https://github.com/JackandBeans/Snap64RecompMods"""
+short_description = "Every course open, all four items in hand. Writes to your save."
+authors = [ "JackandBeans" ]
+game_id = "pokemonsnap"
+minimum_recomp_version = "1.0.9"
+dependencies = [ ]
+optional_dependencies = [ ]
+native_libraries = [ ]
+
+[inputs]
+# Paths are read relative to this file.
+elf_path = "../../build/unlock_everything/mod.elf"
+mod_filename = "snap64_unlock_everything"
+func_reference_syms_file = "../../Snap64RecompSyms/pokemonsnap.us.syms.toml"
+data_reference_syms_files = [ "../../Snap64RecompSyms/pokemonsnap.us.datasyms.toml" ]
+additional_files = [ ]
