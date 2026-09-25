@@ -1,6 +1,6 @@
 [manifest]
 id = "snap64_unlock_everything"
-version = "1.0.0"
+version = "1.0.1"
 display_name = "Unlock Everything"
 description = """
 Every course open from the start, with the Apple, the Pester Ball, the \
@@ -10,7 +10,8 @@ stay when the game next saves; your Pokemon Report and your album are not \
 touched. Back up saves/ first if you want to go back.
 
 Source: https://github.com/JackandBeans/Snap64RecompMods"""
-short_description = "Every course open, all four items in hand. Writes to your save."
+# One line in the Mods page's help box, which holds about 45 characters.
+short_description = "Opens all courses and items in your save."
 authors = [ "JackandBeans" ]
 game_id = "pokemonsnap"
 minimum_recomp_version = "1.0.9"

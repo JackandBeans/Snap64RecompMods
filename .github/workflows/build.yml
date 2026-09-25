@@ -1,0 +1,70 @@
+# Builds both mods and their Thunderstore packages from a clean clone, the
+# way the README says to: the decompilation (for its headers) and the
+# symbol files checked out beside the Makefile at the commits the mod
+# template pins, clang and lld for the MIPS code, RecompModTool built from
+# N64Recomp at the commit the port is built against, zip for the .nrm, and
+# tools/pack_thunderstore.py for the packages. What it proves is that the
+# mods build and pack; whether the port loads them is checked by hand
+# against a release (README, "What has been checked").
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: The mods, built and packed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The decompilation and the symbol files
+        run: |
+          git clone https://github.com/ethteck/pokemonsnap.git pokemonsnap
+          git -C pokemonsnap checkout 3a236dc20cd7f34dea188ef8bc33a31154f0ee97
+          git -C pokemonsnap submodule update --init --recursive
+          git clone https://github.com/JackandBeans/Snap64RecompSyms.git Snap64RecompSyms
+          git -C Snap64RecompSyms checkout 30b2747e44389384838b1f0d1ecfe61f992a0ae7
+
+      - name: The tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld make zip unzip cmake ninja-build
+          clang --version | head -1
+
+      - name: The mods' code
+        run: |
+          make MOD=unlimited_film
+          make MOD=unlock_everything
+
+      - name: The mod tool, from N64Recomp's source
+        run: |
+          git clone --recurse-submodules https://github.com/N64Recomp/N64Recomp.git "$RUNNER_TEMP/N64Recomp"
+          cd "$RUNNER_TEMP/N64Recomp"
+          git checkout ffb39cdad1da5de07eaaa48bd1db4a89a7986771
+          git submodule update --init --recursive
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target RecompModTool
+
+      - name: The .nrm files
+        run: |
+          for mod in unlimited_film unlock_everything; do
+            "$RUNNER_TEMP/N64Recomp/build/RecompModTool" "mods/$mod/mod.toml" "build/$mod"
+          done
+          ls -l build/*/*.nrm
+
+      - name: The Thunderstore packages
+        run: |
+          python3 tools/pack_thunderstore.py unlimited_film unlock_everything
+          for z in dist/*.zip; do unzip -l "$z"; done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snap64-recomp-mods
+          path: |
+            build/*/*.nrm
+            dist/*.zip
+          if-no-files-found: error

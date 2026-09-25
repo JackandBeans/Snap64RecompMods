@@ -1,6 +1,6 @@
 [manifest]
 id = "snap64_unlimited_film"
-version = "1.0.0"
+version = "1.0.1"
 display_name = "Unlimited Film"
 description = """
 The roll never runs out. Every course still starts with 60 shots, but the \
@@ -10,7 +10,8 @@ Professor Oak are the newest 60. The counter can show 60 throughout, or \
 count the shots you have taken.
 
 Source: https://github.com/JackandBeans/Snap64RecompMods"""
-short_description = "The film never runs out; the roll keeps your newest 60 photos."
+# One line in the Mods page's help box, which holds about 45 characters.
+short_description = "The film never runs out; the newest 60 stay."
 authors = [ "JackandBeans" ]
 game_id = "pokemonsnap"
 minimum_recomp_version = "1.0.9"
@@ -29,7 +30,7 @@ additional_files = [ ]
 [[manifest.config_options]]
 id = "counter"
 name = "Film counter"
-description = "What the counter in the corner shows: 60 throughout, or the number of shots taken this ride."
+description = "What the film counter shows: 60 throughout, or the shots taken this ride."
 type = "Enum"
 options = [ "Always 60", "Shots taken" ]
 default = "Always 60"
