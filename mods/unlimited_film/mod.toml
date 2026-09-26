@@ -31,7 +31,7 @@ additional_files = [ "thumb.png" ]
 
 [[manifest.config_options]]
 id = "counter"
-name = "Film counter"
+name = "Film Counter"
 description = "What the film counter shows: 60 throughout, or the shots taken this ride."
 type = "Enum"
 options = [ "Always 60", "Shots taken" ]
