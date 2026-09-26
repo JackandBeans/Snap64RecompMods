@@ -25,7 +25,9 @@ elf_path = "../../build/unlimited_film/mod.elf"
 mod_filename = "snap64_unlimited_film"
 func_reference_syms_file = "../../Snap64RecompSyms/pokemonsnap.us.syms.toml"
 data_reference_syms_files = [ "../../Snap64RecompSyms/pokemonsnap.us.datasyms.toml" ]
-additional_files = [ ]
+# The picture the Mods page shows on the mod's details page (thumb.png at
+# the .nrm's root, as the runtime reads it; the Thunderstore icon).
+additional_files = [ "thumb.png" ]
 
 [[manifest.config_options]]
 id = "counter"

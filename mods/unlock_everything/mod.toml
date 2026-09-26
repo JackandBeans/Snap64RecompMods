@@ -25,4 +25,6 @@ elf_path = "../../build/unlock_everything/mod.elf"
 mod_filename = "snap64_unlock_everything"
 func_reference_syms_file = "../../Snap64RecompSyms/pokemonsnap.us.syms.toml"
 data_reference_syms_files = [ "../../Snap64RecompSyms/pokemonsnap.us.datasyms.toml" ]
-additional_files = [ ]
+# The picture the Mods page shows on the mod's details page (thumb.png at
+# the .nrm's root, as the runtime reads it; the Thunderstore icon).
+additional_files = [ "thumb.png" ]
