@@ -45,7 +45,9 @@ and a README.
 
 - Snap64 Recomp 1.1.0 or later: drop the `.nrm` or the zip on the game
   window, or put either in the `mods/` folder next to `Snap64Recomp.exe`
-  (or the Linux binary). The mod loads the next time the game starts.
+  (or the Linux binary; on a Mac, the `mods/` folder in
+  `~/Library/Application Support/Snap64 Recomp/`). The mod loads the next time
+  the game starts.
 - Snap64 Recomp 1.0.9: put the `.nrm` in the `mods/` folder (take it out of
   the zip first).
 

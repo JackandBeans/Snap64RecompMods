@@ -20,7 +20,8 @@ Mod managers do not support Snap64 Recomp. Use **Manual Download** on this
 page.
 
 - Snap64 Recomp 1.1.0 or later: drop the downloaded zip on the game window,
-  or put the zip in the `mods` folder beside `Snap64Recomp.exe`. The mod
+  or put the zip in the port's `mods` folder (beside `Snap64Recomp.exe`;
+  on a Mac, in `~/Library/Application Support/Snap64 Recomp/`). The mod
   loads the next time the game starts.
 - Snap64 Recomp 1.0.9: open the zip and put `snap64_unlimited_film.nrm` in
   the `mods` folder.
