@@ -1,13 +1,13 @@
 [manifest]
 id = "snap64_unlock_everything"
-version = "1.0.1"
+version = "1.0.2"
 display_name = "Unlock Everything"
 description = """
 Every course open from the start, with the Apple, the Pester Ball, the \
 Poke Flute and the Dash Engine in hand and the Beach tutorial marked done. \
 It writes these into your save the way the game itself would have, so they \
 stay when the game next saves; your Pokemon Report and your album are not \
-touched. Back up saves/ first if you want to go back.
+touched. Copy the saves folder somewhere safe first if you want to go back.
 
 Source: https://github.com/JackandBeans/Snap64RecompMods"""
 # One line in the Mods page's help box, which holds about 45 characters.

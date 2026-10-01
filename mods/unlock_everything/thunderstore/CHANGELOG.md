@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2
+
+- The description on the Mods page says "the saves folder" where it said
+  "saves/".
+
 ## 1.0.1
 
 - The short description is shorter, so it fits the help box on the game's
