@@ -89,6 +89,6 @@ waits a frame (the game stopped when its process ended). Snap64 Recomp
 patch of a small function that runs at the same moment, so it runs on
 1.0.9 too.
 
-## Licence
+## License
 
 GPLv3, like the port. Copyright (C) 2026 JackandBeans.
