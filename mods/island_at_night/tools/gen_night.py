@@ -39,6 +39,16 @@ COURSES = {
                    moon=(0, 359, 10.0, 18.0), stars=(760, 280, 10), seed=2005),
 }
 DIST = 1400.0           # how far the sprites stand from the camera, inside every box
+# The glow band at the horizon toward the sunset's (or the dawn's) sun: columns of azimuth
+# either side of it, rows of elevation, each corner's alpha the product of its column's and
+# row's weight, so the warmth fades smoothly sideways and upward over the sky's drum.
+BAND_AZ = [-75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75]
+BAND_EL = [-10.0, 0.0, 8.0, 18.0]
+BAND_AZ_W = [int(round(255 * math.cos(math.radians(a / 75.0 * 90.0)) ** 2)) for a in BAND_AZ]
+BAND_EL_W = [255, 255, 140, 0]
+BAND_ALPHA = 170
+BAND_SUN_COLOR = [(255, 165, 80), (255, 165, 80), (245, 135, 110), (225, 110, 140)]
+BAND_DAWN_COLOR = [(255, 195, 150), (255, 195, 150), (240, 170, 170), (220, 160, 190)]
 FAINT_GROUPS = 6        # twinkle groups: the faint stars, all but steady;
 CALM_GROUPS = 16        # the middle stars in three tempers: calm,
 BREATHING_GROUPS = 10   # breathing,
@@ -682,6 +692,7 @@ def main():
     w('#include "night_data.h"')
     w('')
     w('#define V(x, y, z, s, t, r, g, b) { { { (x), (y), (z) }, 0, { (s), (t) }, { (r), (g), (b), 255 } } }')
+    w('#define VA(x, y, z, r, g, b, a) { { { (x), (y), (z) }, 0, { 0, 0 }, { (r), (g), (b), (a) } } }')
     w('')
 
     def bytes_array(name, kind, values, per_line, fmt):
@@ -726,6 +737,22 @@ def main():
     w('    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0, TEXEL0, 0, PRIMITIVE, 0, TEXEL0, 0, SHADE, 0, TEXEL0, 0, PRIMITIVE, 0),')
     w('    gsSPEndDisplayList(),')
     w('};')
+    w('// The glow band at the horizon: no picture, each corner\'s own color and alpha, blended over')
+    w('// the sky\'s drum, which it is drawn on.')
+    w('static Gfx night_band_begin[] = {')
+    w('    gsDPPipeSync(),')
+    w('    gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),')
+    w('    gsDPSetCombineLERP(0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE),')
+    w('    gsDPSetRenderMode(G_RM_XLU_SURF, G_RM_XLU_SURF2),')
+    w('    gsSPClearGeometryMode(G_CULL_BACK | G_CULL_FRONT),')
+    w('    gsSPEndDisplayList(),')
+    w('};')
+    w('// The band\'s weights, by column (azimuth from the sun) and by row (elevation), and the')
+    w('// sunset\'s colors by row; the code fades and deepens the band through the dusk from these.')
+    w('const u8 night_band_az_w[NIGHT_BAND_COLS] = { %s };' % ', '.join(str(v) for v in BAND_AZ_W))
+    w('const u8 night_band_el_w[NIGHT_BAND_ROWS] = { %s };' % ', '.join(str(v) for v in BAND_EL_W))
+    w('const u8 night_band_sun_color[NIGHT_BAND_ROWS][3] = { %s };' % ', '.join('{ %d, %d, %d }' % col for col in BAND_SUN_COLOR))
+    w('')
     w('// The sky\'s own states, put back at the end: its combiner (picture times shade), its texture')
     w('// switch and its render mode.')
     w('static Gfx night_sprites_end[] = {')
@@ -753,6 +780,14 @@ def main():
     h.append('} NightTwinkle;')
     h.append('extern const s8 night_sine[];')
     h.append('extern const NightTwinkle night_twinkles[];')
+    h.append('')
+    h.append('// The glow band at the horizon toward the sun: its columns and rows, its weights and colors.')
+    h.append('#define NIGHT_BAND_COLS %d' % len(BAND_AZ))
+    h.append('#define NIGHT_BAND_ROWS %d' % len(BAND_EL))
+    h.append('#define NIGHT_BAND_ALPHA %d' % BAND_ALPHA)
+    h.append('extern const u8 night_band_az_w[NIGHT_BAND_COLS];')
+    h.append('extern const u8 night_band_el_w[NIGHT_BAND_ROWS];')
+    h.append('extern const u8 night_band_sun_color[NIGHT_BAND_ROWS][3];')
     make_rain(w, h)
     make_glow(w, h, built)
 
@@ -824,6 +859,30 @@ def main():
         c.extend(verts)
         w('};')
         w('')
+
+        def band(az, colors, label):
+            w('// The glow band at the horizon toward the %s.' % label)
+            w('Vtx night_%s_%s[] = {' % (name, label))
+            for ci, da in enumerate(BAND_AZ):
+                for ri, el in enumerate(BAND_EL):
+                    d = direction(az + da, el)
+                    p = tuple(int(round(DIST * d[i])) for i in range(3))
+                    a = BAND_ALPHA * BAND_AZ_W[ci] // 255 * BAND_EL_W[ri] // 255
+                    w('    VA(%d, %d, %d, %d, %d, %d, %d),' % (p + colors[ri] + (a,)))
+            w('};')
+            w('static Gfx night_%s_%s_list[] = {' % (name, label))
+            w('    gsSPDisplayList(night_band_begin),')
+            rows = len(BAND_EL)
+            for ci in range(len(BAND_AZ) - 1):
+                w('    gsSPVertex(&night_%s_%s[%d], %d, 0),' % (name, label, ci * rows, 2 * rows))
+                for ri in range(rows - 1):
+                    w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (ri, ri + 1, rows + ri + 1, ri, rows + ri + 1, rows + ri))
+            w('    gsSPEndDisplayList(),')
+            w('};')
+            w('')
+
+        band(sun_az, BAND_SUN_COLOR, 'band')
+        band(sun_az + 180.0, BAND_DAWN_COLOR, 'dawn_band')
         n_tw = FAINT_GROUPS + MID_GROUPS + len(b['bright'])
         w('// One command each, rewritten every frame: the brightness of a twinkle group.')
         w('Gfx night_%s_twinkle[][2] = {' % name)
@@ -872,6 +931,7 @@ def main():
         w('')
         w('// The sun, attached to the sky at sunset in place of the stars.')
         w('Gfx night_%s_sun[] = {' % name)
+        w('    gsSPDisplayList(night_%s_band_list),' % name)
         w('    gsSPDisplayList(night_sprites_begin),')
         w('    gsSPDisplayList(night_use_dot),')
         w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 112),')
@@ -884,6 +944,7 @@ def main():
         w('')
         w('// The dawn\'s sun, attached to the sky at dawn.')
         w('Gfx night_%s_dawn[] = {' % name)
+        w('    gsSPDisplayList(night_%s_dawn_band_list),' % name)
         w('    gsSPDisplayList(night_sprites_begin),')
         w('    gsSPDisplayList(night_use_dot),')
         w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 100),')
@@ -909,6 +970,7 @@ def main():
         sun = b['sun']
         h.append('#define NIGHT_%s_SUN { %d, %d, %d }' % (up, int(round(sun[0] * 127)), int(round(sun[1] * 127)), int(round(sun[2] * 127))))
         h.append('extern Gfx night_%s_sun[];' % name)
+        h.append('extern Vtx night_%s_band[];' % name)
         dawn = b['dawn']
         h.append('#define NIGHT_%s_DAWN { %d, %d, %d }' % (up, int(round(dawn[0] * 127)), int(round(dawn[1] * 127)), int(round(dawn[2] * 127))))
         h.append('extern Gfx night_%s_dawn[];' % name)

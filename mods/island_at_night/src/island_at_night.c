@@ -112,6 +112,7 @@ typedef struct Night {
     Gfx* sun_list;          // the sun and its haze, for the sky at sunset
     s8 dawn_sun[3];         // where the dawn's sun stands
     Gfx* dawn_list;         // the dawn's sun, for the sky at dawn
+    Vtx* band;              // the glow band at the horizon toward the sunset's sun (night_data.h)
 } Night;
 
 static const Night nights[] = {
@@ -120,25 +121,25 @@ static const Night nights[] = {
         NIGHT_BEACH_SKY_VTX, NIGHT_BEACH_SKY_VTX_N, NIGHT_BEACH_R_LO, NIGHT_BEACH_R_SCALE,
         0x8011B050u, 0x80135BD4u, { 92, 123, 205 }, { 108, 141, 220 }, { 80, 112, 190 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 990, 1000,
-        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun, NIGHT_BEACH_DAWN, night_beach_dawn },
+        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun, NIGHT_BEACH_DAWN, night_beach_dawn, night_beach_band },
     {   // The River: broken cloud, a mist over the water.
         NIGHT_RIVER_SETUP, "river", "river_weather", NIGHT_RIVER_SPARE, NIGHT_RIVER_PICS, NIGHT_RIVER_ROWS,
         NIGHT_RIVER_SKY_VTX, NIGHT_RIVER_SKY_VTX_N, NIGHT_RIVER_R_LO, NIGHT_RIVER_R_SCALE,
         0x8012A0C0u, 0x801416F0u, { 86, 124, 196 }, { 104, 142, 214 }, { 66, 104, 156 },
         { 104, 120, 176 }, { 188, 192, 208 }, { 48, 56, 80 }, { 16, 20, 44 }, 988, 1000,
-        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn },
+        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn, night_river_band },
     {   // The Volcano: no moon. The lava keeps its own light and lights the smoke from below.
         NIGHT_VOLCANO_SETUP, "volcano", "volcano_weather", NIGHT_VOLCANO_SPARE, NIGHT_VOLCANO_PICS, NIGHT_VOLCANO_ROWS,
         NIGHT_VOLCANO_SKY_VTX, NIGHT_VOLCANO_SKY_VTX_N, NIGHT_VOLCANO_R_LO, NIGHT_VOLCANO_R_SCALE,
         0x800FFF90u, 0x80112260u, { 132, 96, 92 }, { 172, 132, 122 }, { 255, 240, 228 },
         { 72, 56, 64 }, { 255, 210, 150 }, { 108, 60, 44 }, { 24, 20, 40 }, 986, 1000,
-        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun, NIGHT_VOLCANO_DAWN, night_volcano_dawn },
+        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun, NIGHT_VOLCANO_DAWN, night_volcano_dawn, night_volcano_band },
     {   // The Valley: a high, clear mountain night.
         NIGHT_VALLEY_SETUP, "valley", "valley_weather", NIGHT_VALLEY_SPARE, NIGHT_VALLEY_PICS, NIGHT_VALLEY_ROWS,
         NIGHT_VALLEY_SKY_VTX, NIGHT_VALLEY_SKY_VTX_N, NIGHT_VALLEY_R_LO, NIGHT_VALLEY_R_SCALE,
         0x800FFF90u, 0x80116A70u, { 84, 112, 190 }, { 104, 136, 220 }, { 46, 72, 126 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 12, 16, 44 }, 992, 1000,
-        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn },
+        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn, night_valley_band },
 };
 
 extern f32 GlobalTimer;         // the world's clock: it advances by the set-up's sky speed each tick
@@ -174,6 +175,7 @@ static u8 sky_horizon[3], sky_top[3];    // the sky's colors in force: at the ho
 static u8 pic_sky[3], pic_cloud[3];      // the sky picture's colors in force
 static u8 tint_lo[3], tint_hi[3];        // the box's corner tints in force
 static f32 sky_sin_lo, sky_sin_hi;       // how low and how high the box's corners reach (sines of elevation)
+static u8 cloud_top_fade;                // how far the clouds thin toward the drum's lid: full at sunset, none by night
 static u8 sky_mask[SKY_TEXELS];          // the picture's luminance, then its softened cloud mask
 static u8 sky_blur[SKY_TEXELS];
 static Mtx rain_mtx[2][NIGHT_RAIN_SHEETS * 2];   // each sheet's two matrices, this frame's set and the last's
@@ -1004,9 +1006,19 @@ static void sky_paint(u32 pic, const u8* mask) {
 
     for (i = 0; i < SKY_TEXELS; i++) {
         s32 m = mask[i];
+        s32 row = i >> 6;
         u32 c[3];
         s32 k;
 
+        if (cloud_top_fade != 0 && row > 12) {
+            // At sunset the clouds thin away toward the top of the drum, so
+            // its flat lid (the picture's top row, one color) meets the sides
+            // without a rim, and the picture's six repeats around the sky
+            // crowd less where they are closest.
+            s32 f = ((row - 12) * 255) / 19;
+
+            m -= ((((m * f) / 255) * f) / 255) * cloud_top_fade / 255;
+        }
         for (k = 0; k < 3; k++) {
             c[k] = (u32) (pic_sky[k] + (((s32) pic_cloud[k] - pic_sky[k]) * m) / 255);
         }
@@ -1073,6 +1085,20 @@ static void sky_at_night(u32 pic) {
                 + sky_blur[yu * 64 + xl] + sky_blur[yu * 64 + xr] + sky_blur[yd * 64 + xl] + sky_blur[yd * 64 + xr];
 
         sky_mask[i] = (u8) (sum >> 4);
+    }
+    // The picture meets itself at each of the drum's six edges, its last
+    // column against its first, and the two differ; they are blended to one
+    // value over the eight columns either side, so no seam stands where
+    // the faces meet (bright sunset clouds showed it).
+    for (i = 0; i < 32; i++) {
+        u8* row = &sky_mask[i * 64];
+        s32 edge = ((s32) row[0] + row[63]) / 2;
+        s32 x;
+
+        for (x = 0; x < 8; x++) {
+            row[x] = (u8) (edge + (((s32) row[x] - edge) * x) / 8);
+            row[63 - x] = (u8) (edge + (((s32) row[63 - x] - edge) * x) / 8);
+        }
     }
     sky_paint(pic, sky_mask);
 }
@@ -2543,20 +2569,19 @@ static void choose_palette(const Night* by) {
         // By night the land facing the moon is a little lighter.
         static const u8 moon_land_diff[3] = { 28, 32, 48 };
         // The sunset. The sky's picture holds blue sky and warm cloud; the
-        // corners go orange toward the sun, violet away from it, deep
-        // violet-blue at the top. Overcast, the same with the warmth drawn
-        // down to gray-rose; snow, pink.
+        // corners are violet at the horizon all around and deep violet-blue
+        // at the top, and the warmth toward the sun is the glow band's,
+        // drawn smooth (the sky is a six-sided drum, and a tint that turned
+        // with the azimuth creased at its six edges). Overcast, gray-rose;
+        // snow, pink.
         static const u8 sun_pic_sky[3] = { 150, 160, 210 };
         static const u8 sun_pic_cloud[3] = { 255, 215, 190 };
-        static const u8 sun_tint_lo[3] = { 255, 160, 90 };
         static const u8 sun_tint_away[3] = { 130, 120, 170 };
         static const u8 sun_tint_hi[3] = { 90, 80, 140 };
         static const u8 sun_wet_pic_sky[3] = { 150, 150, 160 };
         static const u8 sun_wet_pic_cloud[3] = { 200, 195, 200 };
-        static const u8 sun_wet_tint_lo[3] = { 190, 150, 135 };
         static const u8 sun_wet_tint_away[3] = { 130, 126, 150 };
         static const u8 sun_wet_tint_hi[3] = { 96, 96, 120 };
-        static const u8 sun_snow_tint_lo[3] = { 225, 195, 185 };
         static const u8 sun_snow_tint_away[3] = { 170, 165, 185 };
         static const u8 sun_snow_tint_hi[3] = { 130, 128, 150 };
         // Its lights: a cool ambient on the land and a warm sun across the
@@ -2571,7 +2596,6 @@ static void choose_palette(const Night* by) {
         // The dawn: the same sky from the other side, cooler and pinker.
         static const u8 dawn_pic_sky[3] = { 165, 175, 220 };
         static const u8 dawn_pic_cloud[3] = { 255, 225, 215 };
-        static const u8 dawn_tint_lo[3] = { 255, 185, 150 };
         static const u8 dawn_tint_away[3] = { 120, 135, 190 };
         static const u8 dawn_tint_hi[3] = { 85, 105, 165 };
         static const u8 dawn_world[3] = { 125, 120, 150 };
@@ -2590,8 +2614,8 @@ static void choose_palette(const Night* by) {
             land_diff[i] = overcast ? (u8) (sun_land_diff[i] >> 2) : dawn ? dawn_land_diff[i] : sun_land_diff[i];
             pic_sky[i] = overcast ? sun_wet_pic_sky[i] : dawn ? dawn_pic_sky[i] : sun_pic_sky[i];
             pic_cloud[i] = overcast ? sun_wet_pic_cloud[i] : dawn ? dawn_pic_cloud[i] : sun_pic_cloud[i];
-            tint_lo[i] = snowing ? sun_snow_tint_lo[i] : raining ? sun_wet_tint_lo[i] : dawn ? dawn_tint_lo[i] : sun_tint_lo[i];
-            tint_away[i] = snowing ? sun_snow_tint_away[i] : raining ? sun_wet_tint_away[i] : dawn ? dawn_tint_away[i] : sun_tint_away[i];
+            tint_lo[i] = snowing ? sun_snow_tint_away[i] : raining ? sun_wet_tint_away[i] : dawn ? dawn_tint_away[i] : sun_tint_away[i];
+            tint_away[i] = tint_lo[i];
             tint_hi[i] = snowing ? sun_snow_tint_hi[i] : raining ? sun_wet_tint_hi[i] : dawn ? dawn_tint_hi[i] : sun_tint_hi[i];
             scene_ambient[i] = dawn ? dawn_ambient[i] : sun_ambient[i];
             scene_diffuse[i] = overcast ? (u8) part(sun_diffuse[i], 160) : dawn ? dawn_diffuse[i] : sun_diffuse[i];
@@ -2644,6 +2668,7 @@ static void choose_palette(const Night* by) {
             relight_dir[2] = d[2] / len;
         }
     }
+    cloud_top_fade = sunset ? 255 : 0;
 }
 
 // The dusk. The live colors are eleven triples; both ends are kept and the
@@ -2726,6 +2751,31 @@ static void relight_record(void) {
 
 // The sky at a moment of the dusk: the sun sinking and fading, then the
 // stars and the moon coming up in its place.
+// The glow band through the dusk: full until the sun is low, gone a little
+// after the disc, and deepening from orange toward a red violet as it goes.
+static void band_set(f32 t) {
+    static const u8 deep[3] = { 205, 75, 115 };
+    Vtx* v = night->band;
+    f32 fade = (t < 0.3f) ? 1.0f : (t > 0.8f) ? 0.0f : (0.8f - t) / 0.5f;
+    f32 late = (t > 0.8f) ? 1.0f : t / 0.8f;
+    s32 c, r, k;
+
+    if (v == NULL) {
+        return;
+    }
+    for (c = 0; c < NIGHT_BAND_COLS; c++) {
+        for (r = 0; r < NIGHT_BAND_ROWS; r++) {
+            Vtx* p = &v[c * NIGHT_BAND_ROWS + r];
+            u32 a = ((u32) (NIGHT_BAND_ALPHA * fade) * night_band_az_w[c] / 255) * night_band_el_w[r] / 255;
+
+            for (k = 0; k < 3; k++) {
+                p->v.cn[k] = (u8) (night_band_sun_color[r][k] + ((s32) deep[k] - night_band_sun_color[r][k]) * late);
+            }
+            p->v.cn[3] = (u8) a;
+        }
+    }
+}
+
 static void dusk_sky(f32 t) {
     volatile u32* spare = (volatile u32*) night->spare;
     Gfx* sun = night->sun_list;
@@ -2744,10 +2794,12 @@ static void dusk_sky(f32 t) {
     stars = stars < 0.0f ? 0.0f : stars > 1.0f ? 1.0f : stars;
     moon = moon < 0.0f ? 0.0f : moon > 1.0f ? 1.0f : moon;
     star_fade = (u8) (255.0f * stars);
-    if (sun != NULL && (sun[2].words.w0 >> 24) == 0xFA && (sun[5].words.w0 >> 24) == 0xFA
-        && (sun[3].words.w0 >> 24) == 0x01 && (sun[6].words.w0 >> 24) == 0x01) {
-        Vtx* haze = (Vtx*) sun[3].words.w1;
-        Vtx* disc = (Vtx*) sun[6].words.w1;
+    // The sun list: its band's call, the sprites' states, the dot, then the
+    // haze's color and corners and the disc's; each checked to be what it is.
+    if (sun != NULL && (sun[3].words.w0 >> 24) == 0xFA && (sun[6].words.w0 >> 24) == 0xFA
+        && (sun[4].words.w0 >> 24) == 0x01 && (sun[7].words.w0 >> 24) == 0x01) {
+        Vtx* haze = (Vtx*) sun[4].words.w1;
+        Vtx* disc = (Vtx*) sun[7].words.w1;
 
         if (!sun_y0_kept) {
             sun_y0_kept = 1;
@@ -2760,8 +2812,8 @@ static void dusk_sky(f32 t) {
             haze[k].v.ob[1] = (s16) (sun_y0[k] - sink * 260.0f);
             disc[k].v.ob[1] = (s16) (sun_y0[4 + k] - sink * 260.0f);
         }
-        sun[2].words.w1 = 0xFFFFFF00u | (u32) (112.0f * sun_alpha);
-        sun[5].words.w1 = 0xFFFFFF00u | (u32) (255.0f * sun_alpha);
+        sun[3].words.w1 = 0xFFFFFF00u | (u32) (112.0f * sun_alpha);
+        sun[6].words.w1 = 0xFFFFFF00u | (u32) (255.0f * sun_alpha);
     }
     // The moon's two primitive colors sit at fixed places before the sky
     // list's end: the end, the states put back, the moon's triangles and
@@ -2784,19 +2836,39 @@ static void dusk_sky(f32 t) {
     }
 }
 
+// How far each of the eleven colors has gone at a moment of the dusk. The
+// land and its lights are dark once the sun is down (the sun sinks until six
+// tenths); the clouds lose the sun's warmth early; the top of the sky darkens
+// before the horizon; the sky's picture and the horizon's tints take the
+// whole dusk.
+static f32 dusk_share(s32 n, f32 t) {
+    f32 e;
+
+    switch (n) {
+        case 0: case 1: case 2: case 3: case 9: case 10: e = t / 0.55f; break;
+        case 5: e = (t - 0.15f) / 0.4f; break;
+        case 8: e = t / 0.8f; break;
+        default: e = t; break;
+    }
+    return e < 0.0f ? 0.0f : e > 1.0f ? 1.0f : e;
+}
+
 // A moment of the dusk, 0 at sunset and 1 at night: the colors slid between
-// the two ends, the sky painted again, the land lit again, the sunset flag
-// falling at six tenths so the night's things begin.
+// the two ends, each on its own curve, the sky painted again, the land lit
+// again, the sunset flag falling at six tenths so the night's things begin.
 static void dusk_apply(f32 t) {
     WorldSetup* setup = (WorldSetup*) night->setup;
     f32 len;
     s32 n, k, i;
 
     for (n = 0; n < 11; n++) {
+        f32 share = dusk_share(n, t);
+
         for (k = 0; k < 3; k++) {
-            live_palette[n][k] = (u8) ((f32) pal_a[n][k] + ((f32) pal_b[n][k] - (f32) pal_a[n][k]) * t);
+            live_palette[n][k] = (u8) ((f32) pal_a[n][k] + ((f32) pal_b[n][k] - (f32) pal_a[n][k]) * share);
         }
     }
+    cloud_top_fade = (u8) (255.0f * (1.0f - t));
     for (k = 0; k < 3; k++) {
         relight_dir[k] = dir_a[k] + (dir_b[k] - dir_a[k]) * t;
         sky_horizon[k] = (u8) ((pic_sky[k] * (((u32) tint_lo[k] + tint_away[k]) / 2)) / 255);
@@ -2825,6 +2897,7 @@ static void dusk_apply(f32 t) {
             sky_corners(night->sky_vtx[i], night->sky_vtx_n[i]);
         }
     }
+    band_set(t);
     dusk_sky(t);
     relight_record();
 }

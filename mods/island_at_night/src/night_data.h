@@ -13,6 +13,14 @@ typedef struct NightTwinkle {
 extern const s8 night_sine[];
 extern const NightTwinkle night_twinkles[];
 
+// The glow band at the horizon toward the sun: its columns and rows, its weights and colors.
+#define NIGHT_BAND_COLS 11
+#define NIGHT_BAND_ROWS 4
+#define NIGHT_BAND_ALPHA 170
+extern const u8 night_band_az_w[NIGHT_BAND_COLS];
+extern const u8 night_band_el_w[NIGHT_BAND_ROWS];
+extern const u8 night_band_sun_color[NIGHT_BAND_ROWS][3];
+
 // rain
 #define NIGHT_RAIN_SHEETS 10
 #define NIGHT_RAIN_HEIGHT 1400
@@ -50,6 +58,7 @@ extern Gfx night_streak[];
 #define NIGHT_BEACH_KEY { -108, 21, 63 }
 #define NIGHT_BEACH_SUN { -109, 13, 63 }
 extern Gfx night_beach_sun[];
+extern Vtx night_beach_band[];
 #define NIGHT_BEACH_DAWN { 109, 13, -63 }
 extern Gfx night_beach_dawn[];
 #define NIGHT_BEACH_PICS { 0x8011B968u, 0x00000000u }
@@ -69,6 +78,7 @@ extern const u8 night_beach_rows0[32];
 #define NIGHT_RIVER_KEY { 102, 31, 69 }
 #define NIGHT_RIVER_SUN { 105, 13, 71 }
 extern Gfx night_river_sun[];
+extern Vtx night_river_band[];
 #define NIGHT_RIVER_DAWN { -105, 13, -71 }
 extern Gfx night_river_dawn[];
 #define NIGHT_RIVER_PICS { 0x8012ACD8u, 0x00000000u }
@@ -88,6 +98,7 @@ extern const u8 night_river_rows0[32];
 #define NIGHT_VOLCANO_KEY { 0, 127, 0 }
 #define NIGHT_VOLCANO_SUN { -119, 13, -43 }
 extern Gfx night_volcano_sun[];
+extern Vtx night_volcano_band[];
 #define NIGHT_VOLCANO_DAWN { 119, 13, 43 }
 extern Gfx night_volcano_dawn[];
 #define NIGHT_VOLCANO_PICS { 0x80100008u, 0x00000000u }
@@ -107,6 +118,7 @@ extern const u8 night_volcano_rows0[32];
 #define NIGHT_VALLEY_KEY { 112, 39, 45 }
 #define NIGHT_VALLEY_SUN { 117, 13, 47 }
 extern Gfx night_valley_sun[];
+extern Vtx night_valley_band[];
 #define NIGHT_VALLEY_DAWN { -117, 13, -47 }
 extern Gfx night_valley_dawn[];
 #define NIGHT_VALLEY_PICS { 0x80101770u, 0x80100768u }
