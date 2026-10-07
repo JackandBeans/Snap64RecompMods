@@ -110,6 +110,8 @@ typedef struct Night {
     Gfx* const* fireflies;  // fireflies over the water, where there are any
     s8 sun[3];              // where the sunset's sun stands
     Gfx* sun_list;          // the sun and its haze, for the sky at sunset
+    s8 dawn_sun[3];         // where the dawn's sun stands
+    Gfx* dawn_list;         // the dawn's sun, for the sky at dawn
 } Night;
 
 static const Night nights[] = {
@@ -118,25 +120,25 @@ static const Night nights[] = {
         NIGHT_BEACH_SKY_VTX, NIGHT_BEACH_SKY_VTX_N, NIGHT_BEACH_R_LO, NIGHT_BEACH_R_SCALE,
         0x8011B050u, 0x80135BD4u, { 92, 123, 205 }, { 108, 141, 220 }, { 80, 112, 190 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 990, 1000,
-        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun },
+        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun, NIGHT_BEACH_DAWN, night_beach_dawn },
     {   // The River: broken cloud, a mist over the water.
         NIGHT_RIVER_SETUP, "river", "river_weather", NIGHT_RIVER_SPARE, NIGHT_RIVER_PICS, NIGHT_RIVER_ROWS,
         NIGHT_RIVER_SKY_VTX, NIGHT_RIVER_SKY_VTX_N, NIGHT_RIVER_R_LO, NIGHT_RIVER_R_SCALE,
         0x8012A0C0u, 0x801416F0u, { 86, 124, 196 }, { 104, 142, 214 }, { 66, 104, 156 },
         { 104, 120, 176 }, { 188, 192, 208 }, { 48, 56, 80 }, { 16, 20, 44 }, 988, 1000,
-        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun },
+        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn },
     {   // The Volcano: no moon. The lava keeps its own light and lights the smoke from below.
         NIGHT_VOLCANO_SETUP, "volcano", "volcano_weather", NIGHT_VOLCANO_SPARE, NIGHT_VOLCANO_PICS, NIGHT_VOLCANO_ROWS,
         NIGHT_VOLCANO_SKY_VTX, NIGHT_VOLCANO_SKY_VTX_N, NIGHT_VOLCANO_R_LO, NIGHT_VOLCANO_R_SCALE,
         0x800FFF90u, 0x80112260u, { 132, 96, 92 }, { 172, 132, 122 }, { 255, 240, 228 },
         { 72, 56, 64 }, { 255, 210, 150 }, { 108, 60, 44 }, { 24, 20, 40 }, 986, 1000,
-        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun },
+        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun, NIGHT_VOLCANO_DAWN, night_volcano_dawn },
     {   // The Valley: a high, clear mountain night.
         NIGHT_VALLEY_SETUP, "valley", "valley_weather", NIGHT_VALLEY_SPARE, NIGHT_VALLEY_PICS, NIGHT_VALLEY_ROWS,
         NIGHT_VALLEY_SKY_VTX, NIGHT_VALLEY_SKY_VTX_N, NIGHT_VALLEY_R_LO, NIGHT_VALLEY_R_SCALE,
         0x800FFF90u, 0x80116A70u, { 84, 112, 190 }, { 104, 136, 220 }, { 46, 72, 126 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 12, 16, 44 }, 992, 1000,
-        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun },
+        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn },
 };
 
 extern f32 GlobalTimer;         // the world's clock: it advances by the set-up's sky speed each tick
@@ -153,6 +155,7 @@ static u8 glows_on = 1;          // the water glows are drawn,
 static u8 moonlight_on = 1;      // the key light leans toward the moon
 static u8 night_sounds_on = 1;   // the night's voices are heard
 static u8 sunset;                // the time chosen is the sunset, not the night
+static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -1236,18 +1239,22 @@ static void rain(GObj* sky) {
     set = rain_mtx[rain_turn];
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
+    // The wind: the sheets drift sideways on two slow waves, a gust every six
+    // seconds or so with a quicker shiver on it, each sheet a little apart.
     for (sheet = 0; sheet < NIGHT_RAIN_SHEETS; sheet++) {
         u32 fallen = ticks * night_rain_speed[sheet];
         u32 turn = fallen / NIGHT_RAIN_HEIGHT;
+        f32 gust = (f32) night_sine[((ticks * 23) >> 5) + 11 * sheet & 0xFF] * (90.0f / 127.0f)
+                 + (f32) night_sine[(((ticks * 61) >> 5) + 70 + 29 * sheet) & 0xFF] * (36.0f / 127.0f);
 
         for (copy = 0; copy < 2; copy++) {
             u32 which = turn + copy;
             s32 below = (s32) fallen - (s32) (which * NIGHT_RAIN_HEIGHT);     // from -HEIGHT up to HEIGHT
             Mtx* mtx = &set[sheet * 2 + copy];
 
-            place(mtx, eye->position.v.x + NIGHT_RAIN_SLANT_X * (f32) below,
+            place(mtx, eye->position.v.x + NIGHT_RAIN_SLANT_X * (f32) below + gust * 0.9f,
                   eye->position.v.y - (f32) (NIGHT_RAIN_HEIGHT / 2) - (f32) below,
-                  eye->position.v.z + NIGHT_RAIN_SLANT_Z * (f32) below);
+                  eye->position.v.z + NIGHT_RAIN_SLANT_Z * (f32) below + gust * 0.4f);
             // The group: this id, pushed; place, turn, perspective and vertices followed between ticks.
             command(list, (0x64u << 24) | 0x00000Cu, 0x52410000u | (sheet << 8) | (which & 0xFF));
             command(list, 0x00002829u, 0);
@@ -2671,10 +2678,11 @@ static const Night* night_of(WorldSetup* setup) {
 
     for (i = 0; i < sizeof(nights) / sizeof(nights[0]); i++) {
         if ((u32) setup == nights[i].setup) {
-            u32 time = recomp_get_config_u32(nights[i].option);     // 0 night, 1 sunset, 2 day
+            u32 time = recomp_get_config_u32(nights[i].option);     // 0 night, 1 sunset, 2 dawn, 3 day
 
-            sunset = (time == 1);
-            return (time == 2) ? NULL : &nights[i];
+            sunset = (time == 1 || time == 2);
+            dawn = (time == 2);
+            return (time == 3) ? NULL : &nights[i];
         }
     }
     return NULL;
@@ -2760,21 +2768,33 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         static const u8 sun_flow[3] = { 180, 155, 165 };
         static const u8 sun_ambient[3] = { 105, 100, 135 };
         static const u8 sun_diffuse[3] = { 255, 205, 150 };
+        // The dawn: the same sky from the other side, cooler and pinker.
+        static const u8 dawn_pic_sky[3] = { 165, 175, 220 };
+        static const u8 dawn_pic_cloud[3] = { 255, 225, 215 };
+        static const u8 dawn_tint_lo[3] = { 255, 185, 150 };
+        static const u8 dawn_tint_away[3] = { 120, 135, 190 };
+        static const u8 dawn_tint_hi[3] = { 85, 105, 165 };
+        static const u8 dawn_world[3] = { 125, 120, 150 };
+        static const u8 dawn_land_diff[3] = { 215, 175, 130 };
+        static const u8 dawn_body[3] = { 230, 215, 205 };
+        static const u8 dawn_flow[3] = { 175, 165, 185 };
+        static const u8 dawn_ambient[3] = { 108, 110, 145 };
+        static const u8 dawn_diffuse[3] = { 255, 225, 195 };
 
         if (sunset) {
             u32 overcast = raining || snowing;
 
-            light_world[i] = overcast ? sun_world_overcast[i] : sun_world[i];
-            light_body[i] = sun_body[i];
-            light_flow[i] = sun_flow[i];
-            land_diff[i] = overcast ? (u8) (sun_land_diff[i] >> 2) : sun_land_diff[i];
-            pic_sky[i] = overcast ? sun_wet_pic_sky[i] : sun_pic_sky[i];
-            pic_cloud[i] = overcast ? sun_wet_pic_cloud[i] : sun_pic_cloud[i];
-            tint_lo[i] = snowing ? sun_snow_tint_lo[i] : raining ? sun_wet_tint_lo[i] : sun_tint_lo[i];
-            tint_away[i] = snowing ? sun_snow_tint_away[i] : raining ? sun_wet_tint_away[i] : sun_tint_away[i];
-            tint_hi[i] = snowing ? sun_snow_tint_hi[i] : raining ? sun_wet_tint_hi[i] : sun_tint_hi[i];
-            scene_ambient[i] = sun_ambient[i];
-            scene_diffuse[i] = overcast ? (u8) part(sun_diffuse[i], 160) : sun_diffuse[i];
+            light_world[i] = overcast ? sun_world_overcast[i] : dawn ? dawn_world[i] : sun_world[i];
+            light_body[i] = dawn ? dawn_body[i] : sun_body[i];
+            light_flow[i] = dawn ? dawn_flow[i] : sun_flow[i];
+            land_diff[i] = overcast ? (u8) (sun_land_diff[i] >> 2) : dawn ? dawn_land_diff[i] : sun_land_diff[i];
+            pic_sky[i] = overcast ? sun_wet_pic_sky[i] : dawn ? dawn_pic_sky[i] : sun_pic_sky[i];
+            pic_cloud[i] = overcast ? sun_wet_pic_cloud[i] : dawn ? dawn_pic_cloud[i] : sun_pic_cloud[i];
+            tint_lo[i] = snowing ? sun_snow_tint_lo[i] : raining ? sun_wet_tint_lo[i] : dawn ? dawn_tint_lo[i] : sun_tint_lo[i];
+            tint_away[i] = snowing ? sun_snow_tint_away[i] : raining ? sun_wet_tint_away[i] : dawn ? dawn_tint_away[i] : sun_tint_away[i];
+            tint_hi[i] = snowing ? sun_snow_tint_hi[i] : raining ? sun_wet_tint_hi[i] : dawn ? dawn_tint_hi[i] : sun_tint_hi[i];
+            scene_ambient[i] = dawn ? dawn_ambient[i] : sun_ambient[i];
+            scene_diffuse[i] = overcast ? (u8) part(sun_diffuse[i], 160) : dawn ? dawn_diffuse[i] : sun_diffuse[i];
         } else {
             u32 share = snowing ? 330 : raining ? 238 : 256;
             u32 world = snowing ? snow_world[i] : part(by->world[i], share);
@@ -2799,7 +2819,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     // Where the light comes from, for the painted land, the sky's corners
     // and the key light: the sun at sunset, the moon by night.
     {
-        const s8* d = sunset ? by->sun : by->key;
+        const s8* d = dawn ? by->dawn_sun : sunset ? by->sun : by->key;
         f32 len = __builtin_sqrtf((f32) d[0] * d[0] + (f32) d[1] * d[1] + (f32) d[2] * d[2]);
 
         if (len < 1.0f) {
@@ -2857,9 +2877,9 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         }
         if (!raining && !snowing && spare[0] == 0xE7000000) {
             spare[0] = 0xDE000000;
-            spare[1] = (u32) (sunset ? by->sun_list : by->sky);
+            spare[1] = (u32) (dawn ? by->dawn_list : sunset ? by->sun_list : by->sky);
         }
-        recomp_printf("[island at night] the %s was loaded: %s%s\n", by->option, sunset ? "the sun sets" : "night falls",
+        recomp_printf("[island at night] the %s was loaded: %s%s\n", by->option, dawn ? "the sun rises" : sunset ? "the sun sets" : "night falls",
                       storming ? ", with a storm" : raining ? ", with rain" : snowing ? ", with snow" : "");
     }
 }

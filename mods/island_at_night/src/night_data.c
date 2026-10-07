@@ -27220,6 +27220,14 @@ static Vtx night_beach_vtx[] = {
     V(-1247, 247, 603, 512, 0, 255, 236, 200),
     V(-1266, 46, 614, 512, 512, 255, 236, 200),
     V(-1164, 46, 789, 0, 512, 255, 236, 200),
+    V(961, 558, -1033, 0, 0, 255, 190, 150),
+    V(1375, 558, -316, 512, 0, 255, 190, 150),
+    V(1450, -265, -359, 512, 512, 255, 190, 150),
+    V(1036, -265, -1076, 0, 512, 255, 190, 150),
+    V(1146, 247, -779, 0, 0, 255, 244, 230),
+    V(1247, 247, -603, 512, 0, 255, 244, 230),
+    V(1266, 46, -614, 512, 512, 255, 244, 230),
+    V(1164, 46, -789, 0, 512, 255, 244, 230),
 };
 
 // One command each, rewritten every frame: the brightness of a twinkle group.
@@ -28471,6 +28479,20 @@ Gfx night_beach_sun[] = {
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_beach_vtx[3924], 4, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSPDisplayList(night_sprites_end),
+    gsSPEndDisplayList(),
+};
+
+// The dawn's sun, attached to the sky at dawn.
+Gfx night_beach_dawn[] = {
+    gsSPDisplayList(night_sprites_begin),
+    gsSPDisplayList(night_use_dot),
+    gsDPSetPrimColor(0, 0, 255, 255, 255, 100),
+    gsSPVertex(&night_beach_vtx[3928], 4, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
+    gsSPVertex(&night_beach_vtx[3932], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSPDisplayList(night_sprites_end),
     gsSPEndDisplayList(),
@@ -31343,6 +31365,14 @@ static Vtx night_river_vtx[] = {
     V(1089, 247, 857, 512, 0, 255, 236, 200),
     V(1106, 46, 868, 512, 512, 255, 236, 200),
     V(1220, 46, 701, 0, 512, 255, 236, 200),
+    V(-1350, 558, -411, 0, 0, 255, 190, 150),
+    V(-887, 558, -1098, 512, 0, 255, 190, 150),
+    V(-959, -265, -1146, 512, 512, 255, 190, 150),
+    V(-1422, -265, -460, 0, 512, 255, 190, 150),
+    V(-1202, 247, -689, 0, 0, 255, 244, 230),
+    V(-1089, 247, -857, 512, 0, 255, 244, 230),
+    V(-1106, 46, -868, 512, 512, 255, 244, 230),
+    V(-1220, 46, -701, 0, 512, 255, 244, 230),
 };
 
 // One command each, rewritten every frame: the brightness of a twinkle group.
@@ -32289,6 +32319,20 @@ Gfx night_river_sun[] = {
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_river_vtx[2860], 4, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSPDisplayList(night_sprites_end),
+    gsSPEndDisplayList(),
+};
+
+// The dawn's sun, attached to the sky at dawn.
+Gfx night_river_dawn[] = {
+    gsSPDisplayList(night_sprites_begin),
+    gsSPDisplayList(night_use_dot),
+    gsDPSetPrimColor(0, 0, 255, 255, 255, 100),
+    gsSPVertex(&night_river_vtx[2864], 4, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
+    gsSPVertex(&night_river_vtx[2868], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSPDisplayList(night_sprites_end),
     gsSPEndDisplayList(),
@@ -33249,6 +33293,14 @@ static Vtx night_volcano_vtx[] = {
     V(-1264, 247, -568, 512, 0, 255, 236, 200),
     V(-1284, 46, -575, 512, 512, 255, 236, 200),
     V(-1353, 46, -385, 0, 512, 255, 236, 200),
+    V(1409, 558, 72, 0, 0, 255, 190, 150),
+    V(1126, 558, 850, 512, 0, 255, 190, 150),
+    V(1207, -265, 880, 512, 512, 255, 190, 150),
+    V(1491, -265, 102, 0, 512, 255, 190, 150),
+    V(1333, 247, 377, 0, 0, 255, 244, 230),
+    V(1264, 247, 568, 512, 0, 255, 244, 230),
+    V(1284, 46, 575, 512, 512, 255, 244, 230),
+    V(1353, 46, 385, 0, 512, 255, 244, 230),
 };
 
 // One command each, rewritten every frame: the brightness of a twinkle group.
@@ -33640,6 +33692,20 @@ Gfx night_volcano_sun[] = {
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_volcano_vtx[948], 4, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSPDisplayList(night_sprites_end),
+    gsSPEndDisplayList(),
+};
+
+// The dawn's sun, attached to the sky at dawn.
+Gfx night_volcano_dawn[] = {
+    gsSPDisplayList(night_sprites_begin),
+    gsSPDisplayList(night_use_dot),
+    gsDPSetPrimColor(0, 0, 255, 255, 255, 100),
+    gsSPVertex(&night_volcano_vtx[952], 4, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
+    gsSPVertex(&night_volcano_vtx[956], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSPDisplayList(night_sprites_end),
     gsSPEndDisplayList(),
@@ -37904,6 +37970,14 @@ static Vtx night_valley_vtx[] = {
     V(1243, 247, 611, 512, 0, 255, 236, 200),
     V(1263, 46, 619, 512, 512, 255, 236, 200),
     V(1339, 46, 432, 0, 512, 255, 236, 200),
+    V(-1406, 558, -122, 0, 0, 255, 190, 150),
+    V(-1096, 558, -889, 512, 0, 255, 190, 150),
+    V(-1176, -265, -922, 512, 512, 255, 190, 150),
+    V(-1486, -265, -154, 0, 512, 255, 190, 150),
+    V(-1319, 247, -424, 0, 0, 255, 244, 230),
+    V(-1243, 247, -611, 512, 0, 255, 244, 230),
+    V(-1263, 46, -619, 512, 512, 255, 244, 230),
+    V(-1339, 46, -432, 0, 512, 255, 244, 230),
 };
 
 // One command each, rewritten every frame: the brightness of a twinkle group.
@@ -39249,6 +39323,20 @@ Gfx night_valley_sun[] = {
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_valley_vtx[4252], 4, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSPDisplayList(night_sprites_end),
+    gsSPEndDisplayList(),
+};
+
+// The dawn's sun, attached to the sky at dawn.
+Gfx night_valley_dawn[] = {
+    gsSPDisplayList(night_sprites_begin),
+    gsSPDisplayList(night_use_dot),
+    gsDPSetPrimColor(0, 0, 255, 255, 255, 100),
+    gsSPVertex(&night_valley_vtx[4256], 4, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
+    gsSPVertex(&night_valley_vtx[4260], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSPDisplayList(night_sprites_end),
     gsSPEndDisplayList(),

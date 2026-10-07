@@ -38,7 +38,8 @@ the cartridge's flash.
 
 ### Island at Night
 
-The Beach, the River, the Volcano and the Valley after dark, or at sunset.
+The Beach, the River, the Volcano and the Valley after dark, at sunset, or at
+dawn.
 Each course's sky, ground, water and light are the course's own, turned to
 night as the course loads: stars that twinkle between the clouds, a moon over
 the open sky with its glint on the water, now and then a shooting star, and

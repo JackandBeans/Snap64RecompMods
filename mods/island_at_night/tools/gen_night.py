@@ -814,6 +814,12 @@ def main():
         b['sun'] = sun_dir
         verts += quad(sun_dir, MOON_HALF * 9.0, 16, (255, 150, 70))      # the haze around it
         verts += quad(sun_dir, MOON_HALF * 2.2, 16, (255, 236, 200))     # the disc
+        # The dawn's sun, across the sky from the sunset's: a cooler haze and a paler disc.
+        dawn_first = sun_first + 2
+        dawn_dir = direction(sun_az + 180.0, 6.0)
+        b['dawn'] = dawn_dir
+        verts += quad(dawn_dir, MOON_HALF * 9.0, 16, (255, 190, 150))
+        verts += quad(dawn_dir, MOON_HALF * 2.2, 16, (255, 244, 230))
         w('static Vtx night_%s_vtx[] = {' % name)
         c.extend(verts)
         w('};')
@@ -876,6 +882,18 @@ def main():
         w('    gsSPEndDisplayList(),')
         w('};')
         w('')
+        w('// The dawn\'s sun, attached to the sky at dawn.')
+        w('Gfx night_%s_dawn[] = {' % name)
+        w('    gsSPDisplayList(night_sprites_begin),')
+        w('    gsSPDisplayList(night_use_dot),')
+        w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 100),')
+        draw(dawn_first, 1)
+        w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 255),')
+        draw(dawn_first + 1, 1)
+        w('    gsSPDisplayList(night_sprites_end),')
+        w('    gsSPEndDisplayList(),')
+        w('};')
+        w('')
         pics = b['sky']['pics']
         for i, pic in enumerate(pics):
             w('const u8 night_%s_rows%d[32] = { %s };' % (name, i, ', '.join(str(v) for v in b['rows'][pic])))
@@ -891,6 +909,9 @@ def main():
         sun = b['sun']
         h.append('#define NIGHT_%s_SUN { %d, %d, %d }' % (up, int(round(sun[0] * 127)), int(round(sun[1] * 127)), int(round(sun[2] * 127))))
         h.append('extern Gfx night_%s_sun[];' % name)
+        dawn = b['dawn']
+        h.append('#define NIGHT_%s_DAWN { %d, %d, %d }' % (up, int(round(dawn[0] * 127)), int(round(dawn[1] * 127)), int(round(dawn[2] * 127))))
+        h.append('extern Gfx night_%s_dawn[];' % name)
         h.append('#define NIGHT_%s_PICS { %s }' % (up, ', '.join('0x%08Xu' % p for p in (pics + [0, 0])[:2])))
         h.append('#define NIGHT_%s_ROWS { %s }' % (up, ', '.join(['night_%s_rows%d' % (name, i) for i in range(len(pics))] + ['0'] * (2 - len(pics)))))
         arr = b['sky']['arrays']

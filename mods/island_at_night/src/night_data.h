@@ -50,6 +50,8 @@ extern Gfx night_streak[];
 #define NIGHT_BEACH_KEY { -108, 21, 63 }
 #define NIGHT_BEACH_SUN { -109, 13, 63 }
 extern Gfx night_beach_sun[];
+#define NIGHT_BEACH_DAWN { 109, 13, -63 }
+extern Gfx night_beach_dawn[];
 #define NIGHT_BEACH_PICS { 0x8011B968u, 0x00000000u }
 #define NIGHT_BEACH_ROWS { night_beach_rows0, 0 }
 #define NIGHT_BEACH_SKY_VTX { 0x8011C968u, 0x8011CB48u }
@@ -67,6 +69,8 @@ extern const u8 night_beach_rows0[32];
 #define NIGHT_RIVER_KEY { 102, 31, 69 }
 #define NIGHT_RIVER_SUN { 105, 13, 71 }
 extern Gfx night_river_sun[];
+#define NIGHT_RIVER_DAWN { -105, 13, -71 }
+extern Gfx night_river_dawn[];
 #define NIGHT_RIVER_PICS { 0x8012ACD8u, 0x00000000u }
 #define NIGHT_RIVER_ROWS { night_river_rows0, 0 }
 #define NIGHT_RIVER_SKY_VTX { 0x8012BCD8u, 0x8012BEB8u }
@@ -84,6 +88,8 @@ extern const u8 night_river_rows0[32];
 #define NIGHT_VOLCANO_KEY { 0, 127, 0 }
 #define NIGHT_VOLCANO_SUN { -119, 13, -43 }
 extern Gfx night_volcano_sun[];
+#define NIGHT_VOLCANO_DAWN { 119, 13, 43 }
+extern Gfx night_volcano_dawn[];
 #define NIGHT_VOLCANO_PICS { 0x80100008u, 0x00000000u }
 #define NIGHT_VOLCANO_ROWS { night_volcano_rows0, 0 }
 #define NIGHT_VOLCANO_SKY_VTX { 0x80101008u, 0x801011E8u }
@@ -101,6 +107,8 @@ extern const u8 night_volcano_rows0[32];
 #define NIGHT_VALLEY_KEY { 112, 39, 45 }
 #define NIGHT_VALLEY_SUN { 117, 13, 47 }
 extern Gfx night_valley_sun[];
+#define NIGHT_VALLEY_DAWN { -117, 13, -47 }
+extern Gfx night_valley_dawn[];
 #define NIGHT_VALLEY_PICS { 0x80101770u, 0x80100768u }
 #define NIGHT_VALLEY_ROWS { night_valley_rows0, night_valley_rows1 }
 #define NIGHT_VALLEY_SKY_VTX { 0x80102770u, 0x80102950u }
