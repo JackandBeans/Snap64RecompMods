@@ -5,13 +5,13 @@ native PC port of Pokémon Snap.
 
 The Beach, the River, the Volcano and the Valley after dark, at sunset, at
 dawn, or through a dusk that falls during the ride: the sun sinks, the sky
-turns, the stars and the moon come up and the lamp comes on.
+turns, and the stars and the moon come up.
 Each course's sky, ground, water and light are the course's own, turned to
 night as the course loads: stars that twinkle between the clouds, a moon over
 the open sky with its glint on the water, now and then a shooting star, and
 the Volcano lit by its own lava, with embers rising off it and its clouds
-pulsing in the glow. The Zero-One's lamp lays a pool of warm light on the
-ground ahead. Insects chirp in the dark. The Beach, the River and the Valley
+pulsing in the glow. Insects chirp in the dark. The Beach, the River and the
+Valley
 can have their night clear, rainy, or stormy with lightning and thunder, the
 Valley can have snow that falls and lies on the land, and the Volcano can have
 ash falling. Photos taken at night are night wherever the game shows them,
@@ -33,7 +33,6 @@ In the game, open Options > Mods, select Island at Night and press Z.
 - **Moonlight on Pokémon**: the scene's light leans toward the moon, or
   stays where the game puts it.
 - **Night Sounds**: insects chirping in the dark on a clear night, or quiet.
-- **Headlamp**: the Zero-One's pool of light on the ground ahead, or none.
 
 ## Installing
 

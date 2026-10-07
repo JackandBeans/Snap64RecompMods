@@ -210,14 +210,13 @@ typedef struct GlintSeg {
     u32 model;              // the model it belongs to (its first list)
     u16 op0, op_n;          // its loads and triangles
     u8 lists_n;
-    u8 flow, land;          // whether any of its triangles are the water's, the land's
+    u8 flow;                // whether any of its triangles are the water's
 } GlintSeg;
 static Vtx glint_vtx[2][GLINT_VTX];    // the copies, two sets: this frame's and the last's
 static u32 glint_op[GLINT_OPS];
 static GlintSeg glint_seg[GLINT_SEGS];
 static Mtx glint_mtx[2][GLINT_SEGS];
 static u16 glint_vtx_n, glint_op_n, glint_tris, glint_land;
-static u16 glint_load_stamp[GLINT_OPS];  // the frame a load was last written for the lamp
 static u32 glint_load_src[GLINT_OPS];    // where a load's vertices lie in the game's memory (the dusk relights them)
 static u32 glint_orig_cn[GLINT_VTX];     // each copy's day colors, as the course has them
 static u16 glint_face[GLINT_VTX];        // each copy's lighting: bit 15 lit, 14 steep, 13 water, low nine bits toward
@@ -228,13 +227,6 @@ static u8 star_fade = 255;               // how far the stars have come up
 static u32 dusk_last;
 static s16 sun_y0[8];                    // the sun's corners' heights as generated
 static u8 sun_y0_kept;
-static u16 glint_frame;
-static u8 drawing_lamp;                 // the model being drawn has land for the lamp
-static u8 lamp_on = 1;                  // the setting
-static f32 lamp_at[3];                  // the pool's center, in the world
-static f32 lamp_dir[2];                 // the vehicle's heading, level, a unit
-static f32 lamp_prev[3];
-static u8 lamp_have, lamp_said;
 static u8 glint_seg_n, glint_recording, glint_turn, glint_said, glint_said_drawn;
 static u8 drawing_glint;              // the model being drawn has segments of the glint
 static u32 glint_model;               // the model being walked
@@ -248,16 +240,6 @@ static u8 ember_seeded[GLINT_SEGS];     // the parts whose embers are seeded
 static void glint_reset(void) {
     glint_vtx_n = glint_op_n = glint_tris = glint_land = 0;
     glint_seg_n = 0;
-    lamp_have = 0;
-    {
-        u32 j;
-
-        for (j = 0; j < GLINT_OPS; j++) {
-            glint_load_stamp[j] = 0;
-        }
-        glint_frame = 1;
-    }
-    lamp_said = 0;
     ember_n = 0;
     {
         s32 k;
@@ -851,7 +833,6 @@ static void walk_payload(DObj* node, s32 kind) {
         seg->op0 = op_before;
         seg->op_n = (u16) (glint_op_n - op_before);
         seg->flow = (glint_tris > tris_before);
-        seg->land = (glint_land > land_before);
     }
 }
 
@@ -881,14 +862,12 @@ static void model_enters(GObj* obj, s32 kind) {
     }
     drawing_water = (water_model != 0 && (u32) first->payload.any == water_model);
     drawing_glint = 0;
-    drawing_lamp = 0;
     {
         s32 k;
 
         for (k = 0; k < glint_seg_n; k++) {
             if (glint_seg[k].model == (u32) first->payload.any) {
                 drawing_glint |= glint_seg[k].flow;
-                drawing_lamp |= glint_seg[k].land;
             }
         }
     }
@@ -923,7 +902,6 @@ static void model_enters(GObj* obj, s32 kind) {
             glint_seg_n = seg_before;
         } else {
             drawing_glint = (glint_tris > tris_before);
-            drawing_lamp = (glint_land > land_before);
         }
         if (flow_y_n > water_before && water_model == 0) {
             water_model = (u32) first->payload.any;
@@ -934,7 +912,6 @@ static void model_enters(GObj* obj, s32 kind) {
 
 static void moon_glint(void);
 static void embers(void);
-static void lamp(void);
 static void dusk_step(u32 ticks);
 static void fireflies(GObj* sky);
 static GObj* sky_now;           // the sky being drawn, for the camera's place
@@ -970,10 +947,6 @@ static void model_leaves(void) {
     } else if (drawing_glint && night->embers && !scoring && sky_now != NULL) {
         drawing_glint = 0;
         embers();
-    }
-    if (drawing_lamp && lamp_on && lamp_have && !sunset && !scoring && sky_now != NULL) {
-        drawing_lamp = 0;
-        lamp();
     }
     // The water was just drawn: what glows on it or over it is drawn now, so
     // that the water, which is drawn among the see-through things and writes
@@ -1707,130 +1680,6 @@ static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
     }
 }
 
-// The Zero-One's lamp. The vehicle's place and heading (from the player
-// object, frame to frame) set a pool about 230 units ahead of it. For a part
-// of the land drawn this frame, each triangle of it near the pool is drawn
-// again with the adding blend and the soft dot, each corner's place in the
-// dot being its distance from the pool's center across the heading (sharply)
-// and along it (gently), so the pool is an oval of warm light read per
-// pixel, stretched ahead. The corners are the record's copies; a load is
-// written only when a triangle of it is lit, and only once a frame.
-#define LAMP_AHEAD  230.0f
-#define LAMP_REACH  520.0f      // beyond this from the pool's center a triangle is left alone
-#define LAMP_ACROSS 0.60f       // the dot's s units (a thirty-second of a texel) per world unit, across the heading
-#define LAMP_ALONG  0.38f       // and along it
-
-static void lamp_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
-    const GlintSeg* seg = &glint_seg[k];
-    Vtx* set = glint_vtx[glint_turn];
-    Mtx* mtx = &glint_mtx[glint_turn][k];
-    f32 c[3], f[3], r[3], d[3];
-    u16 slot_copy[64], slot_load[64];
-    u32 j, o, lit = 0;
-    s32 i, pushed = 0;
-
-    if (!seg->land) {
-        return;
-    }
-    // The pool's center and the heading in the part's own space: the matrix's
-    // rotation undone (its rows are the part's axes in the world).
-    for (i = 0; i < 3; i++) {
-        d[i] = lamp_at[i] - m[3][i];
-    }
-    for (i = 0; i < 3; i++) {
-        c[i] = d[0] * m[i][0] + d[1] * m[i][1] + d[2] * m[i][2];
-        f[i] = lamp_dir[0] * m[i][0] + lamp_dir[1] * m[i][2];
-    }
-    r[0] = f[2];
-    r[1] = 0.0f;
-    r[2] = -f[0];
-    for (i = 0; i < 64; i++) {
-        slot_copy[i] = 0;
-        slot_load[i] = 0xFFFF;
-    }
-    for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
-        o = glint_op[j];
-        if (o & GLINT_LOAD) {
-            u32 start = (o >> 12) & 0x1FFF, count = (o >> 6) & 0x3F, first = o & 63, v;
-
-            for (v = 0; v < count && first + v < 64; v++) {
-                slot_copy[first + v] = (u16) (start + v);
-                slot_load[first + v] = (u16) j;
-            }
-        } else if (!(o & GLINT_FLOW)) {
-            u32 slot[3];
-            f32 near = LAMP_REACH;
-            s32 n;
-
-            slot[0] = (o >> 16) & 63;
-            slot[1] = (o >> 8) & 63;
-            slot[2] = o & 63;
-            for (n = 0; n < 3; n++) {
-                const Vtx* v = &set[slot_copy[slot[n]]];
-                f32 dx = (f32) v->v.ob[0] - c[0], dz = (f32) v->v.ob[2] - c[2];
-                f32 dist = __builtin_sqrtf(dx * dx + dz * dz);
-
-                if (dist < near) {
-                    near = dist;
-                }
-            }
-            if (near >= LAMP_REACH) {
-                continue;
-            }
-            if (!*opened) {
-                *opened = 1;
-                command(list, (0x64u << 24) | 0x00002Cu, 1);
-                gSPDisplayList((*list)++, night_glow_begin);
-                gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, 175);
-            }
-            if (!pushed) {
-                f32 lifted[4][4];
-
-                pushed = 1;
-                copy_mtx(lifted, m);
-                lifted[3][1] += 2.0f;
-                pack_mtx(mtx, lifted);
-                command(list, (0x64u << 24) | 0x00000Cu, 0x4C410000u | (u32) k);
-                command(list, 0x00002829u, 0);
-                gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-            }
-            for (n = 0; n < 3; n++) {
-                Vtx* v = &set[slot_copy[slot[n]]];
-                f32 dx = (f32) v->v.ob[0] - c[0], dy = (f32) v->v.ob[1] - c[1], dz = (f32) v->v.ob[2] - c[2];
-                f32 across = dx * r[0] + dy * r[1] + dz * r[2];
-                f32 along = dx * f[0] + dy * f[1] + dz * f[2];
-                s32 st = 256 + (s32) (across * LAMP_ACROSS);
-
-                v->v.tc[0] = (s16) (st < -8000 ? -8000 : st > 8000 ? 8000 : st);
-                st = 256 + (s32) (along * LAMP_ALONG);
-                v->v.tc[1] = (s16) (st < -8000 ? -8000 : st > 8000 ? 8000 : st);
-                v->v.cn[0] = 200;
-                v->v.cn[1] = 180;
-                v->v.cn[2] = 142;
-                v->v.cn[3] = 255;
-                if (slot_load[slot[n]] != 0xFFFF && glint_load_stamp[slot_load[slot[n]]] != glint_frame) {
-                    u32 lo = glint_op[slot_load[slot[n]]];
-
-                    glint_load_stamp[slot_load[slot[n]]] = glint_frame;
-                    gSPVertex((*list)++, &set[(lo >> 12) & 0x1FFF], (lo >> 6) & 0x3F, lo & 63);
-                }
-            }
-            gSP1Triangle((*list)++, slot[0], slot[1], slot[2], 0);
-            lit++;
-        }
-    }
-    if (pushed) {
-        gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
-        command(list, (0x64u << 24) | 0x00000Du, 1);
-    }
-    if (lit != 0 && !lamp_said) {
-        lamp_said = 1;
-        recomp_printf("[island at night] the lamp: %d triangles lit at (%d %d %d), heading (%d %d) of 1000\n", (s32) lit,
-                      (s32) lamp_at[0], (s32) lamp_at[1], (s32) lamp_at[2], (s32) (lamp_dir[0] * 1000.0f),
-                      (s32) (lamp_dir[1] * 1000.0f));
-    }
-}
-
 // The water was just drawn: its commands, from where this model began, hold
 // the matrices its nodes were drawn with and the calls of their lists. Each
 // call that is a segment's is answered with that segment, under the product
@@ -1869,7 +1718,7 @@ static void glint_scan(s32 mode) {
     for (i = 0; i < 4; i++) {
         volatile u32* cmd = (volatile u32*) entry_pos[i];
         volatile u32* end = (volatile u32*) MAIN_GFX_POS[i];
-        Gfx** list = (mode == 2) ? &MAIN_GFX_POS[1] : &MAIN_GFX_POS[i];     // the lamp draws among the see-through things
+        Gfx** list = &MAIN_GFX_POS[i];
         s32 sp = 0, budget = 4096, opened = 0, r, c;
 
         if (cmd == NULL || end < cmd) {
@@ -1927,10 +1776,8 @@ static void glint_scan(s32 mode) {
                             glint_drawn[k] = 1;
                             if (mode == 0) {
                                 glint_segment(k, stack[sp], at, la, breath, list, &opened);
-                            } else if (mode == 1) {
-                                ember_segment(k, stack[sp], list, &opened);
                             } else {
-                                lamp_segment(k, stack[sp], list, &opened);
+                                ember_segment(k, stack[sp], list, &opened);
                             }
                             break;
                         }
@@ -1965,10 +1812,6 @@ static void moon_glint(void) {
 static void embers(void) {
     ember_drawn = 0;
     glint_scan(1);
-}
-
-static void lamp(void) {
-    glint_scan(2);
 }
 
 // Fireflies: four groups of small dots around the camera, each drifting on
@@ -2383,43 +2226,6 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
     sky_now = obj;
     glint_turn ^= 1;        // the record's two sets turn once a frame
     ember_turn ^= 1;
-    glint_frame++;
-    // The vehicle: the camera rides in it, so its place is the eye's; its heading
-    // is how it moved, smoothed, and kept while it stands.
-    if (night != NULL && !scoring && obj != NULL && obj->data.dobj != NULL) {
-        DObj* car = obj->data.dobj;
-        f32 px = car->position.v.x, py = car->position.v.y, pz = car->position.v.z;
-
-        if (lamp_have) {
-            f32 dx = px - lamp_prev[0], dz = pz - lamp_prev[2];
-            f32 len = __builtin_sqrtf(dx * dx + dz * dz);
-
-            if (len > 0.4f && len < 200.0f) {
-                f32 nl;
-
-                lamp_dir[0] = lamp_dir[0] * 0.85f + (dx / len) * 0.15f;
-                lamp_dir[1] = lamp_dir[1] * 0.85f + (dz / len) * 0.15f;
-                nl = __builtin_sqrtf(lamp_dir[0] * lamp_dir[0] + lamp_dir[1] * lamp_dir[1]);
-                if (nl > 0.01f) {
-                    lamp_dir[0] /= nl;
-                    lamp_dir[1] /= nl;
-                }
-            }
-        } else {
-            lamp_dir[0] = view_fwd[0];
-            lamp_dir[1] = view_fwd[1];
-            if (lamp_dir[0] == 0.0f && lamp_dir[1] == 0.0f) {
-                lamp_dir[1] = 1.0f;
-            }
-            lamp_have = 1;
-        }
-        lamp_prev[0] = px;
-        lamp_prev[1] = py;
-        lamp_prev[2] = pz;
-        lamp_at[0] = px + lamp_dir[0] * LAMP_AHEAD;
-        lamp_at[1] = py;
-        lamp_at[2] = pz + lamp_dir[1] * LAMP_AHEAD;
-    }
     {
         volatile s8* dir = (volatile s8*) (COURSE_LIGHT + 16);
         f32 fx = -(f32) dir[0], fz = -(f32) dir[2];
@@ -3074,7 +2880,6 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         glows_on = (recomp_get_config_u32("water_glow") == 0);
         moonlight_on = (recomp_get_config_u32("moonlight") == 0);
         night_sounds_on = (recomp_get_config_u32("night_sounds") == 0);
-        lamp_on = (recomp_get_config_u32("headlamp") == 0);
     }
     choose_palette(by);
     if (dusk) {

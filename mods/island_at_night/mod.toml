@@ -8,8 +8,8 @@ dawn, or through a dusk that falls during the ride. Each course's sky, \
 ground, water and light are the course's own, turned to night as the course \
 is loaded: stars that twinkle between the clouds, a moon over the open sky \
 with its glint on the water, a shooting star now and then, the Volcano lit by \
-its own lava with embers rising off it, the Zero-One's lamp on the ground \
-ahead, and insects chirping in the dark. The Beach, the River and the Valley \
+its own lava with embers rising off it, and insects chirping in the dark. \
+The Beach, the River and the Valley \
 can have their night clear, rainy, or stormy with lightning and thunder; the \
 Valley can have snow that falls and lies on the land; the Volcano can have \
 ash. Photos taken at night are night wherever the game shows them, with the \
@@ -127,14 +127,6 @@ default = "Moon"
 id = "night_sounds"
 name = "Night Sounds"
 description = "Insects chirping in the dark on a clear night, low under the music."
-type = "Enum"
-options = [ "On", "Off" ]
-default = "On"
-
-[[manifest.config_options]]
-id = "headlamp"
-name = "Headlamp"
-description = "A pool of warm light on the ground ahead of the Zero-One at night."
 type = "Enum"
 options = [ "On", "Off" ]
 default = "On"
