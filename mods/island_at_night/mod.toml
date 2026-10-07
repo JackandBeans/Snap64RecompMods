@@ -89,6 +89,14 @@ options = [ "Clear", "Rain", "Storm", "Snow" ]
 default = "Clear"
 
 [[manifest.config_options]]
+id = "volcano_weather"
+name = "Volcano Weather"
+description = "The Volcano's night sky: clear, or with ash falling."
+type = "Enum"
+options = [ "Clear", "Ash" ]
+default = "Clear"
+
+[[manifest.config_options]]
 id = "effects"
 name = "Effects at Night"
 description = "Splashes, dust and mist take the night's light, or keep their day colors."
@@ -111,3 +119,19 @@ description = "The scene's light leans toward the moon, or stays where the game 
 type = "Enum"
 options = [ "Moon", "Game's own" ]
 default = "Moon"
+
+[[manifest.config_options]]
+id = "night_sounds"
+name = "Night Sounds"
+description = "Insects chirping in the dark on a clear night, low under the music."
+type = "Enum"
+options = [ "On", "Off" ]
+default = "On"
+
+[[manifest.config_options]]
+id = "headlamp"
+name = "Headlamp"
+description = "A pool of warm light on the ground ahead of the Zero-One at night."
+type = "Enum"
+options = [ "On", "Off" ]
+default = "On"

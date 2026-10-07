@@ -106,6 +106,7 @@ typedef struct Night {
     u8 twinkles;
     s8 key[3];              // where the night's key light comes from: the moon, or the lava below
     u8 glint;               // the moon's glint on the water: the courses that have water
+    u8 embers;              // the Volcano: embers over the lava, its sky pulsing with it, ash for weather
     Gfx* const* fireflies;  // fireflies over the water, where there are any
     s8 sun[3];              // where the sunset's sun stands
     Gfx* sun_list;          // the sun and its haze, for the sky at sunset
@@ -117,25 +118,25 @@ static const Night nights[] = {
         NIGHT_BEACH_SKY_VTX, NIGHT_BEACH_SKY_VTX_N, NIGHT_BEACH_R_LO, NIGHT_BEACH_R_SCALE,
         0x8011B050u, 0x80135BD4u, { 92, 123, 205 }, { 108, 141, 220 }, { 80, 112, 190 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 990, 1000,
-        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, NULL, NIGHT_BEACH_SUN, night_beach_sun },
+        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun },
     {   // The River: broken cloud, a mist over the water.
         NIGHT_RIVER_SETUP, "river", "river_weather", NIGHT_RIVER_SPARE, NIGHT_RIVER_PICS, NIGHT_RIVER_ROWS,
         NIGHT_RIVER_SKY_VTX, NIGHT_RIVER_SKY_VTX_N, NIGHT_RIVER_R_LO, NIGHT_RIVER_R_SCALE,
         0x8012A0C0u, 0x801416F0u, { 86, 124, 196 }, { 104, 142, 214 }, { 66, 104, 156 },
         { 104, 120, 176 }, { 188, 192, 208 }, { 48, 56, 80 }, { 16, 20, 44 }, 988, 1000,
-        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun },
+        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun },
     {   // The Volcano: no moon. The lava keeps its own light and lights the smoke from below.
-        NIGHT_VOLCANO_SETUP, "volcano", NULL, NIGHT_VOLCANO_SPARE, NIGHT_VOLCANO_PICS, NIGHT_VOLCANO_ROWS,
+        NIGHT_VOLCANO_SETUP, "volcano", "volcano_weather", NIGHT_VOLCANO_SPARE, NIGHT_VOLCANO_PICS, NIGHT_VOLCANO_ROWS,
         NIGHT_VOLCANO_SKY_VTX, NIGHT_VOLCANO_SKY_VTX_N, NIGHT_VOLCANO_R_LO, NIGHT_VOLCANO_R_SCALE,
         0x800FFF90u, 0x80112260u, { 132, 96, 92 }, { 172, 132, 122 }, { 255, 240, 228 },
         { 72, 56, 64 }, { 255, 210, 150 }, { 108, 60, 44 }, { 24, 20, 40 }, 986, 1000,
-        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun },
+        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun },
     {   // The Valley: a high, clear mountain night.
         NIGHT_VALLEY_SETUP, "valley", "valley_weather", NIGHT_VALLEY_SPARE, NIGHT_VALLEY_PICS, NIGHT_VALLEY_ROWS,
         NIGHT_VALLEY_SKY_VTX, NIGHT_VALLEY_SKY_VTX_N, NIGHT_VALLEY_R_LO, NIGHT_VALLEY_R_SCALE,
         0x800FFF90u, 0x80116A70u, { 84, 112, 190 }, { 104, 136, 220 }, { 46, 72, 126 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 12, 16, 44 }, 992, 1000,
-        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, NULL, NIGHT_VALLEY_SUN, night_valley_sun },
+        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun },
 };
 
 extern f32 GlobalTimer;         // the world's clock: it advances by the set-up's sky speed each tick
@@ -145,10 +146,12 @@ static u8 on_the_ride;           // that world is the ride's, not a photo's
 static u8 raining;               // that night is a rainy one
 static u8 storming;              // and the rain has lightning in it
 static u8 snowing;               // or that night is a snowy one
+static u8 ashing;                // or, on the Volcano, ash is falling
 static u8 scoring;               // the game is measuring a photo, not showing anything
 static u8 fx_lit = 0;            // the settings: effects take the night's light (off by default),
 static u8 glows_on = 1;          // the water glows are drawn,
 static u8 moonlight_on = 1;      // the key light leans toward the moon
+static u8 night_sounds_on = 1;   // the night's voices are heard
 static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
@@ -191,22 +194,33 @@ static u8 drawing_water;         // that model is being drawn this frame
 // the corners, so even the Beach's wide sea triangles carry a compact light.
 // The copies stand under the game's own matrices, read off the commands it
 // wrote for the water's nodes this frame.
-#define GLINT_VTX  4096
-#define GLINT_OPS  8192
-#define GLINT_SEGS 64
+#define GLINT_VTX  12288
+#define GLINT_OPS  24576
+#define GLINT_SEGS 128
 #define GLINT_LOAD 0x80000000u   // an op that loads copies: start << 12 | count << 6 | first slot
 #define GLINT_USED 0x40000000u   // a load a triangle of the water draws from
+#define GLINT_FLOW 0x20000000u   // a triangle of the water (else of the land)
+#define GLINT_LAND 0x10000000u   // a load a triangle of the land draws from
 typedef struct GlintSeg {
     u32 lists[4];           // the node's lists, as the game calls them
     u32 model;              // the model it belongs to (its first list)
     u16 op0, op_n;          // its loads and triangles
     u8 lists_n;
+    u8 flow, land;          // whether any of its triangles are the water's, the land's
 } GlintSeg;
 static Vtx glint_vtx[2][GLINT_VTX];    // the copies, two sets: this frame's and the last's
 static u32 glint_op[GLINT_OPS];
 static GlintSeg glint_seg[GLINT_SEGS];
 static Mtx glint_mtx[2][GLINT_SEGS];
-static u16 glint_vtx_n, glint_op_n, glint_tris;
+static u16 glint_vtx_n, glint_op_n, glint_tris, glint_land;
+static u16 glint_load_stamp[GLINT_OPS];  // the frame a load was last written for the lamp
+static u16 glint_frame;
+static u8 drawing_lamp;                 // the model being drawn has land for the lamp
+static u8 lamp_on = 1;                  // the setting
+static f32 lamp_at[3];                  // the pool's center, in the world
+static f32 lamp_dir[2];                 // the vehicle's heading, level, a unit
+static f32 lamp_prev[3];
+static u8 lamp_have, lamp_said;
 static u8 glint_seg_n, glint_recording, glint_turn, glint_said, glint_said_drawn;
 static u8 drawing_glint;              // the model being drawn has segments of the glint
 static u32 glint_model;               // the model being walked
@@ -215,9 +229,21 @@ static u16 glint_slot_op[64];          // and the load that filled each
 static u32 glint_top[4];               // the lists a node calls, while it is walked
 static s32 glint_top_n;
 static u8 glint_drawn[GLINT_SEGS];
+static u8 ember_n;                      // the embers seeded so far (the Volcano)
+static u8 ember_seeded[GLINT_SEGS];     // the parts whose embers are seeded
 static void glint_reset(void) {
-    glint_vtx_n = glint_op_n = glint_tris = 0;
+    glint_vtx_n = glint_op_n = glint_tris = glint_land = 0;
     glint_seg_n = 0;
+    lamp_have = 0;
+    lamp_said = 0;
+    ember_n = 0;
+    {
+        s32 k;
+
+        for (k = 0; k < GLINT_SEGS; k++) {
+            ember_seeded[k] = 0;
+        }
+    }
     glint_said = 0;
     glint_said_drawn = 0;
 }
@@ -549,13 +575,18 @@ static void light_corners(u32 word) {
             }
             toward = face_toward(slots[a], slots[b], slots[c]);
         }
-        if (glint_recording && flowing && glint_slot_ok[a] && glint_slot_ok[b] && glint_slot_ok[c]
-            && glint_op_n < GLINT_OPS) {
-            glint_op[glint_op_n++] = (a << 16) | (b << 8) | c;
-            glint_op[glint_slot_op[a]] |= GLINT_USED;
-            glint_op[glint_slot_op[b]] |= GLINT_USED;
-            glint_op[glint_slot_op[c]] |= GLINT_USED;
-            glint_tris++;
+        if (glint_recording && glint_slot_ok[a] && glint_slot_ok[b] && glint_slot_ok[c] && glint_op_n < GLINT_OPS) {
+            u32 used = flowing ? GLINT_USED : GLINT_LAND;
+
+            glint_op[glint_op_n++] = (a << 16) | (b << 8) | c | (flowing ? GLINT_FLOW : 0);
+            glint_op[glint_slot_op[a]] |= used;
+            glint_op[glint_slot_op[b]] |= used;
+            glint_op[glint_slot_op[c]] |= used;
+            if (flowing) {
+                glint_tris++;
+            } else {
+                glint_land++;
+            }
         }
         light_vertex(slots[a], steep, toward);
         light_vertex(slots[b], steep, toward);
@@ -701,7 +732,7 @@ static void walk_payload(DObj* node, s32 kind) {
     void* payload = node->payload.any;
     DObj* up = node;
     s32 guard = 8;
-    u16 op_before, tris_before;
+    u16 op_before, tris_before, land_before;
 
     if (payload == NULL) {
         return;
@@ -721,6 +752,7 @@ static void walk_payload(DObj* node, s32 kind) {
     glint_top_n = 0;
     op_before = glint_op_n;
     tris_before = glint_tris;
+    land_before = glint_land;
     {
         s32 k;
 
@@ -766,7 +798,7 @@ static void walk_payload(DObj* node, s32 kind) {
         }
     }
     // The node drew water: its loads and triangles are a segment of the glint.
-    if (glint_recording && glint_tris > tris_before && glint_seg_n < GLINT_SEGS) {
+    if (glint_recording && (glint_tris > tris_before || glint_land > land_before) && glint_seg_n < GLINT_SEGS) {
         GlintSeg* seg = &glint_seg[glint_seg_n++];
         s32 k;
 
@@ -777,6 +809,8 @@ static void walk_payload(DObj* node, s32 kind) {
         seg->model = glint_model;
         seg->op0 = op_before;
         seg->op_n = (u16) (glint_op_n - op_before);
+        seg->flow = (glint_tris > tris_before);
+        seg->land = (glint_land > land_before);
     }
 }
 
@@ -806,13 +840,14 @@ static void model_enters(GObj* obj, s32 kind) {
     }
     drawing_water = (water_model != 0 && (u32) first->payload.any == water_model);
     drawing_glint = 0;
+    drawing_lamp = 0;
     {
         s32 k;
 
         for (k = 0; k < glint_seg_n; k++) {
             if (glint_seg[k].model == (u32) first->payload.any) {
-                drawing_glint = 1;
-                break;
+                drawing_glint |= glint_seg[k].flow;
+                drawing_lamp |= glint_seg[k].land;
             }
         }
     }
@@ -831,7 +866,7 @@ static void model_enters(GObj* obj, s32 kind) {
     guard = 400;
     {
         u32 water_before = flow_y_n;
-        u16 vtx_before = glint_vtx_n, op_before = glint_op_n, tris_before = glint_tris;
+        u16 vtx_before = glint_vtx_n, op_before = glint_op_n, tris_before = glint_tris, land_before = glint_land;
         u8 seg_before = glint_seg_n;
 
         glint_model = (u32) first->payload.any;
@@ -840,13 +875,14 @@ static void model_enters(GObj* obj, s32 kind) {
             walk_payload(node, kind);
         }
         glint_recording = 0;
-        if (glint_tris == tris_before) {
-            // No water in this model: what it loaded is dropped again.
+        if (glint_tris == tris_before && glint_land == land_before) {
+            // Nothing of the world in this model: what it loaded is dropped again.
             glint_vtx_n = vtx_before;
             glint_op_n = op_before;
             glint_seg_n = seg_before;
         } else {
-            drawing_glint = 1;
+            drawing_glint = (glint_tris > tris_before);
+            drawing_lamp = (glint_land > land_before);
         }
         if (flow_y_n > water_before && water_model == 0) {
             water_model = (u32) first->payload.any;
@@ -856,6 +892,8 @@ static void model_enters(GObj* obj, s32 kind) {
 }
 
 static void moon_glint(void);
+static void embers(void);
+static void lamp(void);
 static void fireflies(GObj* sky);
 static GObj* sky_now;           // the sky being drawn, for the camera's place
 
@@ -887,6 +925,13 @@ static void model_leaves(void) {
     if (drawing_glint && night->glint && glows_on && !sunset && !scoring && !raining && !snowing && sky_now != NULL) {
         drawing_glint = 0;
         moon_glint();
+    } else if (drawing_glint && night->embers && !scoring && sky_now != NULL) {
+        drawing_glint = 0;
+        embers();
+    }
+    if (drawing_lamp && lamp_on && lamp_have && !sunset && !scoring && sky_now != NULL) {
+        drawing_lamp = 0;
+        lamp();
     }
     // The water was just drawn: what glows on it or over it is drawn now, so
     // that the water, which is drawn among the see-through things and writes
@@ -1235,8 +1280,15 @@ static void snow(GObj* sky) {
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
     gSPDisplayList((*list)++, night_snow_alpha);
+    if (ashing) {
+        // Ash: the flakes take the primitive's gray (the snow's material colors
+        // them from their corners alone, which are white), a little see-through.
+        gDPSetCombineLERP((*list)++, SHADE, 0, PRIMITIVE, 0, TEXEL0, 0, PRIMITIVE, 0,
+                          SHADE, 0, PRIMITIVE, 0, TEXEL0, 0, PRIMITIVE, 0);
+        gDPSetPrimColor((*list)++, 0, 0, 112, 104, 100, 220);
+    }
     for (sheet = 0; sheet < NIGHT_SNOW_SHEETS; sheet++) {
-        u32 fallen = (ticks * night_snow_speed[sheet]) >> 3;
+        u32 fallen = (ticks * night_snow_speed[sheet]) >> (ashing ? 4 : 3);
         u32 turn = fallen / NIGHT_SNOW_HEIGHT;
         f32 sway = (f32) (night_sine[(((ticks * (90 + 17 * sheet)) >> 8) + 37 * sheet) & 0xFF] * 40) / 127.0f;
         f32 sway_across = (f32) (night_sine[(((ticks * (70 + 13 * sheet)) >> 8) + 91 * sheet) & 0xFF] * 28) / 127.0f;
@@ -1375,11 +1427,14 @@ static void glint_segment(s32 k, f32 m[4][4], const f32* eye, const f32* la, con
     Mtx* mtx = &glint_mtx[glint_turn][k];
     u32 j, o, pending = 0xFFFFFFFFu;
 
+    if (!seg->flow) {
+        return;
+    }
     if (!*opened) {
         *opened = 1;
         command(list, (0x64u << 24) | 0x00002Cu, 1);
         gSPDisplayList((*list)++, night_glow_begin);
-        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, 170);
+        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, 140);
     }
     for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
         o = glint_op[j];
@@ -1413,6 +1468,8 @@ static void glint_segment(s32 k, f32 m[4][4], const f32* eye, const f32* la, con
             if (o & GLINT_USED) {
                 gSPVertex((*list)++, &set[(o >> 12) & 0x1FFF], (o >> 6) & 0x3F, o & 63);
             }
+        } else if (!(o & GLINT_FLOW)) {
+            continue;       // the land's
         } else if (pending == 0xFFFFFFFFu) {
             pending = o;
         } else {
@@ -1428,11 +1485,302 @@ static void glint_segment(s32 k, f32 m[4][4], const f32* eye, const f32* la, con
     command(list, (0x64u << 24) | 0x00000Du, 1);
 }
 
+// Embers over the lava. The lava is the Volcano's "water" to the glint's
+// record (it draws with the flowing material), so when a part of it is first
+// drawn, a few dozen points on its triangles become the embers' homes. Every
+// frame each ember stands above its home by its age -- rising, swaying,
+// cooling from yellow to a dull red, fading -- as a small soft dot with the
+// adding blend, facing the view, under the matrix the game drew that part
+// with. Their pace is the world's clock, so a photo keeps its instant's.
+#define EMBERS 48
+#define EMBER_HALF 7.0f
+typedef struct Ember {
+    f32 home[3];            // on the lava, in its part's own space
+    u16 period, phase;      // the ticks of one rise, and where in it this one began
+    u8 seg, sway;           // the part it belongs to, and its sway's phase
+} Ember;
+static Ember ember[EMBERS];
+static Vtx ember_vtx[2][EMBERS * 4];   // this frame's corners and the last's
+static u8 ember_turn;
+static u32 ember_drawn;                 // the quads written so far this frame
+
+static void ember_seed(s32 k) {
+    const GlintSeg* seg = &glint_seg[k];
+    u16 slot_copy[64];
+    u32 j, o, tris = 0, want, made = 0;
+
+    ember_seeded[k] = 1;
+    for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
+        if ((glint_op[j] & (GLINT_LOAD | GLINT_FLOW)) == GLINT_FLOW) {
+            tris++;
+        }
+    }
+    if (tris == 0) {
+        return;
+    }
+    want = EMBERS / (glint_seg_n > 0 ? glint_seg_n : 1);
+    if (want < 8) {
+        want = 8;
+    }
+    while (ember_n < EMBERS && made < want) {
+        Ember* e = &ember[ember_n];
+        u32 mix = ((u32) ember_n * 2654435761u) ^ 0x5A17E000u;
+        u32 pick, t = 0;
+        f32 u, v;
+
+        mix ^= mix >> 13;
+        mix *= 0x85EBCA77u;
+        mix ^= mix >> 16;
+        pick = (mix >> 8) % tris;
+        for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
+            o = glint_op[j];
+            if (o & GLINT_LOAD) {
+                u32 start = (o >> 12) & 0x1FFF, count = (o >> 6) & 0x3F, first = o & 63, i;
+
+                for (i = 0; i < count && first + i < 64; i++) {
+                    slot_copy[first + i] = (u16) (start + i);
+                }
+            } else if (!(o & GLINT_FLOW)) {
+                continue;
+            } else if (t++ == pick) {
+                const Vtx* A = &glint_vtx[0][slot_copy[(o >> 16) & 63]];
+                const Vtx* B = &glint_vtx[0][slot_copy[(o >> 8) & 63]];
+                const Vtx* D = &glint_vtx[0][slot_copy[o & 63]];
+                s32 c;
+
+                u = (f32) (mix & 0xFF) / 255.0f;
+                v = (f32) ((mix >> 16) & 0xFF) / 255.0f;
+                if (u + v > 1.0f) {
+                    u = 1.0f - u;
+                    v = 1.0f - v;
+                }
+                for (c = 0; c < 3; c++) {
+                    e->home[c] = (f32) A->v.ob[c] + u * (f32) (B->v.ob[c] - A->v.ob[c]) + v * (f32) (D->v.ob[c] - A->v.ob[c]);
+                }
+                break;
+            }
+        }
+        e->period = (u16) (200 + ((mix >> 24) % 120));
+        e->phase = (u16) ((mix >> 4) % e->period);
+        e->seg = (u8) k;
+        e->sway = (u8) (mix & 0xFF);
+        ember_n++;
+        made++;
+    }
+}
+
+static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
+    u32 ticks = ticks_of(night);
+    Vtx* set = ember_vtx[ember_turn];
+    f32 rx = view_fwd[1], rz = -view_fwd[0];      // level, across the view
+    u32 first_quad = ember_drawn;
+    s32 e;
+
+    if (!ember_seeded[k]) {
+        ember_seed(k);
+    }
+    if (rx == 0.0f && rz == 0.0f) {
+        rx = 1.0f;
+    }
+    for (e = 0; e < ember_n && ember_drawn < EMBERS; e++) {
+        const Ember* em = &ember[e];
+        u32 age;
+        f32 a, x, y, z, half, bright, r, g, b;
+        Vtx* q;
+        s32 c;
+
+        if (em->seg != k) {
+            continue;
+        }
+        age = (ticks + em->phase) % em->period;
+        a = (f32) age / (f32) em->period;
+        x = em->home[0] * m[0][0] + em->home[1] * m[1][0] + em->home[2] * m[2][0] + m[3][0];
+        y = em->home[0] * m[0][1] + em->home[1] * m[1][1] + em->home[2] * m[2][1] + m[3][1];
+        z = em->home[0] * m[0][2] + em->home[1] * m[1][2] + em->home[2] * m[2][2] + m[3][2];
+        y += a * (110.0f + 0.5f * (f32) em->period);
+        x += (f32) night_sine[((ticks * 2) + em->sway * 4) & 0xFF] * (14.0f / 127.0f) * a;
+        z += (f32) night_sine[((ticks * 3) + em->sway * 7 + 85) & 0xFF] * (10.0f / 127.0f) * a;
+        bright = (a < 0.15f) ? a / 0.15f : 1.0f - (a - 0.15f) / 0.85f;
+        r = (255.0f + (170.0f - 255.0f) * a) * bright;
+        g = (180.0f + (40.0f - 180.0f) * a) * bright;
+        b = (80.0f + (10.0f - 80.0f) * a) * bright;
+        half = EMBER_HALF * (0.7f + 0.5f * a);
+        q = &set[ember_drawn * 4];
+        for (c = 0; c < 4; c++) {
+            f32 sx = (c == 0 || c == 3) ? -1.0f : 1.0f;
+            f32 sy = (c < 2) ? -1.0f : 1.0f;
+
+            q[c].v.ob[0] = (s16) (x + sx * rx * half);
+            q[c].v.ob[1] = (s16) (y + sy * half);
+            q[c].v.ob[2] = (s16) (z + sx * rz * half);
+            q[c].v.flag = 0;
+            q[c].v.tc[0] = (c == 0 || c == 3) ? 0 : 512;
+            q[c].v.tc[1] = (c < 2) ? 512 : 0;
+            q[c].v.cn[0] = (u8) r;
+            q[c].v.cn[1] = (u8) g;
+            q[c].v.cn[2] = (u8) b;
+            q[c].v.cn[3] = 255;
+        }
+        ember_drawn++;
+    }
+    if (ember_drawn == first_quad) {
+        return;
+    }
+    if (!*opened) {
+        *opened = 1;
+        command(list, (0x64u << 24) | 0x00002Cu, 1);
+        gSPDisplayList((*list)++, night_glow_begin);
+        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, 255);
+    }
+    // In the world's own space, under the view: eight quads a load.
+    {
+        u32 qd = first_quad;
+
+        while (qd < ember_drawn) {
+            u32 n = ember_drawn - qd;
+            u32 i;
+
+            if (n > 8) {
+                n = 8;
+            }
+            gSPVertex((*list)++, &set[qd * 4], n * 4, 0);
+            for (i = 0; i < n; i++) {
+                gSP2Triangles((*list)++, i * 4, i * 4 + 1, i * 4 + 2, 0, i * 4, i * 4 + 2, i * 4 + 3, 0);
+            }
+            qd += n;
+        }
+    }
+}
+
+// The Zero-One's lamp. The vehicle's place and heading (from the player
+// object, frame to frame) set a pool about 230 units ahead of it. For a part
+// of the land drawn this frame, each triangle of it near the pool is drawn
+// again with the adding blend and the soft dot, each corner's place in the
+// dot being its distance from the pool's center across the heading (sharply)
+// and along it (gently), so the pool is an oval of warm light read per
+// pixel, stretched ahead. The corners are the record's copies; a load is
+// written only when a triangle of it is lit, and only once a frame.
+#define LAMP_AHEAD  230.0f
+#define LAMP_REACH  520.0f      // beyond this from the pool's center a triangle is left alone
+#define LAMP_ACROSS 0.60f       // the dot's s units (a thirty-second of a texel) per world unit, across the heading
+#define LAMP_ALONG  0.38f       // and along it
+
+static void lamp_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
+    const GlintSeg* seg = &glint_seg[k];
+    Vtx* set = glint_vtx[glint_turn];
+    Mtx* mtx = &glint_mtx[glint_turn][k];
+    f32 c[3], f[3], r[3], d[3];
+    u16 slot_copy[64], slot_load[64];
+    u32 j, o, lit = 0;
+    s32 i, pushed = 0;
+
+    if (!seg->land) {
+        return;
+    }
+    // The pool's center and the heading in the part's own space: the matrix's
+    // rotation undone (its rows are the part's axes in the world).
+    for (i = 0; i < 3; i++) {
+        d[i] = lamp_at[i] - m[3][i];
+    }
+    for (i = 0; i < 3; i++) {
+        c[i] = d[0] * m[i][0] + d[1] * m[i][1] + d[2] * m[i][2];
+        f[i] = lamp_dir[0] * m[i][0] + lamp_dir[1] * m[i][2];
+    }
+    r[0] = f[2];
+    r[1] = 0.0f;
+    r[2] = -f[0];
+    for (i = 0; i < 64; i++) {
+        slot_copy[i] = 0;
+        slot_load[i] = 0xFFFF;
+    }
+    for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
+        o = glint_op[j];
+        if (o & GLINT_LOAD) {
+            u32 start = (o >> 12) & 0x1FFF, count = (o >> 6) & 0x3F, first = o & 63, v;
+
+            for (v = 0; v < count && first + v < 64; v++) {
+                slot_copy[first + v] = (u16) (start + v);
+                slot_load[first + v] = (u16) j;
+            }
+        } else if (!(o & GLINT_FLOW)) {
+            u32 slot[3];
+            f32 near = LAMP_REACH;
+            s32 n;
+
+            slot[0] = (o >> 16) & 63;
+            slot[1] = (o >> 8) & 63;
+            slot[2] = o & 63;
+            for (n = 0; n < 3; n++) {
+                const Vtx* v = &set[slot_copy[slot[n]]];
+                f32 dx = (f32) v->v.ob[0] - c[0], dz = (f32) v->v.ob[2] - c[2];
+                f32 dist = __builtin_sqrtf(dx * dx + dz * dz);
+
+                if (dist < near) {
+                    near = dist;
+                }
+            }
+            if (near >= LAMP_REACH) {
+                continue;
+            }
+            if (!*opened) {
+                *opened = 1;
+                command(list, (0x64u << 24) | 0x00002Cu, 1);
+                gSPDisplayList((*list)++, night_glow_begin);
+                gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, 175);
+            }
+            if (!pushed) {
+                f32 lifted[4][4];
+
+                pushed = 1;
+                copy_mtx(lifted, m);
+                lifted[3][1] += 2.0f;
+                pack_mtx(mtx, lifted);
+                command(list, (0x64u << 24) | 0x00000Cu, 0x4C410000u | (u32) k);
+                command(list, 0x00002829u, 0);
+                gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
+            }
+            for (n = 0; n < 3; n++) {
+                Vtx* v = &set[slot_copy[slot[n]]];
+                f32 dx = (f32) v->v.ob[0] - c[0], dy = (f32) v->v.ob[1] - c[1], dz = (f32) v->v.ob[2] - c[2];
+                f32 across = dx * r[0] + dy * r[1] + dz * r[2];
+                f32 along = dx * f[0] + dy * f[1] + dz * f[2];
+                s32 st = 256 + (s32) (across * LAMP_ACROSS);
+
+                v->v.tc[0] = (s16) (st < -8000 ? -8000 : st > 8000 ? 8000 : st);
+                st = 256 + (s32) (along * LAMP_ALONG);
+                v->v.tc[1] = (s16) (st < -8000 ? -8000 : st > 8000 ? 8000 : st);
+                v->v.cn[0] = 200;
+                v->v.cn[1] = 180;
+                v->v.cn[2] = 142;
+                v->v.cn[3] = 255;
+                if (slot_load[slot[n]] != 0xFFFF && glint_load_stamp[slot_load[slot[n]]] != glint_frame) {
+                    u32 lo = glint_op[slot_load[slot[n]]];
+
+                    glint_load_stamp[slot_load[slot[n]]] = glint_frame;
+                    gSPVertex((*list)++, &set[(lo >> 12) & 0x1FFF], (lo >> 6) & 0x3F, lo & 63);
+                }
+            }
+            gSP1Triangle((*list)++, slot[0], slot[1], slot[2], 0);
+            lit++;
+        }
+    }
+    if (pushed) {
+        gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
+        command(list, (0x64u << 24) | 0x00000Du, 1);
+    }
+    if (lit != 0 && !lamp_said) {
+        lamp_said = 1;
+        recomp_printf("[island at night] the lamp: %d triangles lit at (%d %d %d), heading (%d %d) of 1000\n", (s32) lit,
+                      (s32) lamp_at[0], (s32) lamp_at[1], (s32) lamp_at[2], (s32) (lamp_dir[0] * 1000.0f),
+                      (s32) (lamp_dir[1] * 1000.0f));
+    }
+}
+
 // The water was just drawn: its commands, from where this model began, hold
 // the matrices its nodes were drawn with and the calls of their lists. Each
 // call that is a segment's is answered with that segment, under the product
 // of the matrices in force there.
-static void moon_glint(void) {
+static void glint_scan(s32 mode) {
     DObj* eye = sky_now->data.dobj;
     f32 stack[8][4][4];
     f32 at[3], la[2], breath[2], len;
@@ -1446,28 +1794,27 @@ static void moon_glint(void) {
     at[1] = eye->position.v.y;
     at[2] = eye->position.v.z;
     len = __builtin_sqrtf(relight_dir[0] * relight_dir[0] + relight_dir[2] * relight_dir[2]);
-    if (len < 0.01f) {
+    if (mode == 0 && len < 0.01f) {
         return;         // the moon overhead: no bearing to stretch along
     }
-    la[0] = relight_dir[0] / len;
-    la[1] = relight_dir[2] / len;
+    la[0] = (len > 0.01f) ? relight_dir[0] / len : 1.0f;
+    la[1] = (len > 0.01f) ? relight_dir[2] / len : 0.0f;
     // The lobe breathes: a slow sway along the bearing and a quicker, smaller one across.
     ticks = ticks_of(night);
     breath[0] = (f32) night_sine[(ticks * 2) & 0xFF] * (0.012f / 127.0f);
     breath[1] = (f32) night_sine[((ticks * 3) + 80) & 0xFF] * (0.006f / 127.0f);
-    glint_turn ^= 1;
     for (k = 0; k < GLINT_SEGS; k++) {
         glint_drawn[k] = 0;
     }
     if (!glint_said) {
         glint_said = 1;
-        recomp_printf("[island at night] the water: %d corners, %d triangles, %d parts\n", (s32) glint_vtx_n,
-                      (s32) glint_tris, (s32) glint_seg_n);
+        recomp_printf("[island at night] the record so far: %d corners, %d triangles of water, %d of land, %d parts\n",
+                      (s32) glint_vtx_n, (s32) glint_tris, (s32) glint_land, (s32) glint_seg_n);
     }
     for (i = 0; i < 4; i++) {
         volatile u32* cmd = (volatile u32*) entry_pos[i];
         volatile u32* end = (volatile u32*) MAIN_GFX_POS[i];
-        Gfx** list = &MAIN_GFX_POS[i];
+        Gfx** list = (mode == 2) ? &MAIN_GFX_POS[1] : &MAIN_GFX_POS[i];     // the lamp draws among the see-through things
         s32 sp = 0, budget = 4096, opened = 0, r, c;
 
         if (cmd == NULL || end < cmd) {
@@ -1523,7 +1870,13 @@ static void moon_glint(void) {
                         }
                         if (j < glint_seg[k].lists_n) {
                             glint_drawn[k] = 1;
-                            glint_segment(k, stack[sp], at, la, breath, list, &opened);
+                            if (mode == 0) {
+                                glint_segment(k, stack[sp], at, la, breath, list, &opened);
+                            } else if (mode == 1) {
+                                ember_segment(k, stack[sp], list, &opened);
+                            } else {
+                                lamp_segment(k, stack[sp], list, &opened);
+                            }
                             break;
                         }
                     }
@@ -1548,6 +1901,19 @@ static void moon_glint(void) {
         recomp_printf("[island at night] the glint: %d of %d parts of the water found among the frame's commands\n",
                       drawn, (s32) glint_seg_n);
     }
+}
+
+static void moon_glint(void) {
+    glint_scan(0);
+}
+
+static void embers(void) {
+    ember_drawn = 0;
+    glint_scan(1);
+}
+
+static void lamp(void) {
+    glint_scan(2);
 }
 
 // Fireflies: four groups of small dots around the camera, each drifting on
@@ -1727,6 +2093,46 @@ static void rain_sound(void) {
     }
 }
 
+// The night's voices: three insects in the dark, each with its own pitch and
+// its own side, chirping at its own uneven pace, from one short sound of the
+// cartridge's bank, played low under the music. The picks are by ear (the
+// playtest folder's "night sounds" holds the candidates); the pace comes
+// from the world's clock, so a photo's instant is quiet or not as the ride
+// was. Not in rain, snow or a storm, which have their own voices, nor at
+// sunset, when the day's sounds still stand.
+#define CHIRP_SOUND 309
+#define CHIRP_VOICES 3
+static u32 chirp_next[CHIRP_VOICES];      // the tick of each insect's next chirp
+static u8 chirp_said;
+
+static void night_voices(void) {
+    static const u8 chirp_pan[CHIRP_VOICES] = { 26, 64, 102 };
+    static const f32 chirp_pitch[CHIRP_VOICES] = { 1.0f, 1.12f, 0.91f };
+    static const u16 chirp_vol[CHIRP_VOICES] = { 0x1A00, 0x1400, 0x1700 };
+    u32 ticks = ticks_of(night);
+    s32 k;
+
+    if (!on_the_ride || !night_sounds_on || sunset || raining || snowing || storming || scoring || night->embers) {
+        return;
+    }
+    for (k = 0; k < CHIRP_VOICES; k++) {
+        if (ticks >= chirp_next[k] && ticks < chirp_next[k] + 30) {
+            u32 mix = (ticks + 977u * (u32) k) * 0x9E3779B1u;
+            f32 pitch = chirp_pitch[k] * (0.97f + (f32) ((mix >> 8) & 0xF) * 0.004f);
+            s32 pan = (s32) chirp_pan[k] + (s32) ((mix >> 16) & 0xF) - 8;
+
+            auPlaySoundWithParams(CHIRP_SOUND, chirp_vol[k], pan, pitch, 40);
+            chirp_next[k] = ticks + 45 + ((mix >> 20) % 150) + 30 * (u32) k;
+            if (!chirp_said) {
+                chirp_said = 1;
+                recomp_printf("[island at night] the first chirp at tick %u\n", ticks);
+            }
+        } else if (ticks >= chirp_next[k] + 30) {
+            chirp_next[k] = ticks + 20 + 40 * (u32) k;      // the clock jumped (a new ride): start again soon
+        }
+    }
+}
+
 // What a flash does to the whole scene. The colors painted on the land
 // cannot be relit for an instant, but the fog can: it jumps toward the
 // flash's color and draws nearer, a veil of lit rain over everything; the
@@ -1890,8 +2296,75 @@ static void key_light(void) {
     dir[2] = (s8) (kz * 127.0f / len);
 }
 
+// The Volcano's sky from below: the lava's glow on the clouds' undersides, the
+// box's low corners tinted anew every frame with a slow breath and a quicker
+// flicker on top of the night's own tint.
+static void lava_sky(void) {
+    static const u8 pulse[3] = { 58, 30, 12 };
+    u32 ticks = ticks_of(night);
+    f32 slow = (f32) night_sine[((ticks * 182) >> 8) & 0xFF] / 127.0f;
+    f32 fast = (f32) night_sine[((ticks * 900) >> 8) & 0xFF] / 127.0f;
+    f32 glow = 0.5f + 0.35f * slow + 0.15f * fast;
+    u8 keep[3];
+    s32 k, i;
+
+    for (k = 0; k < 3; k++) {
+        s32 v = tint_lo[k] + (s32) (glow * (f32) pulse[k]);
+
+        keep[k] = tint_lo[k];
+        tint_lo[k] = (u8) (v > 255 ? 255 : v);
+    }
+    for (i = 0; i < 2; i++) {
+        if (night->sky_vtx[i] != 0) {
+            sky_corners(night->sky_vtx[i], night->sky_vtx_n[i]);
+        }
+    }
+    for (k = 0; k < 3; k++) {
+        tint_lo[k] = keep[k];
+    }
+}
+
 RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
     sky_now = obj;
+    glint_turn ^= 1;        // the record's two sets turn once a frame
+    ember_turn ^= 1;
+    glint_frame++;
+    // The vehicle: the camera rides in it, so its place is the eye's; its heading
+    // is how it moved, smoothed, and kept while it stands.
+    if (night != NULL && !scoring && obj != NULL && obj->data.dobj != NULL) {
+        DObj* car = obj->data.dobj;
+        f32 px = car->position.v.x, py = car->position.v.y, pz = car->position.v.z;
+
+        if (lamp_have) {
+            f32 dx = px - lamp_prev[0], dz = pz - lamp_prev[2];
+            f32 len = __builtin_sqrtf(dx * dx + dz * dz);
+
+            if (len > 0.4f && len < 200.0f) {
+                f32 nl;
+
+                lamp_dir[0] = lamp_dir[0] * 0.85f + (dx / len) * 0.15f;
+                lamp_dir[1] = lamp_dir[1] * 0.85f + (dz / len) * 0.15f;
+                nl = __builtin_sqrtf(lamp_dir[0] * lamp_dir[0] + lamp_dir[1] * lamp_dir[1]);
+                if (nl > 0.01f) {
+                    lamp_dir[0] /= nl;
+                    lamp_dir[1] /= nl;
+                }
+            }
+        } else {
+            lamp_dir[0] = view_fwd[0];
+            lamp_dir[1] = view_fwd[1];
+            if (lamp_dir[0] == 0.0f && lamp_dir[1] == 0.0f) {
+                lamp_dir[1] = 1.0f;
+            }
+            lamp_have = 1;
+        }
+        lamp_prev[0] = px;
+        lamp_prev[1] = py;
+        lamp_prev[2] = pz;
+        lamp_at[0] = px + lamp_dir[0] * LAMP_AHEAD;
+        lamp_at[1] = py;
+        lamp_at[2] = pz + lamp_dir[1] * LAMP_AHEAD;
+    }
     {
         volatile s8* dir = (volatile s8*) (COURSE_LIGHT + 16);
         f32 fx = -(f32) dir[0], fz = -(f32) dir[2];
@@ -1942,9 +2415,13 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
             if (on_the_ride) {
                 rain_sound();
             }
-        } else if (snowing && obj != NULL) {
+        } else if ((snowing || ashing) && obj != NULL) {
             snow(obj);
         }
+        if (night->embers && !scoring) {
+            lava_sky();
+        }
+        night_voices();
     }
 }
 
@@ -2215,6 +2692,10 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     night = by;
     thunder_span = 0xFFFFFFFFu;
     thunder_at = body_at = echo_at = 0;
+    chirp_next[0] = 240;
+    chirp_next[1] = 330;
+    chirp_next[2] = 420;
+    chirp_said = 0;
     if (by == NULL) {
         set_light(NULL);
         return;
@@ -2227,9 +2708,16 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         raining = (weather == 1 || weather == 2);
         storming = (weather == 2);
         snowing = (weather == 3);
+        ashing = 0;
+        if (by->embers) {           // the Volcano's weather is ash, not rain
+            ashing = (weather == 1);
+            raining = storming = snowing = 0;
+        }
         fx_lit = (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
         glows_on = (recomp_get_config_u32("water_glow") == 0);
         moonlight_on = (recomp_get_config_u32("moonlight") == 0);
+        night_sounds_on = (recomp_get_config_u32("night_sounds") == 0);
+        lamp_on = (recomp_get_config_u32("headlamp") == 0);
     }
     for (i = 0; i < 3; i++) {
         // An overcast sky. By rain the picture goes gray and the tints a
@@ -2392,4 +2880,8 @@ RECOMP_HOOK("destroyWorld") void night_destroy_world(void) {
         rain_handle = -1;
     }
     thunder_at = body_at = echo_at = 0;
+    chirp_next[0] = 240;
+    chirp_next[1] = 330;
+    chirp_next[2] = 420;
+    chirp_said = 0;
 }
