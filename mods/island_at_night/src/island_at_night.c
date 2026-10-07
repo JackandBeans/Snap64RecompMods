@@ -249,6 +249,14 @@ static void glint_reset(void) {
     glint_vtx_n = glint_op_n = glint_tris = glint_land = 0;
     glint_seg_n = 0;
     lamp_have = 0;
+    {
+        u32 j;
+
+        for (j = 0; j < GLINT_OPS; j++) {
+            glint_load_stamp[j] = 0;
+        }
+        glint_frame = 1;
+    }
     lamp_said = 0;
     ember_n = 0;
     {
@@ -2493,12 +2501,6 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
 #define STREAK_TICKS 48         // its life
 #define STREAK_ARC   0.25f      // how far it travels, in radians
 #define STREAK_DIST  1400.0f    // where the sky's sprites stand (gen_night.py DIST)
-#ifdef STREAK_TEST
-#undef STREAK_SPAN
-#undef STREAK_ODDS
-#define STREAK_SPAN 240
-#define STREAK_ODDS 256
-#endif
 
 static void shooting_star(void) {
     Gfx** list = &MAIN_GFX_POS[0];
@@ -2525,15 +2527,10 @@ static void shooting_star(void) {
         return;
     }
     when = span * STREAK_SPAN + ((mix >> 8) % (STREAK_SPAN - STREAK_TICKS));
-#ifndef STREAK_TEST
     if (ticks < when || ticks >= when + STREAK_TICKS) {
         return;
     }
-#endif
     age = ticks - when;
-#ifdef STREAK_TEST
-    age = 24;       // the test: a streak on every frame, mid-life
-#endif
     if (streak_logged != when) {
         streak_logged = when;
         recomp_printf("[island at night] a shooting star at tick %u\n", when);
@@ -2545,25 +2542,7 @@ static void shooting_star(void) {
     d[0] = ce * tcos(az);
     d[1] = tsin(el);
     d[2] = ce * tsin(az);
-#ifdef STREAK_TEST
-    if (view_fwd[0] != 0.0f || view_fwd[1] != 0.0f) {      // the test: ahead of the view, 14 degrees up
-        el = 0.25f;
-        ce = tcos(el);
-        d[0] = ce * view_fwd[0];
-        d[1] = tsin(el);
-        d[2] = ce * view_fwd[1];
-    }
-    if (age < 2) {
-        recomp_printf("[island at night] streak test: d (%d %d %d) view_fwd (%d %d) of 1000, eye (%d %d %d)" "%c",
-                      (s32) (d[0] * 1000.0f), (s32) (d[1] * 1000.0f), (s32) (d[2] * 1000.0f),
-                      (s32) (view_fwd[0] * 1000.0f), (s32) (view_fwd[1] * 1000.0f),
-                      (s32) sky_now->data.dobj->position.v.x, (s32) sky_now->data.dobj->position.v.y,
-                      (s32) sky_now->data.dobj->position.v.z, 10);
-    }
-    if (0) {
-#else
     if (d[0] * relight_dir[0] + d[1] * relight_dir[1] + d[2] * relight_dir[2] > 0.96f) {
-#endif
         az += 1.5707963f;       // a quarter turn off the moon
         d[0] = ce * tcos(az);
         d[2] = ce * tsin(az);
@@ -3157,6 +3136,13 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
 
 // The world is taken down: the light the courses share goes back to day.
 RECOMP_HOOK("destroyWorld") void night_destroy_world(void) {
+    if (night != NULL && glint_seg_n != 0) {
+        recomp_printf("[island at night] the record at the end: %d corners, %d triangles of water, %d of land, %d parts%s%s%s\n",
+                      (s32) glint_vtx_n, (s32) glint_tris, (s32) glint_land, (s32) glint_seg_n,
+                      (glint_vtx_n > GLINT_VTX - 64) ? "; the corners FULL" : "",
+                      (glint_op_n > GLINT_OPS - 64) ? "; the ops FULL" : "",
+                      (glint_seg_n >= GLINT_SEGS) ? "; the parts FULL" : "");
+    }
 #ifdef NIGHT_MAP
     if (night != NULL) {
         map_print();
