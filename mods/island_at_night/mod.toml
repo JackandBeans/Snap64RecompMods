@@ -35,33 +35,33 @@ additional_files = [ "thumb.png" ]
 [[manifest.config_options]]
 id = "beach"
 name = "Beach"
-description = "The Beach at night, at sunset, at dawn, or as the cartridge has it."
+description = "The Beach at night, at sunset, at dawn, through dusk, or as the cartridge has it."
 type = "Enum"
-options = [ "Night", "Sunset", "Dawn", "Day" ]
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day" ]
 default = "Night"
 
 [[manifest.config_options]]
 id = "river"
 name = "River"
-description = "The River at night, at sunset, at dawn, or as the cartridge has it."
+description = "The River at night, at sunset, at dawn, through dusk, or as the cartridge has it."
 type = "Enum"
-options = [ "Night", "Sunset", "Dawn", "Day" ]
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day" ]
 default = "Night"
 
 [[manifest.config_options]]
 id = "volcano"
 name = "Volcano"
-description = "The Volcano at night, at sunset, at dawn, or as the cartridge has it."
+description = "The Volcano at night, at sunset, at dawn, through dusk, or as the cartridge has it."
 type = "Enum"
-options = [ "Night", "Sunset", "Dawn", "Day" ]
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day" ]
 default = "Night"
 
 [[manifest.config_options]]
 id = "valley"
 name = "Valley"
-description = "The Valley at night, at sunset, at dawn, or as the cartridge has it."
+description = "The Valley at night, at sunset, at dawn, through dusk, or as the cartridge has it."
 type = "Enum"
-options = [ "Night", "Sunset", "Dawn", "Day" ]
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day" ]
 default = "Night"
 
 [[manifest.config_options]]

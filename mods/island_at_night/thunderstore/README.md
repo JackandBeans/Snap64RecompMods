@@ -3,8 +3,9 @@
 A mod for [Snap64 Recomp](https://github.com/JackandBeans/Snap64Recomp), the
 native PC port of Pokémon Snap.
 
-The Beach, the River, the Volcano and the Valley after dark, at sunset, or at
-dawn.
+The Beach, the River, the Volcano and the Valley after dark, at sunset, at
+dawn, or through a dusk that falls during the ride: the sun sinks, the sky
+turns, the stars and the moon come up and the lamp comes on.
 Each course's sky, ground, water and light are the course's own, turned to
 night as the course loads: stars that twinkle between the clouds, a moon over
 the open sky with its glint on the water, now and then a shooting star, and
@@ -20,8 +21,8 @@ with the weather of their instant.
 
 In the game, open Options > Mods, select Island at Night and press Z.
 
-- **Beach, River, Volcano, Valley**: Night (the default), Sunset, Dawn, or
-  Day as the cartridge has it.
+- **Beach, River, Volcano, Valley**: Night (the default), Sunset, Dawn, Dusk
+  (sunset falling to night over the ride), or Day as the cartridge has it.
 - **Beach Weather, River Weather**: Clear, Rain, or Storm. The River's
   default is Rain.
 - **Valley Weather**: Clear, Rain, Storm, or Snow.

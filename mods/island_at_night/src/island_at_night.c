@@ -156,6 +156,7 @@ static u8 moonlight_on = 1;      // the key light leans toward the moon
 static u8 night_sounds_on = 1;   // the night's voices are heard
 static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
+static u8 dusk;                  // or that the sun sets during the ride
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -217,6 +218,16 @@ static GlintSeg glint_seg[GLINT_SEGS];
 static Mtx glint_mtx[2][GLINT_SEGS];
 static u16 glint_vtx_n, glint_op_n, glint_tris, glint_land;
 static u16 glint_load_stamp[GLINT_OPS];  // the frame a load was last written for the lamp
+static u32 glint_load_src[GLINT_OPS];    // where a load's vertices lie in the game's memory (the dusk relights them)
+static u32 glint_orig_cn[GLINT_VTX];     // each copy's day colors, as the course has them
+static u16 glint_face[GLINT_VTX];        // each copy's lighting: bit 15 lit, 14 steep, 13 water, low nine bits toward
+static u8 sky_mask_pic[2][SKY_TEXELS];   // each sky picture's cloud mask, kept for the dusk
+static u8 pal_a[11][3], pal_b[11][3];    // the dusk's two ends: the sunset's palette and the night's
+static f32 dir_a[3], dir_b[3];
+static u8 star_fade = 255;               // how far the stars have come up
+static u32 dusk_last;
+static s16 sun_y0[8];                    // the sun's corners' heights as generated
+static u8 sun_y0_kept;
 static u16 glint_frame;
 static u8 drawing_lamp;                 // the model being drawn has land for the lamp
 static u8 lamp_on = 1;                  // the setting
@@ -558,6 +569,17 @@ static s32 face_toward(u32 a, u32 b, u32 c) {
     return (s32) (d * 256.0f);
 }
 
+// A corner's lighting, kept with its copy for the dusk: the first face that
+// lights it decides, as light_vertex does.
+static void glint_face_set(u32 slot, s32 steep, s32 toward) {
+    u32 o = glint_op[glint_slot_op[slot]];
+    u32 copy = ((o >> 12) & 0x1FFF) + (slot - (o & 63));
+
+    if (copy < GLINT_VTX && glint_face[copy] == 0) {
+        glint_face[copy] = (u16) (0x8000u | (steep ? 0x4000u : 0u) | (flowing ? 0x2000u : 0u) | ((u32) toward & 0x1FFu));
+    }
+}
+
 // The three corners of a triangle command's word. Under snow, a triangle of
 // the land also brings the picture it shows under the snow.
 static void light_corners(u32 word) {
@@ -582,6 +604,9 @@ static void light_corners(u32 word) {
             u32 used = flowing ? GLINT_USED : GLINT_LAND;
 
             glint_op[glint_op_n++] = (a << 16) | (b << 8) | c | (flowing ? GLINT_FLOW : 0);
+            glint_face_set(a, steep, toward);
+            glint_face_set(b, steep, toward);
+            glint_face_set(c, steep, toward);
             glint_op[glint_slot_op[a]] |= used;
             glint_op[glint_slot_op[b]] |= used;
             glint_op[glint_slot_op[c]] |= used;
@@ -637,6 +662,11 @@ static void walk(u32 list, s32 depth) {
                     for (i = 0; i < count && first + i < 64; i++) {
                         glint_slot_ok[first + i] = 1;
                         glint_slot_op[first + i] = glint_op_n;
+                    }
+                    glint_load_src[glint_op_n] = w1;
+                    for (i = 0; i < count; i++) {
+                        glint_orig_cn[glint_vtx_n + i] = ((u32*) &glint_vtx[0][glint_vtx_n + i])[3];
+                        glint_face[glint_vtx_n + i] = 0;
                     }
                     glint_op[glint_op_n++] = GLINT_LOAD | ((u32) glint_vtx_n << 12) | (count << 6) | (first & 63);
                     glint_vtx_n = (u16) (glint_vtx_n + count);
@@ -897,6 +927,7 @@ static void model_enters(GObj* obj, s32 kind) {
 static void moon_glint(void);
 static void embers(void);
 static void lamp(void);
+static void dusk_step(u32 ticks);
 static void fireflies(GObj* sky);
 static GObj* sky_now;           // the sky being drawn, for the camera's place
 
@@ -985,6 +1016,23 @@ static void set_light(const Night* by) {
 // the game's own corners carry the day's blue above and haze below. A
 // picture of five bits a channel cannot hold a dark gradient without flecks;
 // a bright one can.
+// A sky picture painted from its cloud mask with the colors in force.
+static void sky_paint(u32 pic, const u8* mask) {
+    volatile u16* texel = (volatile u16*) pic;
+    s32 i;
+
+    for (i = 0; i < SKY_TEXELS; i++) {
+        s32 m = mask[i];
+        u32 c[3];
+        s32 k;
+
+        for (k = 0; k < 3; k++) {
+            c[k] = (u32) (pic_sky[k] + (((s32) pic_cloud[k] - pic_sky[k]) * m) / 255);
+        }
+        texel[i] = (u16) (((c[0] >> 3) << 11) | ((c[1] >> 3) << 6) | ((c[2] >> 3) << 1) | 1);
+    }
+}
+
 static void sky_at_night(u32 pic) {
     volatile u16* texel = (volatile u16*) pic;
     u32 bins[32];
@@ -1045,16 +1093,7 @@ static void sky_at_night(u32 pic) {
 
         sky_mask[i] = (u8) (sum >> 4);
     }
-    for (i = 0; i < SKY_TEXELS; i++) {
-        s32 m = sky_mask[i];
-        u32 c[3];
-        s32 k;
-
-        for (k = 0; k < 3; k++) {
-            c[k] = (u32) (pic_sky[k] + (((s32) pic_cloud[k] - pic_sky[k]) * m) / 255);
-        }
-        texel[i] = (u16) (((c[0] >> 3) << 11) | ((c[1] >> 3) << 6) | ((c[2] >> 3) << 1) | 1);
-    }
+    sky_paint(pic, sky_mask);
 }
 
 // How low and how high the sky box's corners reach, as sines of elevation,
@@ -1172,6 +1211,7 @@ static void twinkle(const Night* by) {
         if (value > 255) {
             value = 255;
         }
+        value = (value * (s32) star_fade) / 255;
         by->twinkle[i][0].words.w1 = 0xFFFFFF00u | (u32) value;
     }
 }
@@ -2400,6 +2440,14 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
     }
 #endif
     if (night != NULL) {
+        if (dusk) {
+            u32 t = ticks_of(night);
+
+            if (dusk_last == 0xFFFFFFFFu || t - dusk_last >= 10 || t < dusk_last) {
+                dusk_last = t;
+                dusk_step(t);
+            }
+        }
         if (!sunset) {
             twinkle(night);
         }
@@ -2678,55 +2726,22 @@ static const Night* night_of(WorldSetup* setup) {
 
     for (i = 0; i < sizeof(nights) / sizeof(nights[0]); i++) {
         if ((u32) setup == nights[i].setup) {
-            u32 time = recomp_get_config_u32(nights[i].option);     // 0 night, 1 sunset, 2 dawn, 3 day
+            u32 time = recomp_get_config_u32(nights[i].option);     // 0 night, 1 sunset, 2 dawn, 3 dusk, 4 day
 
-            sunset = (time == 1 || time == 2);
+            sunset = (time == 1 || time == 2 || time == 3);
             dawn = (time == 2);
-            return (time == 3) ? NULL : &nights[i];
+            dusk = (time == 3);
+            return (time == 4) ? NULL : &nights[i];
         }
     }
     return NULL;
 }
 
-// A course's world is about to be built, for the ride or for a photo. For a
-// course with a night: make its data night, unless this load of it already
-// is.
-RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id, s32 block_min, s32 block_max,
-                                                   s32 link, s32 dl_link, void* pokemon_enters) {
-    const Night* by = night_of(setup);
+// The lights and the sky's colors in force for the time of day and the weather
+// set: the night's, the sunset's or the dawn's.
+static void choose_palette(const Night* by) {
     s32 i;
 
-    on_the_ride = ((u32) pokemon_enters != PHOTO_WORLD_CALLBACK);
-    night = by;
-    thunder_span = 0xFFFFFFFFu;
-    thunder_at = body_at = echo_at = 0;
-    chirp_next[0] = 240;
-    chirp_next[1] = 330;
-    chirp_next[2] = 420;
-    chirp_said = 0;
-    if (by == NULL) {
-        set_light(NULL);
-        return;
-    }
-    // The lights and the sky in force. A rainy night is overcast and a little
-    // darker; nothing of it shows a star or the moon.
-    {
-        u32 weather = (by->weather != NULL) ? recomp_get_config_u32(by->weather) : 0;
-
-        raining = (weather == 1 || weather == 2);
-        storming = (weather == 2);
-        snowing = (weather == 3);
-        ashing = 0;
-        if (by->embers) {           // the Volcano's weather is ash, not rain
-            ashing = (weather == 1);
-            raining = storming = snowing = 0;
-        }
-        fx_lit = (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
-        glows_on = (recomp_get_config_u32("water_glow") == 0);
-        moonlight_on = (recomp_get_config_u32("moonlight") == 0);
-        night_sounds_on = (recomp_get_config_u32("night_sounds") == 0);
-        lamp_on = (recomp_get_config_u32("headlamp") == 0);
-    }
     for (i = 0; i < 3; i++) {
         // An overcast sky. By rain the picture goes gray and the tints a
         // little lighter than a clear night's; by snow the same picture sits
@@ -2844,6 +2859,257 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             relight_dir[2] = d[2] / len;
         }
     }
+}
+
+// The dusk. The live colors are eleven triples; both ends are kept and the
+// live ones slid between them as the ride's clock runs.
+static u8* const live_palette[11] = { light_world, light_body, light_flow, land_diff, pic_sky, pic_cloud,
+                                      tint_lo, tint_away, tint_hi, scene_ambient, scene_diffuse };
+
+static void pal_keep(u8 pal[11][3], f32* dir) {
+    s32 n, k;
+
+    for (n = 0; n < 11; n++) {
+        for (k = 0; k < 3; k++) {
+            pal[n][k] = live_palette[n][k];
+        }
+    }
+    for (k = 0; k < 3; k++) {
+        dir[k] = relight_dir[k];
+    }
+}
+
+// The land, the water and the scenery lit again from the record's day
+// colors with the colors in force, as light_vertex lit them the first time.
+static void relight_record(void) {
+    u32 j;
+
+    for (j = 0; j < glint_op_n; j++) {
+        u32 o = glint_op[j];
+        u32 start, count, src, v;
+
+        if (!(o & GLINT_LOAD)) {
+            continue;
+        }
+        start = (o >> 12) & 0x1FFF;
+        count = (o >> 6) & 0x3F;
+        src = glint_load_src[j];
+        if (src < night->world_lo || src >= night->world_hi) {
+            continue;
+        }
+        for (v = 0; v < count; v++) {
+            u16 f = glint_face[start + v];
+            volatile u8* color = (volatile u8*) (src + 16 * v + 12);
+            u32 orig = glint_orig_cn[start + v];
+            u8 c[3];
+            s32 steep, flow, toward, k;
+            const u8* light;
+
+            if (!(f & 0x8000)) {
+                continue;       // never lit by a triangle: left alone
+            }
+            steep = (f >> 14) & 1;
+            flow = (f >> 13) & 1;
+            toward = f & 0x1FF;
+            light = flow ? light_flow : light_world;
+            c[0] = (u8) (orig >> 24);
+            c[1] = (u8) (orig >> 16);
+            c[2] = (u8) (orig >> 8);
+            if (snowing && !flow && !steep) {
+                u32 bright = 159 + (97 * ((c[0] * 77 + c[1] * 151 + c[2] * 28) >> 8)) / 255;
+
+                c[0] = (u8) snow_channel(c[0], SNOW_R, bright);
+                c[1] = (u8) snow_channel(c[1], SNOW_G, bright);
+                c[2] = (u8) snow_channel(c[2], SNOW_B, bright);
+            }
+            for (k = 0; k < 3; k++) {
+                u32 lit = light[k] + (flow ? 0 : ((land_diff[k] * (u32) toward) >> 8));
+
+                c[k] = (u8) part(c[k], lit > 255 ? 255 : lit);
+            }
+            if (steep) {
+                c[0] = (u8) part(c[0], 110);
+                c[1] = (u8) part(c[1], 118);
+                c[2] = (u8) part(c[2], 160);
+            }
+            color[0] = c[0];
+            color[1] = c[1];
+            color[2] = c[2];
+        }
+    }
+}
+
+// The sky at a moment of the dusk: the sun sinking and fading, then the
+// stars and the moon coming up in its place.
+static void dusk_sky(f32 t) {
+    volatile u32* spare = (volatile u32*) night->spare;
+    Gfx* sun = night->sun_list;
+    f32 sun_alpha = 1.0f - (t - 0.35f) / 0.3f;
+    f32 sink = (t < 0.6f) ? t / 0.6f : 1.0f;
+    f32 stars = (t - 0.65f) / 0.3f;
+    f32 moon = (t - 0.7f) / 0.3f;
+    s32 k;
+
+    if (sun_alpha > 1.0f) {
+        sun_alpha = 1.0f;
+    }
+    if (sun_alpha < 0.0f) {
+        sun_alpha = 0.0f;
+    }
+    stars = stars < 0.0f ? 0.0f : stars > 1.0f ? 1.0f : stars;
+    moon = moon < 0.0f ? 0.0f : moon > 1.0f ? 1.0f : moon;
+    star_fade = (u8) (255.0f * stars);
+    if (sun != NULL && (sun[2].words.w0 >> 24) == 0xFA && (sun[5].words.w0 >> 24) == 0xFA
+        && (sun[3].words.w0 >> 24) == 0x01 && (sun[6].words.w0 >> 24) == 0x01) {
+        Vtx* haze = (Vtx*) sun[3].words.w1;
+        Vtx* disc = (Vtx*) sun[6].words.w1;
+
+        if (!sun_y0_kept) {
+            sun_y0_kept = 1;
+            for (k = 0; k < 4; k++) {
+                sun_y0[k] = haze[k].v.ob[1];
+                sun_y0[4 + k] = disc[k].v.ob[1];
+            }
+        }
+        for (k = 0; k < 4; k++) {
+            haze[k].v.ob[1] = (s16) (sun_y0[k] - sink * 260.0f);
+            disc[k].v.ob[1] = (s16) (sun_y0[4 + k] - sink * 260.0f);
+        }
+        sun[2].words.w1 = 0xFFFFFF00u | (u32) (112.0f * sun_alpha);
+        sun[5].words.w1 = 0xFFFFFF00u | (u32) (255.0f * sun_alpha);
+    }
+    // The moon's two primitive colors sit at fixed places before the sky
+    // list's end: the end, the states put back, the moon's triangles and
+    // vertices, its color (four back), the moon picture, the glow's triangles
+    // and vertices, the glow's color (eight back); each checked to be a color.
+    if (!night->embers && night->sky != NULL) {
+        Gfx* sky = night->sky;
+        s32 n = 0;
+
+        while (n < 4096 && sky[n].words.w0 != 0xDF000000u) {
+            n++;
+        }
+        if (n >= 9 && (sky[n - 4].words.w0 >> 24) == 0xFA && (sky[n - 8].words.w0 >> 24) == 0xFA) {
+            sky[n - 4].words.w1 = 0xFFFFFF00u | (u32) (255.0f * moon);
+            sky[n - 8].words.w1 = 0xFFFFFF00u | (u32) (112.0f * moon);
+        }
+    }
+    if (!raining && !snowing && spare[0] == 0xDE000000u) {
+        spare[1] = (u32) ((sun_alpha > 0.0f) ? night->sun_list : night->sky);
+    }
+}
+
+// A moment of the dusk, 0 at sunset and 1 at night: the colors slid between
+// the two ends, the sky painted again, the land lit again, the sunset flag
+// falling at six tenths so the night's things begin.
+static void dusk_apply(f32 t) {
+    WorldSetup* setup = (WorldSetup*) night->setup;
+    f32 len;
+    s32 n, k, i;
+
+    for (n = 0; n < 11; n++) {
+        for (k = 0; k < 3; k++) {
+            live_palette[n][k] = (u8) ((f32) pal_a[n][k] + ((f32) pal_b[n][k] - (f32) pal_a[n][k]) * t);
+        }
+    }
+    for (k = 0; k < 3; k++) {
+        relight_dir[k] = dir_a[k] + (dir_b[k] - dir_a[k]) * t;
+        sky_horizon[k] = (u8) ((pic_sky[k] * (((u32) tint_lo[k] + tint_away[k]) / 2)) / 255);
+        sky_top[k] = (u8) ((pic_sky[k] * tint_hi[k]) / 255);
+    }
+    len = __builtin_sqrtf(relight_dir[0] * relight_dir[0] + relight_dir[1] * relight_dir[1] + relight_dir[2] * relight_dir[2]);
+    if (len > 0.01f) {
+        for (k = 0; k < 3; k++) {
+            relight_dir[k] /= len;
+        }
+    }
+    sunset = (t < 0.6f);
+    set_light(night);
+    setFogColor(sky_horizon[0], sky_horizon[1], sky_horizon[2]);
+    setup->fogR = sky_horizon[0];
+    setup->fogG = sky_horizon[1];
+    setup->fogB = sky_horizon[2];
+    setup->backgroundR = sky_top[0];
+    setup->backgroundG = sky_top[1];
+    setup->backgroundB = sky_top[2];
+    for (i = 0; i < 2; i++) {
+        if (night->pics[i] != 0) {
+            sky_paint(night->pics[i], sky_mask_pic[i]);
+        }
+        if (night->sky_vtx[i] != 0) {
+            sky_corners(night->sky_vtx[i], night->sky_vtx_n[i]);
+        }
+    }
+    dusk_sky(t);
+    relight_record();
+}
+
+// The dusk's clock: sunset holds for forty seconds, then eighty seconds to
+// night. A photo's world takes its instant's moment once.
+static void dusk_step(u32 ticks) {
+    f32 t = ((f32) ticks - 2400.0f) / 4800.0f;
+
+    if (t < 0.0f) {
+        t = 0.0f;
+    }
+    if (t > 1.0f) {
+        t = 1.0f;
+    }
+    dusk_apply(t);
+}
+
+// A course's world is about to be built, for the ride or for a photo. For a
+// course with a night: make its data night, unless this load of it already
+// is.
+RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id, s32 block_min, s32 block_max,
+                                                   s32 link, s32 dl_link, void* pokemon_enters) {
+    const Night* by = night_of(setup);
+    s32 i;
+
+    on_the_ride = ((u32) pokemon_enters != PHOTO_WORLD_CALLBACK);
+    night = by;
+    thunder_span = 0xFFFFFFFFu;
+    thunder_at = body_at = echo_at = 0;
+    chirp_next[0] = 240;
+    chirp_next[1] = 330;
+    chirp_next[2] = 420;
+    chirp_said = 0;
+    if (by == NULL) {
+        set_light(NULL);
+        return;
+    }
+    // The lights and the sky in force. A rainy night is overcast and a little
+    // darker; nothing of it shows a star or the moon.
+    {
+        u32 weather = (by->weather != NULL) ? recomp_get_config_u32(by->weather) : 0;
+
+        raining = (weather == 1 || weather == 2);
+        storming = (weather == 2);
+        snowing = (weather == 3);
+        ashing = 0;
+        if (by->embers) {           // the Volcano's weather is ash, not rain
+            ashing = (weather == 1);
+            raining = storming = snowing = 0;
+        }
+        fx_lit = (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
+        glows_on = (recomp_get_config_u32("water_glow") == 0);
+        moonlight_on = (recomp_get_config_u32("moonlight") == 0);
+        night_sounds_on = (recomp_get_config_u32("night_sounds") == 0);
+        lamp_on = (recomp_get_config_u32("headlamp") == 0);
+    }
+    choose_palette(by);
+    if (dusk) {
+        // Both ends of the dusk: the sunset's palette, in force now, and the night's.
+        pal_keep(pal_a, dir_a);
+        sunset = 0;
+        choose_palette(by);
+        pal_keep(pal_b, dir_b);
+        sunset = 1;
+        choose_palette(by);
+    }
+    star_fade = 255;
+    dusk_last = 0xFFFFFFFFu;
+    sun_y0_kept = 0;
     set_light(by);
     fog_near = by->fog_min - (snowing ? 10 : raining ? 6 : 0);
     fog_far = by->fog_max;
@@ -2869,7 +3135,12 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         sky_extent(by);
         for (i = 0; i < 2; i++) {
             if (by->pics[i] != 0) {
+                s32 k;
+
                 sky_at_night(by->pics[i]);
+                for (k = 0; k < SKY_TEXELS; k++) {
+                    sky_mask_pic[i][k] = sky_mask[k];
+                }
             }
             if (by->sky_vtx[i] != 0) {
                 sky_corners(by->sky_vtx[i], by->sky_vtx_n[i]);
@@ -2879,7 +3150,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             spare[0] = 0xDE000000;
             spare[1] = (u32) (dawn ? by->dawn_list : sunset ? by->sun_list : by->sky);
         }
-        recomp_printf("[island at night] the %s was loaded: %s%s\n", by->option, dawn ? "the sun rises" : sunset ? "the sun sets" : "night falls",
+        recomp_printf("[island at night] the %s was loaded: %s%s\n", by->option, dusk ? "the sun is setting" : dawn ? "the sun rises" : sunset ? "the sun sets" : "night falls",
                       storming ? ", with a storm" : raining ? ", with rain" : snowing ? ", with snow" : "");
     }
 }
