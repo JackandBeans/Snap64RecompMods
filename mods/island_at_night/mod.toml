@@ -1,0 +1,113 @@
+[manifest]
+id = "snap64_island_at_night"
+version = "0.4.0"
+display_name = "Island at Night"
+description = """
+The Beach, the River, the Volcano and the Valley after dark. Each course's \
+sky, ground and water and the light on its Pokémon are the course's own, \
+turned to night as the course is loaded: stars that twinkle between the \
+clouds, a moon over the sea, the Volcano lit by its own lava. The Beach, the \
+River and the Valley can have their night clear, rainy, or stormy with \
+lightning and thunder; the Valley can have snow, falling and lying on the \
+land. Photos taken at night are night wherever the game shows them, with \
+the weather of their instant, and each course can be left in daylight.
+
+Source: https://github.com/JackandBeans/Snap64RecompMods"""
+# One line in the Mods page's help box, which holds about 45 characters.
+short_description = "The open-air courses after dark."
+authors = [ "JackandBeans" ]
+game_id = "pokemonsnap"
+minimum_recomp_version = "1.1.0"
+dependencies = [ ]
+optional_dependencies = [ ]
+native_libraries = [ ]
+
+[inputs]
+# Paths are read relative to this file.
+elf_path = "../../build/island_at_night/mod.elf"
+mod_filename = "snap64_island_at_night"
+func_reference_syms_file = "../../Snap64RecompSyms/pokemonsnap.us.syms.toml"
+data_reference_syms_files = [ "../../Snap64RecompSyms/pokemonsnap.us.datasyms.toml" ]
+# The picture the Mods page shows on the mod's details page (thumb.png at
+# the .nrm's root, as the runtime reads it).
+additional_files = [ "thumb.png" ]
+
+[[manifest.config_options]]
+id = "beach"
+name = "Beach"
+description = "The Beach at night, at sunset, or as the cartridge has it."
+type = "Enum"
+options = [ "Night", "Sunset", "Day" ]
+default = "Night"
+
+[[manifest.config_options]]
+id = "river"
+name = "River"
+description = "The River at night, at sunset, or as the cartridge has it."
+type = "Enum"
+options = [ "Night", "Sunset", "Day" ]
+default = "Night"
+
+[[manifest.config_options]]
+id = "volcano"
+name = "Volcano"
+description = "The Volcano at night, at sunset, or as the cartridge has it."
+type = "Enum"
+options = [ "Night", "Sunset", "Day" ]
+default = "Night"
+
+[[manifest.config_options]]
+id = "valley"
+name = "Valley"
+description = "The Valley at night, at sunset, or as the cartridge has it."
+type = "Enum"
+options = [ "Night", "Sunset", "Day" ]
+default = "Night"
+
+[[manifest.config_options]]
+id = "beach_weather"
+name = "Beach Weather"
+description = "The Beach's night sky: clear, overcast with rain, or a storm with lightning."
+type = "Enum"
+options = [ "Clear", "Rain", "Storm" ]
+default = "Clear"
+
+[[manifest.config_options]]
+id = "river_weather"
+name = "River Weather"
+description = "The River's night sky: clear, overcast with rain, or a storm with lightning."
+type = "Enum"
+options = [ "Clear", "Rain", "Storm" ]
+default = "Rain"
+
+[[manifest.config_options]]
+id = "valley_weather"
+name = "Valley Weather"
+description = "The Valley's night sky: clear, rain, a storm with lightning, or snow."
+type = "Enum"
+options = [ "Clear", "Rain", "Storm", "Snow" ]
+default = "Clear"
+
+[[manifest.config_options]]
+id = "effects"
+name = "Effects at Night"
+description = "Splashes, dust and mist take the night's light, or keep their day colors."
+type = "Enum"
+options = [ "Day colors", "Night-lit" ]
+default = "Night-lit"
+
+[[manifest.config_options]]
+id = "water_glow"
+name = "Water Glow"
+description = "The moon's glint on the water and the River's fireflies."
+type = "Enum"
+options = [ "On", "Off" ]
+default = "On"
+
+[[manifest.config_options]]
+id = "moonlight"
+name = "Moonlight on Pokémon"
+description = "The scene's light leans toward the moon, or stays where the game puts it."
+type = "Enum"
+options = [ "Moon", "Game's own" ]
+default = "Moon"

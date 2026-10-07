@@ -36,6 +36,25 @@ mod's setters write the save the game keeps in memory (the decompilation's
 `src/more_funcs/5BF20.c`), and the game's save writes that whole record to
 the cartridge's flash.
 
+### Island at Night
+
+The Beach, the River, the Volcano and the Valley after dark, or at sunset.
+Each course's sky, ground, water and light are the course's own, turned to
+night as the course loads: stars that twinkle between the clouds, a moon over
+the open sky with its glint on the water, now and then a shooting star, and
+the Volcano lit by its own lava. The Beach, the River and the Valley can have
+their night clear, rainy, or stormy with lightning and thunder, and the
+Valley can have snow that falls and lies on the land. Photos taken at night
+are night wherever the game shows them, with the weather of their instant.
+Each course can be left as the cartridge has it, and the effects' light, the
+water's glow and the moonlight on Pokémon each have a switch.
+
+Checked on the port's scoring replay: the 45 photos of the ride scored the
+same with the mod on as off. The night, the sunset, the weather and the
+moon's glint on the River were checked frame by frame in captured rides. The
+sounds (the rain, the thunder) were chosen by ear from the cartridge's own
+effects.
+
 ## Installing
 
 Download a mod from the

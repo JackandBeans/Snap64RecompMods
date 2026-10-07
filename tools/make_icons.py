@@ -77,6 +77,21 @@ def open_padlock(img):
               fill=(*GOLD, 255))
 
 
+def crescent(img):
+    """A waxing moon with one small star: the night's sign."""
+    d, cx, cy, r = badge(img)
+    mr = r * 0.52
+    mx, my = cx - r * 0.10, cy + r * 0.04
+    d.ellipse((mx - mr, my - mr, mx + mr, my + mr), fill=(*INK, 255))
+    # The dark of the moon, cut back out in the badge's gold, offset to the upper right.
+    bx, by, br = mx + mr * 0.42, my - mr * 0.28, mr * 0.86
+    d.ellipse((bx - br, by - br, bx + br, by + br), fill=(*GOLD, 255))
+    # The star, four points, to the upper right of the horns.
+    sx, sy, sl, ss = cx + r * 0.46, cy - r * 0.46, r * 0.22, r * 0.07
+    d.polygon([(sx, sy - sl), (sx + ss, sy - ss), (sx + sl, sy), (sx + ss, sy + ss),
+               (sx, sy + sl), (sx - ss, sy + ss), (sx - sl, sy), (sx - ss, sy - ss)], fill=(*INK, 255))
+
+
 def write(name, sign):
     img = base_with_canister()
     sign(img)
@@ -88,3 +103,4 @@ def write(name, sign):
 
 write("unlimited_film", infinity)
 write("unlock_everything", open_padlock)
+write("island_at_night", crescent)
