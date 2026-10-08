@@ -171,7 +171,7 @@ static u8 dawn;                  // and that sunset is a dawn (the sun across th
 static u8 dusk;                  // or that the sun sets during the ride
 static u8 cycle;                 // or that the player's clock drives the hour, round the whole day
 static f32 nightness = 1.0f;     // how far from the cartridge's day the scene is: 0 the day itself, 1 the night's own colors
-static f32 ride_minutes = 1380.0f;   // the clock's minute the ride took, kept for its photos' worlds
+static f32 ride_minutes = -1.0f;     // the clock's minute the ride began at, for its photos' worlds (none yet: -1)
 static f32 cycle_minute = -1.0f;     // the minute last applied
 static u16 steep_shade[3] = { 110, 118, 160 };   // the steep faces' shade, 256 by day
 static u16 sky_orig_pic[2][64 * 32];  // the sky pictures as the cartridge has them (the day end of the blend)
@@ -3139,6 +3139,24 @@ static void palette_blend(const u8 pa[11][3], const f32* da, const u8 pb[11][3],
     }
 }
 
+// The lights the land, the bodies and the water take go to the cartridge's
+// own as the day comes: the whole of each color, and no sun across the
+// faces. The palettes hold the night's or the sunset's values; this is what
+// stands between them and the day.
+static void lights_toward_day(void) {
+    s32 share = (s32) (nightness * 256.0f);
+    s32 n, k;
+
+    for (n = 0; n < 3; n++) {
+        for (k = 0; k < 3; k++) {
+            live_palette[n][k] = (u8) (255 + (((s32) live_palette[n][k] - 255) * share) / 256);
+        }
+    }
+    for (k = 0; k < 3; k++) {
+        land_diff[k] = (u8) (((s32) land_diff[k] * share) / 256);
+    }
+}
+
 // The scene takes the colors in force, as far from the day as nightness says:
 // the light, the fog and the background, the sky's pictures and corners, the
 // recorded land.
@@ -3150,6 +3168,7 @@ static void scene_apply(void) {
     for (k = 0; k < 3; k++) {
         steep_shade[k] = (u16) (256 + (((s32) (k == 0 ? 110 : k == 1 ? 118 : 160) - 256) * share) / 256);
     }
+    lights_toward_day();
     set_light(night);
     {
         u8 fog[3], bg[3];
@@ -3286,7 +3305,19 @@ static void moment_apply(f32 m) {
 // The minute a mode stands at, or runs through.
 static f32 mode_minutes(void) {
     if (cycle) {
-        return on_the_ride ? clock_minutes() : ride_minutes;
+        if (on_the_ride || ride_minutes < 0.0f) {
+            return clock_minutes();
+        }
+        // A photo's world: the minute of the photo's own instant, the ride's
+        // first minute plus the photo's clock (ticks_of gives the photo's).
+        {
+            f32 m = ride_minutes + (f32) ticks_of(night) / 3600.0f;
+
+            while (m >= 1440.0f) {
+                m -= 1440.0f;
+            }
+            return m;
+        }
     }
     if (dusk) {
         // The ride's own clock: sunset holds for forty seconds, then eighty
@@ -3315,9 +3346,6 @@ static void cycle_tick(void) {
     }
     dusk_last = t;
     m = mode_minutes();
-    if (on_the_ride) {
-        ride_minutes = m;
-    }
     if (m >= M_DAY0 && m < M_DAY1 && cycle_minute >= M_DAY0 && cycle_minute < M_DAY1) {
         return;
     }
@@ -3427,8 +3455,8 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         {
             f32 m = mode_minutes();
 
-            if (on_the_ride) {
-                ride_minutes = m;
+            if (on_the_ride && cycle) {
+                ride_minutes = m;       // the ride's first minute: its photos count from it
             }
             moment_apply(m);
         }
