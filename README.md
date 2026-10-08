@@ -36,27 +36,28 @@ mod's setters write the save the game keeps in memory (the decompilation's
 `src/more_funcs/5BF20.c`), and the game's save writes that whole record to
 the cartridge's flash.
 
-### Island at Night
+### Island Skies
 
-The Beach, the River, the Volcano and the Valley after dark, at sunset, at
-dawn, or through a dusk that falls during the ride.
-Each course's sky, ground, water and light are the course's own, turned to
-night as the course loads: stars that twinkle between the clouds, a moon over
-the open sky with its glint on the water, now and then a shooting star, and
-the Volcano lit by its own lava, with embers rising off it and its clouds
-pulsing in the glow. Insects chirp in the dark. The Beach, the River and the
-Valley can have their night clear, rainy, or stormy with lightning and
-thunder, the Valley can have snow that falls and lies on the land, and the
-Volcano can have ash falling. Photos taken at night are night wherever the
-game shows them, with the weather of their instant. Each course can be left
-as the cartridge has it, and the effects' light, the water's glow, the
-moonlight on Pokémon and the night sounds each have a switch.
+The island's sky at any hour and in any weather. The Beach, the River, the
+Volcano and the Valley after dark, at sunset, at dawn, through a dusk that
+falls during the ride, or at the hour the player's own clock says.
+Each course's sky, ground, water and light are the course's own, turned as
+the course loads: stars that twinkle between the clouds, a moon over the
+open sky with its glint on the water, now and then a shooting star, the
+Volcano lit by its own lava with embers rising off it and its clouds pulsing
+in the glow, and insects chirping in the dark. Rain, storms with lightning
+and thunder, snow that falls and lies on the Valley, ash over the Volcano.
+Photos keep the sky of their instant wherever the game shows them. Simple
+set-up is three rows (Setup, Time, Weather); Custom gives each course its
+own hour and weather and opens the fine switches. The hour by the clock
+comes from the port (`include/snap64.h`, Snap64 Recomp 1.1.3).
 
 Checked on the port's scoring replay: the 45 photos of the ride scored the
-same with the mod on as off. The night, the sunset, the weather and the
-moon's glint on the River and the Valley, the Volcano's embers and ash and
-the shooting star were checked frame by frame in captured rides. The sounds (the rain, the thunder, the insects) are the cartridge's
-own effects, chosen by ear.
+same with the mod on as off. The night, the sunset, the dusk, the weather,
+the moon's glint on the River and the Valley, the Volcano's embers and ash
+and the shooting star were checked frame by frame in captured rides. The
+sounds (the rain, the thunder, the insects) are the cartridge's own effects,
+chosen by ear.
 
 ## Installing
 

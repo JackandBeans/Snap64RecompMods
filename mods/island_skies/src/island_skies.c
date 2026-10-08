@@ -32,6 +32,7 @@
 #include "modding.h"
 #include "recomputils.h"
 #include "recompconfig.h"
+#include "snap64.h"
 #include "common.h"
 #include "world/world.h"
 #include "night_data.h"
@@ -1762,7 +1763,7 @@ static void glint_scan(s32 mode) {
     }
     if (!glint_said) {
         glint_said = 1;
-        recomp_printf("[island at night] the record so far: %d corners, %d triangles of water, %d of land, %d parts\n",
+        recomp_printf("[island skies] the record so far: %d corners, %d triangles of water, %d of land, %d parts\n",
                       (s32) glint_vtx_n, (s32) glint_tris, (s32) glint_land, (s32) glint_seg_n);
     }
     for (i = 0; i < 4; i++) {
@@ -1850,7 +1851,7 @@ static void glint_scan(s32 mode) {
         for (k = 0; k < glint_seg_n; k++) {
             drawn += glint_drawn[k];
         }
-        recomp_printf("[island at night] the glint: %d of %d parts of the water found among the frame's commands\n",
+        recomp_printf("[island skies] the glint: %d of %d parts of the water found among the frame's commands\n",
                       drawn, (s32) glint_seg_n);
     }
 }
@@ -2015,7 +2016,7 @@ static void thunder(u32 ticks) {
         auPlaySoundWithParams(THUNDER_STRIKE, 0x7000, thunder_side, pitch, 60);
         body_at = ticks + 6;
         echo_at = ticks + 26 + ((strike_mix >> 20) & 0xF);
-        recomp_printf("[island at night] thunder at tick %u, pan %d\n", ticks, thunder_side);
+        recomp_printf("[island skies] thunder at tick %u, pan %d\n", ticks, thunder_side);
         thunder_at = 0;
     }
     if (body_at != 0 && ticks >= body_at) {
@@ -2037,7 +2038,7 @@ static void rain_sound(void) {
     }
     if (rain_handle < 0) {
         rain_handle = auPlaySoundWithParams(RAIN_SOUND, RAIN_VOLUME, 64, 1.1f, 20);
-        recomp_printf("[island at night] the rain's voice: %d\n", rain_handle);
+        recomp_printf("[island skies] the rain's voice: %d\n", rain_handle);
     }
 }
 
@@ -2073,7 +2074,7 @@ static void night_voices(void) {
             chirp_next[k] = ticks + 45 + ((mix >> 20) % 150) + 30 * (u32) k;
             if (!chirp_said) {
                 chirp_said = 1;
-                recomp_printf("[island at night] the first chirp at tick %u\n", ticks);
+                recomp_printf("[island skies] the first chirp at tick %u\n", ticks);
             }
         } else if (ticks >= chirp_next[k] + 30) {
             chirp_next[k] = ticks + 20 + 40 * (u32) k;      // the clock jumped (a new ride): start again soon
@@ -2389,7 +2390,7 @@ static void shooting_star(void) {
     age = ticks - when;
     if (streak_logged != when) {
         streak_logged = when;
-        recomp_printf("[island at night] a shooting star at tick %u\n", when);
+        recomp_printf("[island skies] a shooting star at tick %u\n", when);
     }
     // Where it begins: the upper sky, 26 to 70 degrees up, away from the moon.
     az = (f32) ((mix >> 16) & 0xFF) * (6.2831853f / 256.0f);
@@ -2556,20 +2557,100 @@ RECOMP_HOOK("func_8009D65C") void night_photo_begins(PhotoData* photo) {
     }
 }
 
+// The options' two faces. Simple: one Time and one Weather row for the
+// island. Custom: each course's own rows and the fine switches.
+static u8 simple_setup(void) {
+    return recomp_get_config_u32("setup") == 0;
+}
+
+#define TIME_NIGHT 0
+#define TIME_SUNSET 1
+#define TIME_DAWN 2
+#define TIME_DUSK 3
+#define TIME_DAY 4
+#define TIME_CLOCK 5
+
+static u8 ride_time = TIME_NIGHT;       // the time the ride took: its photos' worlds take the same
+
+// "Your clock": the computer's time of day, read through the port, picks the
+// island's. Dawn from five to half past six, day to six in the evening,
+// sunset to half past seven, dusk (the sun setting during the ride) to nine,
+// night the rest; the same hours the year round.
+static u32 time_by_clock(void) {
+    static const char* const names[] = { "night", "sunset", "dawn", "dusk", "day" };
+    u32 t = snap64_local_time();
+    u32 hour = (t >> 16) & 0xFF;
+    u32 minute = (t >> 8) & 0xFF;
+    u32 minutes = hour * 60 + minute;
+    u32 time;
+
+    if (minutes < 5 * 60) {
+        time = TIME_NIGHT;
+    } else if (minutes < 6 * 60 + 30) {
+        time = TIME_DAWN;
+    } else if (minutes < 18 * 60) {
+        time = TIME_DAY;
+    } else if (minutes < 19 * 60 + 30) {
+        time = TIME_SUNSET;
+    } else if (minutes < 21 * 60) {
+        time = TIME_DUSK;
+    } else {
+        time = TIME_NIGHT;
+    }
+    recomp_printf("[island skies] your clock says %u:%u%u, so %s\n", hour, minute / 10, minute % 10, names[time]);
+    return time;
+}
+
+// The time of day the options ask for a course: in Simple set-up the one
+// Time row, in Custom the course's own; a photo's world takes the ride's.
 static const Night* night_of(WorldSetup* setup) {
     u32 i;
 
     for (i = 0; i < sizeof(nights) / sizeof(nights[0]); i++) {
         if ((u32) setup == nights[i].setup) {
-            u32 time = recomp_get_config_u32(nights[i].option);     // 0 night, 1 sunset, 2 dawn, 3 dusk, 4 day
+            u32 time = simple_setup() ? recomp_get_config_u32("time") : recomp_get_config_u32(nights[i].option);
 
-            sunset = (time == 1 || time == 2 || time == 3);
-            dawn = (time == 2);
-            dusk = (time == 3);
-            return (time == 4) ? NULL : &nights[i];
+            if (time == TIME_CLOCK) {
+                time = on_the_ride ? time_by_clock() : ride_time;
+            }
+            if (on_the_ride) {
+                ride_time = (u8) time;
+            }
+            sunset = (time == TIME_SUNSET || time == TIME_DAWN || time == TIME_DUSK);
+            dawn = (time == TIME_DAWN);
+            dusk = (time == TIME_DUSK);
+            return (time == TIME_DAY) ? NULL : &nights[i];
         }
     }
     return NULL;
+}
+
+// The weather the options ask for a course. In Simple set-up the one Weather
+// row: the island's own (rain on the River, clear elsewhere), or one weather
+// for the island, where rain and a storm bring ash to the Volcano and snow
+// lies on the Valley alone. In Custom the course's own row. The answer is
+// in the course's own terms: 0 clear, 1 rain (the Volcano: ash), 2 storm,
+// 3 snow.
+static u32 weather_of(const Night* by) {
+    u32 pick;
+
+    if (by->weather == NULL) {
+        return 0;
+    }
+    if (!simple_setup()) {
+        return recomp_get_config_u32(by->weather);
+    }
+    pick = recomp_get_config_u32("weather");       // 0 the island's own, 1 clear, 2 rain, 3 storm, 4 snow
+    if (pick == 0) {
+        return (by->option[0] == 'r') ? 1 : 0;      // the River's rain
+    }
+    if (by->embers) {
+        return (pick == 2 || pick == 3) ? 1 : 0;     // the Volcano: ash with rain or a storm
+    }
+    if (pick == 4) {
+        return (by->option[0] == 'v' && by->option[1] == 'a') ? 3 : 0;      // the Valley's snow
+    }
+    return pick - 1;
 }
 
 // The lights and the sky's colors in force for the time of day and the weather
@@ -2945,10 +3026,11 @@ static void dusk_step(u32 ticks) {
 // is.
 RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id, s32 block_min, s32 block_max,
                                                    s32 link, s32 dl_link, void* pokemon_enters) {
-    const Night* by = night_of(setup);
+    const Night* by;
     s32 i;
 
     on_the_ride = ((u32) pokemon_enters != PHOTO_WORLD_CALLBACK);
+    by = night_of(setup);
     night = by;
     thunder_span = 0xFFFFFFFFu;
     thunder_at = body_at = echo_at = 0;
@@ -2963,7 +3045,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     // The lights and the sky in force. A rainy night is overcast and a little
     // darker; nothing of it shows a star or the moon.
     {
-        u32 weather = (by->weather != NULL) ? recomp_get_config_u32(by->weather) : 0;
+        u32 weather = weather_of(by);
 
         raining = (weather == 1 || weather == 2);
         storming = (weather == 2);
@@ -2973,10 +3055,11 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             ashing = (weather == 1);
             raining = storming = snowing = 0;
         }
-        fx_lit = (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
-        glows_on = (recomp_get_config_u32("water_glow") == 0);
-        moonlight_on = (recomp_get_config_u32("moonlight") == 0);
-        night_sounds_on = (recomp_get_config_u32("night_sounds") == 0);
+        // The fine switches are Custom's; Simple takes their defaults.
+        fx_lit = simple_setup() || (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
+        glows_on = simple_setup() || (recomp_get_config_u32("water_glow") == 0);
+        moonlight_on = simple_setup() || (recomp_get_config_u32("moonlight") == 0);
+        night_sounds_on = simple_setup() || (recomp_get_config_u32("night_sounds") == 0);
     }
     choose_palette(by);
     if (dusk) {
@@ -3031,7 +3114,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             spare[0] = 0xDE000000;
             spare[1] = (u32) (dawn ? by->dawn_list : sunset ? by->sun_list : by->sky);
         }
-        recomp_printf("[island at night] the %s was loaded: %s%s\n", by->option, dusk ? "the sun is setting" : dawn ? "the sun rises" : sunset ? "the sun sets" : "night falls",
+        recomp_printf("[island skies] the %s was loaded: %s%s\n", by->option, dusk ? "the sun is setting" : dawn ? "the sun rises" : sunset ? "the sun sets" : "night falls",
                       storming ? ", with a storm" : raining ? ", with rain" : snowing ? ", with snow" : "");
     }
 }
@@ -3039,7 +3122,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
 // The world is taken down: the light the courses share goes back to day.
 RECOMP_HOOK("destroyWorld") void night_destroy_world(void) {
     if (night != NULL && glint_seg_n != 0) {
-        recomp_printf("[island at night] the record at the end: %d corners, %d triangles of water, %d of land, %d parts%s%s%s\n",
+        recomp_printf("[island skies] the record at the end: %d corners, %d triangles of water, %d of land, %d parts%s%s%s\n",
                       (s32) glint_vtx_n, (s32) glint_tris, (s32) glint_land, (s32) glint_seg_n,
                       (glint_vtx_n > GLINT_VTX - 64) ? "; the corners FULL" : "",
                       (glint_op_n > GLINT_OPS - 64) ? "; the ops FULL" : "",

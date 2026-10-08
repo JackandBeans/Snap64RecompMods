@@ -1,4 +1,4 @@
-// Written by tools/gen_night.py; do not edit by hand. Island at Night: each course's stars and
+// Written by tools/gen_night.py; do not edit by hand. Island Skies: each course's stars and
 // moon, the mod's three small pictures, and what the code needs to know of each sky.
 
 #include "common.h"

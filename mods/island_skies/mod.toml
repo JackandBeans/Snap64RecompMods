@@ -1,0 +1,172 @@
+[manifest]
+id = "snap64_island_skies"
+version = "0.5.0"
+display_name = "Island Skies"
+description = """
+The island's sky at any hour and in any weather. The Beach, the River, the \
+Volcano and the Valley after dark, at sunset, at dawn, through a dusk that \
+falls during the ride, or at the hour your own clock says. Each course's \
+sky, ground, water and light are the course's own, turned as the course is \
+loaded: stars that twinkle between the clouds, a moon over the open sky with \
+its glint on the water, a shooting star now and then, the Volcano lit by its \
+own lava with embers rising off it, and insects chirping in the dark. Rain, \
+storms with lightning and thunder, snow that lies on the Valley, ash over \
+the Volcano. Photos keep the sky of their instant. Simple set-up is three \
+rows; Custom gives each course its own hour and weather.
+
+Source: https://github.com/JackandBeans/Snap64RecompMods"""
+# One line in the Mods page's help box, which holds about 45 characters.
+short_description = "The island at any hour, in any weather."
+authors = [ "JackandBeans" ]
+game_id = "pokemonsnap"
+minimum_recomp_version = "1.1.3"
+dependencies = [ ]
+optional_dependencies = [ ]
+native_libraries = [ ]
+
+[inputs]
+# Paths are read relative to this file.
+elf_path = "../../build/island_skies/mod.elf"
+mod_filename = "snap64_island_skies"
+func_reference_syms_file = "../../Snap64RecompSyms/pokemonsnap.us.syms.toml"
+data_reference_syms_files = [ "../../Snap64RecompSyms/pokemonsnap.us.datasyms.toml" ]
+# The picture the Mods page shows on the mod's details page (thumb.png at
+# the .nrm's root, as the runtime reads it).
+additional_files = [ "thumb.png" ]
+
+# The page has two faces. Simple shows three rows; Custom shows every course's
+# own rows and the fine switches (hidden_from, which the port's Mods page honors).
+
+[[manifest.config_options]]
+id = "setup"
+name = "Setup"
+description = "Simple: one hour and one weather for all. Custom: each course its own, and more."
+type = "Enum"
+options = [ "Simple", "Custom" ]
+default = "Simple"
+
+[[manifest.config_options]]
+id = "time"
+name = "Time"
+description = "The island's hour, or the one your computer's clock says."
+type = "Enum"
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
+default = "Night"
+hidden_from = { id = "setup", matches = [ "Custom" ] }
+
+[[manifest.config_options]]
+id = "weather"
+name = "Weather"
+description = "Island's own is rain on the River and clear skies elsewhere; snow falls on the Valley alone."
+type = "Enum"
+options = [ "Island's own", "Clear", "Rain", "Storm", "Snow" ]
+default = "Island's own"
+hidden_from = { id = "setup", matches = [ "Custom" ] }
+
+[[manifest.config_options]]
+id = "beach"
+name = "Beach"
+description = "The Beach's hour: night, sunset, dawn, dusk, day as the cartridge has it, or your clock's."
+type = "Enum"
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
+default = "Night"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "river"
+name = "River"
+description = "The River's hour: night, sunset, dawn, dusk, day as the cartridge has it, or your clock's."
+type = "Enum"
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
+default = "Night"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "volcano"
+name = "Volcano"
+description = "The Volcano's hour: night, sunset, dawn, dusk, day as the cartridge has it, or your clock's."
+type = "Enum"
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
+default = "Night"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "valley"
+name = "Valley"
+description = "The Valley's hour: night, sunset, dawn, dusk, day as the cartridge has it, or your clock's."
+type = "Enum"
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
+default = "Night"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "beach_weather"
+name = "Beach Weather"
+description = "The Beach's sky: clear, overcast with rain, or a storm with lightning."
+type = "Enum"
+options = [ "Clear", "Rain", "Storm" ]
+default = "Clear"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "river_weather"
+name = "River Weather"
+description = "The River's sky: clear, overcast with rain, or a storm with lightning."
+type = "Enum"
+options = [ "Clear", "Rain", "Storm" ]
+default = "Rain"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "valley_weather"
+name = "Valley Weather"
+description = "The Valley's sky: clear, rain, a storm with lightning, or snow that lies."
+type = "Enum"
+options = [ "Clear", "Rain", "Storm", "Snow" ]
+default = "Clear"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "volcano_weather"
+name = "Volcano Weather"
+description = "The Volcano's sky: clear, or with ash falling."
+type = "Enum"
+options = [ "Clear", "Ash" ]
+default = "Clear"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "effects"
+name = "Effects at Night"
+description = "Splashes, dust and mist take the night's light, or keep their day colors."
+type = "Enum"
+options = [ "Day colors", "Night-lit" ]
+default = "Night-lit"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "water_glow"
+name = "Water Glow"
+description = "The moon's glint on the water and the River's fireflies."
+type = "Enum"
+options = [ "On", "Off" ]
+default = "On"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "moonlight"
+name = "Moonlight on Pokémon"
+description = "The scene's light leans toward the moon, or stays where the game puts it."
+type = "Enum"
+options = [ "Moon", "Game's own" ]
+default = "Moon"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "night_sounds"
+name = "Night Sounds"
+description = "Insects chirping in the dark on a clear night, low under the music."
+type = "Enum"
+options = [ "On", "Off" ]
+default = "On"
+hidden_from = { id = "setup", matches = [ "Simple" ] }

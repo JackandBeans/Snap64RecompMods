@@ -1,4 +1,4 @@
-"""Writes src/night_data.c and src/night_data.h for Island at Night: each course's stars and moon,
+"""Writes src/night_data.c and src/night_data.h for Island Skies: each course's stars and moon,
 the three small pictures they are drawn with, and the numbers the mod's code needs about each sky.
 
 Each of these courses has its sky as a six-sided box around the camera with a 64x32 picture (the
@@ -685,7 +685,7 @@ def main():
 
     c = []
     w = c.append
-    w('// Written by tools/gen_night.py; do not edit by hand. Island at Night: each course\'s stars and')
+    w('// Written by tools/gen_night.py; do not edit by hand. Island Skies: each course\'s stars and')
     w('// moon, the mod\'s three small pictures, and what the code needs to know of each sky.')
     w('')
     w('#include "common.h"')

@@ -92,6 +92,24 @@ def crescent(img):
                (sx, sy + sl), (sx - ss, sy + ss), (sx - sl, sy), (sx - ss, sy - ss)], fill=(*INK, 255))
 
 
+def skies(img):
+    """A crescent moon and a small sun: every hour's sign."""
+    d, cx, cy, r = badge(img)
+    mr = r * 0.46
+    mx, my = cx - r * 0.22, cy + r * 0.12
+    d.ellipse((mx - mr, my - mr, mx + mr, my + mr), fill=(*INK, 255))
+    bx, by, br = mx + mr * 0.42, my - mr * 0.28, mr * 0.86
+    d.ellipse((bx - br, by - br, bx + br, by + br), fill=(*GOLD, 255))
+    # The sun, upper right: a disc with eight short rays.
+    sx, sy, sr = cx + r * 0.42, cy - r * 0.42, r * 0.17
+    d.ellipse((sx - sr, sy - sr, sx + sr, sy + sr), fill=(*INK, 255))
+    for k in range(8):
+        a = k * math.pi / 4
+        x0, y0 = sx + math.cos(a) * sr * 1.35, sy + math.sin(a) * sr * 1.35
+        x1, y1 = sx + math.cos(a) * sr * 1.95, sy + math.sin(a) * sr * 1.95
+        d.line((x0, y0, x1, y1), fill=(*INK, 255), width=max(2, int(r * 0.05)))
+
+
 def write(name, sign):
     img = base_with_canister()
     sign(img)
@@ -103,4 +121,4 @@ def write(name, sign):
 
 write("unlimited_film", infinity)
 write("unlock_everything", open_padlock)
-write("island_at_night", crescent)
+write("island_skies", skies)
