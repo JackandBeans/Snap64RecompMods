@@ -1087,17 +1087,41 @@ static void sky_at_night(u32 pic) {
         sky_mask[i] = (u8) (sum >> 4);
     }
     // The picture meets itself at each of the drum's six edges, its last
-    // column against its first, and the two differ; they are blended to one
-    // value over the eight columns either side, so no seam stands where
-    // the faces meet (bright sunset clouds showed it).
-    for (i = 0; i < 32; i++) {
-        u8* row = &sky_mask[i * 64];
-        s32 edge = ((s32) row[0] + row[63]) / 2;
-        s32 x;
+    // column against its first, and the two do not agree (a cloud begins at
+    // the first). The ten columns either side of the join dissolve into the
+    // mask's clearest stretch of twenty, laid across the join so the cloud
+    // runs on, as the port does to the day's picture (patches/src/sky_patch.c).
+    {
+        u32 best = 0xFFFFFFFFu;
+        s32 best_o = 10, o, x, d;
+        u8 keep[64];
 
-        for (x = 0; x < 8; x++) {
-            row[x] = (u8) (edge + (((s32) row[x] - edge) * x) / 8);
-            row[63 - x] = (u8) (edge + (((s32) row[63 - x] - edge) * x) / 8);
+        for (o = 10; o + 20 <= 54; o++) {
+            u32 cloud = 0;
+
+            for (i = 0; i < 32; i++) {
+                for (x = o; x < o + 20; x++) {
+                    cloud += sky_mask[i * 64 + x];
+                }
+            }
+            if (cloud < best) {
+                best = cloud;
+                best_o = o;
+            }
+        }
+        for (i = 0; i < 32; i++) {
+            u8* row = &sky_mask[i * 64];
+
+            for (x = 0; x < 64; x++) {
+                keep[x] = row[x];
+            }
+            for (d = 0; d < 10; d++) {
+                s32 w = ((10 - d) * 256) / 10;
+
+                w = (w * w * (3 * 256 - 2 * w)) / (256 * 256);
+                row[d] = (u8) (keep[d] + ((((s32) keep[best_o + 10 + d] - keep[d]) * w + 128) >> 8));
+                row[63 - d] = (u8) (keep[63 - d] + ((((s32) keep[best_o + 10 - d] - keep[63 - d]) * w + 128) >> 8));
+            }
         }
     }
     sky_paint(pic, sky_mask);
