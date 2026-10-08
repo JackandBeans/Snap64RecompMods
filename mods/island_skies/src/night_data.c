@@ -243,6 +243,7 @@ static Gfx night_band_begin[] = {
 const u8 night_band_az_w[NIGHT_BAND_COLS] = { 0, 24, 88, 167, 231, 255, 231, 167, 88, 24, 0 };
 const u8 night_band_el_w[NIGHT_BAND_ROWS] = { 255, 255, 140, 0 };
 const u8 night_band_sun_color[NIGHT_BAND_ROWS][3] = { { 255, 165, 80 }, { 255, 165, 80 }, { 245, 135, 110 }, { 225, 110, 140 } };
+const u8 night_band_dawn_color[NIGHT_BAND_ROWS][3] = { { 255, 195, 150 }, { 255, 195, 150 }, { 240, 170, 170 }, { 220, 160, 190 } };
 
 // The sky's own states, put back at the end: its combiner (picture times shade), its texture
 // switch and its render mode.
@@ -27480,6 +27481,7 @@ Gfx night_beach_twinkle[][2] = {
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
+    { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
 };
 
 Gfx night_beach_sky[] = {
@@ -28619,7 +28621,7 @@ Gfx night_beach_sky[] = {
     gsSP2Triangles(8, 9, 10, 0, 8, 10, 11, 0),
     gsSP2Triangles(12, 13, 14, 0, 12, 14, 15, 0),
     gsSP2Triangles(16, 17, 18, 0, 16, 18, 19, 0),
-    gsDPSetPrimColor(0, 0, 255, 255, 255, 235),
+    gsSPDisplayList(night_beach_twinkle[47]),
     gsSPVertex(&night_beach_vtx[3840], 32, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
@@ -28682,8 +28684,7 @@ Gfx night_beach_sun[] = {
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_beach_vtx[3924], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSPDisplayList(night_sprites_end),
-    gsSPEndDisplayList(),
+    gsSPBranchList(night_beach_sky),     // on into the stars and the moon, dark when they should be
 };
 
 // The dawn's sun, attached to the sky at dawn.
@@ -28697,8 +28698,7 @@ Gfx night_beach_dawn[] = {
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_beach_vtx[3932], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSPDisplayList(night_sprites_end),
-    gsSPEndDisplayList(),
+    gsSPBranchList(night_beach_sky),
 };
 
 const u8 night_beach_rows0[32] = { 0, 0, 0, 0, 0, 0, 2, 2, 7, 13, 13, 18, 24, 24, 30, 37, 37, 43, 43, 50, 56, 56, 63, 70, 70, 77, 84, 84, 91, 99, 99, 144 };
@@ -31809,6 +31809,7 @@ Gfx night_river_twinkle[][2] = {
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
+    { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
 };
 
 Gfx night_river_sky[] = {
@@ -32654,7 +32655,7 @@ Gfx night_river_sky[] = {
     gsSP2Triangles(8, 9, 10, 0, 8, 10, 11, 0),
     gsSP2Triangles(12, 13, 14, 0, 12, 14, 15, 0),
     gsSP2Triangles(16, 17, 18, 0, 16, 18, 19, 0),
-    gsDPSetPrimColor(0, 0, 255, 255, 255, 235),
+    gsSPDisplayList(night_river_twinkle[45]),
     gsSPVertex(&night_river_vtx[2792], 28, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
@@ -32708,8 +32709,7 @@ Gfx night_river_sun[] = {
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_river_vtx[2860], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSPDisplayList(night_sprites_end),
-    gsSPEndDisplayList(),
+    gsSPBranchList(night_river_sky),     // on into the stars and the moon, dark when they should be
 };
 
 // The dawn's sun, attached to the sky at dawn.
@@ -32723,8 +32723,7 @@ Gfx night_river_dawn[] = {
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_river_vtx[2868], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSPDisplayList(night_sprites_end),
-    gsSPEndDisplayList(),
+    gsSPBranchList(night_river_sky),
 };
 
 const u8 night_river_rows0[32] = { 0, 6, 6, 12, 19, 19, 26, 33, 33, 40, 48, 48, 56, 64, 64, 73, 82, 81, 91, 91, 101, 110, 110, 120, 130, 130, 140, 150, 150, 161, 170, 215 };
@@ -33919,6 +33918,7 @@ Gfx night_volcano_twinkle[][2] = {
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
+    { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
 };
 
 Gfx night_volcano_sky[] = {
@@ -34237,7 +34237,7 @@ Gfx night_volcano_sky[] = {
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPDisplayList(night_volcano_twinkle[36]),
     gsSPDisplayList(night_volcano_twinkle[37]),
-    gsDPSetPrimColor(0, 0, 255, 255, 255, 235),
+    gsSPDisplayList(night_volcano_twinkle[41]),
     gsSPVertex(&night_volcano_vtx[920], 12, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
@@ -34267,8 +34267,7 @@ Gfx night_volcano_sun[] = {
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_volcano_vtx[948], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSPDisplayList(night_sprites_end),
-    gsSPEndDisplayList(),
+    gsSPBranchList(night_volcano_sky),     // on into the stars and the moon, dark when they should be
 };
 
 // The dawn's sun, attached to the sky at dawn.
@@ -34282,8 +34281,7 @@ Gfx night_volcano_dawn[] = {
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_volcano_vtx[956], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSPDisplayList(night_sprites_end),
-    gsSPEndDisplayList(),
+    gsSPBranchList(night_volcano_sky),
 };
 
 const u8 night_volcano_rows0[32] = { 0, 6, 6, 12, 19, 19, 26, 33, 33, 40, 48, 48, 56, 64, 64, 73, 82, 81, 91, 91, 101, 110, 110, 120, 130, 130, 140, 150, 150, 161, 170, 215 };
@@ -38789,6 +38787,7 @@ Gfx night_valley_twinkle[][2] = {
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
     { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
+    { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },
 };
 
 Gfx night_valley_sky[] = {
@@ -40017,7 +40016,7 @@ Gfx night_valley_sky[] = {
     gsSPVertex(&night_valley_vtx[4152], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsDPSetPrimColor(0, 0, 255, 255, 255, 235),
+    gsSPDisplayList(night_valley_twinkle[48]),
     gsSPVertex(&night_valley_vtx[4160], 32, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
@@ -40084,8 +40083,7 @@ Gfx night_valley_sun[] = {
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_valley_vtx[4252], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSPDisplayList(night_sprites_end),
-    gsSPEndDisplayList(),
+    gsSPBranchList(night_valley_sky),     // on into the stars and the moon, dark when they should be
 };
 
 // The dawn's sun, attached to the sky at dawn.
@@ -40099,8 +40097,7 @@ Gfx night_valley_dawn[] = {
     gsDPSetPrimColor(0, 0, 255, 255, 255, 255),
     gsSPVertex(&night_valley_vtx[4260], 4, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSPDisplayList(night_sprites_end),
-    gsSPEndDisplayList(),
+    gsSPBranchList(night_valley_sky),
 };
 
 const u8 night_valley_rows0[32] = { 45, 45, 50, 54, 54, 58, 63, 63, 67, 71, 71, 75, 80, 80, 84, 84, 88, 92, 92, 96, 99, 99, 103, 107, 107, 111, 114, 114, 118, 121, 169, 125 };

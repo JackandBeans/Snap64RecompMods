@@ -3,8 +3,8 @@ id = "snap64_island_skies"
 version = "0.5.0"
 display_name = "Island Skies"
 description = """
-The island's sky at any hour and in any weather. The Beach, the River, the \
-Volcano and the Valley after dark, at sunset, at dawn, through a dusk that \
+The island's sky at any hour and in any weather. The Beach, the Tunnel, the \
+River, the Volcano and the Valley after dark, at sunset, at dawn, through a dusk that \
 falls during the ride, or at the hour your own clock says. Each course's \
 sky, ground, water and light are the course's own, turned as the course is \
 loaded: stars that twinkle between the clouds, a moon over the open sky with \
@@ -40,28 +40,28 @@ additional_files = [ "thumb.png" ]
 [[manifest.config_options]]
 id = "setup"
 name = "Setup"
-description = "Simple: one hour and one weather for all. Custom: each course its own, and more."
+description = "Simple: one hour and weather for all. Live: your clock's hour, weather by chance. Custom: every row."
 type = "Enum"
-options = [ "Simple", "Custom" ]
+options = [ "Simple", "Live", "Custom" ]
 default = "Simple"
 
 [[manifest.config_options]]
 id = "time"
 name = "Time"
-description = "The island's hour, or the one your computer's clock says."
+description = "The island's hour, or the one your computer's clock says, round the whole day."
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"
-hidden_from = { id = "setup", matches = [ "Custom" ] }
+hidden_from = { id = "setup", matches = [ "Live", "Custom" ] }
 
 [[manifest.config_options]]
 id = "weather"
 name = "Weather"
-description = "Island's own is rain on the River and clear skies elsewhere; snow falls on the Valley alone."
+description = "Island's own is rain on the River, clear elsewhere; snow on the Valley alone; Random draws each ride."
 type = "Enum"
-options = [ "Island's own", "Clear", "Rain", "Storm", "Snow" ]
+options = [ "Island's own", "Clear", "Rain", "Storm", "Snow", "Random" ]
 default = "Island's own"
-hidden_from = { id = "setup", matches = [ "Custom" ] }
+hidden_from = { id = "setup", matches = [ "Live", "Custom" ] }
 
 [[manifest.config_options]]
 id = "beach"
@@ -70,7 +70,7 @@ description = "The Beach's hour: night, sunset, dawn, dusk, day as the cartridge
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "river"
@@ -79,7 +79,7 @@ description = "The River's hour: night, sunset, dawn, dusk, day as the cartridge
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "volcano"
@@ -88,7 +88,7 @@ description = "The Volcano's hour: night, sunset, dawn, dusk, day as the cartrid
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "valley"
@@ -97,7 +97,16 @@ description = "The Valley's hour: night, sunset, dawn, dusk, day as the cartridg
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
+
+[[manifest.config_options]]
+id = "tunnel"
+name = "Tunnel"
+description = "The Tunnel's hour; it has no sky of its own, and its roof keeps the weather out."
+type = "Enum"
+options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
+default = "Night"
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "beach_weather"
@@ -106,7 +115,7 @@ description = "The Beach's sky: clear, overcast with rain, or a storm with light
 type = "Enum"
 options = [ "Clear", "Rain", "Storm" ]
 default = "Clear"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "river_weather"
@@ -115,7 +124,7 @@ description = "The River's sky: clear, overcast with rain, or a storm with light
 type = "Enum"
 options = [ "Clear", "Rain", "Storm" ]
 default = "Rain"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "valley_weather"
@@ -124,7 +133,7 @@ description = "The Valley's sky: clear, rain, a storm with lightning, or snow th
 type = "Enum"
 options = [ "Clear", "Rain", "Storm", "Snow" ]
 default = "Clear"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "volcano_weather"
@@ -133,7 +142,7 @@ description = "The Volcano's sky: clear, or with ash falling."
 type = "Enum"
 options = [ "Clear", "Ash" ]
 default = "Clear"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "effects"
@@ -142,7 +151,7 @@ description = "Splashes, dust and mist take the night's light, or keep their day
 type = "Enum"
 options = [ "Day colors", "Night-lit" ]
 default = "Night-lit"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "water_glow"
@@ -151,7 +160,7 @@ description = "The moon's glint on the water and the River's fireflies."
 type = "Enum"
 options = [ "On", "Off" ]
 default = "On"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "moonlight"
@@ -160,7 +169,7 @@ description = "The scene's light leans toward the moon, or stays where the game 
 type = "Enum"
 options = [ "Moon", "Game's own" ]
 default = "Moon"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "night_sounds"
@@ -169,4 +178,4 @@ description = "Insects chirping in the dark on a clear night, low under the musi
 type = "Enum"
 options = [ "On", "Off" ]
 default = "On"
-hidden_from = { id = "setup", matches = [ "Simple" ] }
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }

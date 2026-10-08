@@ -752,6 +752,7 @@ def main():
     w('const u8 night_band_az_w[NIGHT_BAND_COLS] = { %s };' % ', '.join(str(v) for v in BAND_AZ_W))
     w('const u8 night_band_el_w[NIGHT_BAND_ROWS] = { %s };' % ', '.join(str(v) for v in BAND_EL_W))
     w('const u8 night_band_sun_color[NIGHT_BAND_ROWS][3] = { %s };' % ', '.join('{ %d, %d, %d }' % col for col in BAND_SUN_COLOR))
+    w('const u8 night_band_dawn_color[NIGHT_BAND_ROWS][3] = { %s };' % ', '.join('{ %d, %d, %d }' % col for col in BAND_DAWN_COLOR))
     w('')
     w('// The sky\'s own states, put back at the end: its combiner (picture times shade), its texture')
     w('// switch and its render mode.')
@@ -788,6 +789,7 @@ def main():
     h.append('extern const u8 night_band_az_w[NIGHT_BAND_COLS];')
     h.append('extern const u8 night_band_el_w[NIGHT_BAND_ROWS];')
     h.append('extern const u8 night_band_sun_color[NIGHT_BAND_ROWS][3];')
+    h.append('extern const u8 night_band_dawn_color[NIGHT_BAND_ROWS][3];')
     make_rain(w, h)
     make_glow(w, h, built)
 
@@ -886,7 +888,7 @@ def main():
         n_tw = FAINT_GROUPS + MID_GROUPS + len(b['bright'])
         w('// One command each, rewritten every frame: the brightness of a twinkle group.')
         w('Gfx night_%s_twinkle[][2] = {' % name)
-        for i in range(n_tw):
+        for i in range(n_tw + 1):        # one more: the bright stars' hearts, faded with the rest
             w('    { gsDPSetPrimColor(0, 0, 255, 255, 255, 200), gsSPEndDisplayList() },')
         w('};')
         w('')
@@ -909,7 +911,7 @@ def main():
         glint_on = False
         for first_quad, count, kind in groups:
             if kind == 'heart':
-                w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 235),')
+                w('    gsSPDisplayList(night_%s_twinkle[%d]),' % (name, n_tw))
                 draw(first_quad, count)
                 continue
             if kind == 'rays' and not glint_on:
@@ -938,8 +940,7 @@ def main():
         draw(sun_first, 1)
         w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 255),')
         draw(sun_first + 1, 1)
-        w('    gsSPDisplayList(night_sprites_end),')
-        w('    gsSPEndDisplayList(),')
+        w('    gsSPBranchList(night_%s_sky),     // on into the stars and the moon, dark when they should be' % name)
         w('};')
         w('')
         w('// The dawn\'s sun, attached to the sky at dawn.')
@@ -951,8 +952,7 @@ def main():
         draw(dawn_first, 1)
         w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 255),')
         draw(dawn_first + 1, 1)
-        w('    gsSPDisplayList(night_sprites_end),')
-        w('    gsSPEndDisplayList(),')
+        w('    gsSPBranchList(night_%s_sky),' % name)
         w('};')
         w('')
         pics = b['sky']['pics']
@@ -971,6 +971,7 @@ def main():
         h.append('#define NIGHT_%s_SUN { %d, %d, %d }' % (up, int(round(sun[0] * 127)), int(round(sun[1] * 127)), int(round(sun[2] * 127))))
         h.append('extern Gfx night_%s_sun[];' % name)
         h.append('extern Vtx night_%s_band[];' % name)
+        h.append('extern Vtx night_%s_dawn_band[];' % name)
         dawn = b['dawn']
         h.append('#define NIGHT_%s_DAWN { %d, %d, %d }' % (up, int(round(dawn[0] * 127)), int(round(dawn[1] * 127)), int(round(dawn[2] * 127))))
         h.append('extern Gfx night_%s_dawn[];' % name)
