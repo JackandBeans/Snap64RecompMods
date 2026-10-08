@@ -192,10 +192,14 @@ def make_pictures():
     seas = [(-0.38, -0.30, 0.30, 0.26, 0.17), (-0.04, -0.42, 0.26, 0.18, 0.15), (0.22, -0.20, 0.22, 0.22, 0.14),
             (-0.56, 0.06, 0.18, 0.32, 0.15), (0.56, -0.32, 0.10, 0.12, 0.12), (0.10, 0.30, 0.18, 0.13, 0.09)]
     craters = [(0.30, 0.52, 0.07), (-0.20, 0.62, 0.05), (0.62, 0.18, 0.05), (-0.52, 0.46, 0.04)]
-    moon = []
+    # The moon's face, lit all over, then its eight phases: new, waxing crescent, first
+    # quarter, waxing gibbous, full, waning gibbous, last quarter, waning crescent. The
+    # terminator is the ellipse it is on a sphere; the dark side keeps a sixth of its light
+    # (the earth's shine). The picture's top is the moon's north; waxing lights the right.
+    face = []
     for y in range(32):
         for x in range(32):
-            u, v = (x - 15.5) / 14.5, (y - 15.5) / 14.5      # the picture's top is the moon's north
+            u, v = (x - 15.5) / 14.5, (y - 15.5) / 14.5
             r = math.hypot(u, v)
             alpha = max(0.0, min(1.0, (1.0 - r) * 14.5 / 1.3 + 0.5))
             light = 0.95 - 0.16 * max(0.0, r) ** 2.4
@@ -204,11 +208,31 @@ def make_pictures():
             for cx, cy, cr in craters:
                 light += 0.07 * math.exp(-(((u - cx) / cr) ** 2 + ((v - cy) / cr) ** 2))
             light += rng.uniform(-0.012, 0.012)
-            i8 = max(0, min(255, int(round(255 * max(0.0, min(1.0, light))))))
+            face.append((u, v, max(0.0, min(1.0, light)), alpha))
+
+    def moon_picture(phase):
+        lit_fraction = (1.0 - math.cos(2.0 * math.pi * phase)) / 2.0
+        k = 2.0 * lit_fraction - 1.0
+        waxing = phase < 0.5
+        pic = []
+        for u, v, light, alpha in face:
+            t = -k * math.sqrt(max(0.0, 1.0 - v * v))
+            lit = (u > t) if waxing else (u < -t)
+            if phase == 0.5:
+                lit = True
+            # Soft at the terminator: half a texel.
+            edge = (u - t) if waxing else (-t - u)
+            w = max(0.0, min(1.0, edge * 14.5 / 1.0 + 0.5)) if phase != 0.5 else 1.0
+            l = light * (0.16 + 0.84 * w)
+            i8 = max(0, min(255, int(round(255 * l))))
             a8 = max(0, min(255, int(round(255 * alpha))))
-            moon.append((i8 << 8) | a8)
+            pic.append((i8 << 8) | a8)
+        return pic
+
+    moon = moon_picture(0.5)
+    moons = [moon_picture(k / 8.0) for k in range(8)]
     sine = [int(round(127 * math.sin(2 * math.pi * i / 256.0))) for i in range(256)]
-    return dot, glint, moon, sine
+    return dot, glint, moon, moons, sine
 
 
 def make_twinkles():
@@ -676,7 +700,7 @@ def build_course(name, cfg, rom_path, show_hist):
 def main():
     rom_path = sys.argv[1]
     show_hist = '--hist' in sys.argv
-    dot, glint, moon_pic, sine = make_pictures()
+    dot, glint, moon_pic, moon_phases, sine = make_pictures()
     built = {}
     for name, cfg in COURSES.items():
         built[name] = build_course(name, cfg, rom_path, show_hist)
@@ -705,6 +729,15 @@ def main():
     bytes_array('night_dot_pic', 'static u8', dot, 16, '%3d')
     bytes_array('night_glint_pic', 'static u8', glint, 32, '%3d')
     bytes_array('night_moon_pic', 'static u16', moon_pic, 16, '0x%04X')
+    w('// The moon\'s eight phases, new to waning crescent; the code points the moon\'s picture at one.')
+    w('u16 night_moon_phases[8][32 * 32] __attribute__((aligned(8))) = {')
+    for pic in moon_phases:
+        w('    {')
+        for i in range(0, len(pic), 16):
+            w('        ' + ' '.join('0x%04X,' % v for v in pic[i:i + 16]))
+        w('    },')
+    w('};')
+    w('')
     bytes_array('night_sine', 'const s8', sine, 16, '%4d')
 
     twinkles = make_twinkles()
@@ -732,7 +765,7 @@ def main():
     w('    gsDPLoadTextureBlock(night_glint_pic, G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0, G_TX_CLAMP, G_TX_CLAMP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),')
     w('    gsSPEndDisplayList(),')
     w('};')
-    w('static Gfx night_use_moon[] = {')
+    w('Gfx night_use_moon[] = {')
     w('    gsDPLoadTextureBlock(night_moon_pic, G_IM_FMT_IA, G_IM_SIZ_16b, 32, 32, 0, G_TX_CLAMP, G_TX_CLAMP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),')
     w('    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0, TEXEL0, 0, PRIMITIVE, 0, TEXEL0, 0, SHADE, 0, TEXEL0, 0, PRIMITIVE, 0),')
     w('    gsSPEndDisplayList(),')
@@ -781,6 +814,8 @@ def main():
     h.append('} NightTwinkle;')
     h.append('extern const s8 night_sine[];')
     h.append('extern const NightTwinkle night_twinkles[];')
+    h.append('extern u16 night_moon_phases[8][32 * 32];')
+    h.append('extern Gfx night_use_moon[];      // its first command loads the moon\'s picture')
     h.append('')
     h.append('// The glow band at the horizon toward the sun: its columns and rows, its weights and colors.')
     h.append('#define NIGHT_BAND_COLS %d' % len(BAND_AZ))

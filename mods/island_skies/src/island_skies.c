@@ -167,6 +167,7 @@ static u8 glows_on = 1;          // the water glows are drawn,
 static u8 moonlight_on = 1;      // the key light leans toward the moon
 static u8 night_sounds_on = 1;   // the night's voices are heard
 static u8 lightning = 1;         // a storm's lightning: 0 full, 1 gentle (the flash dimmed to two fifths), 2 none
+static f32 moon_light = 1.0f;    // how much of the moon is lit: 0.3 at new to 1 at full, for its glint
 static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
 static u8 dusk;                  // or that the sun sets during the ride
@@ -278,50 +279,6 @@ static void glint_reset(void) {
     glint_said_drawn = 0;
 }
 static f32 walk_node_y;          // the height in the world of the node being walked (its blocks are placed)
-#ifdef NIGHT_MAP
-#define MAP_N    40
-#define MAP_CELL 500.0f
-static u8 map_kind[MAP_N * MAP_N];        // 1 land, 2 water, 4 the camera passed
-static f32 map_water_y[MAP_N * MAP_N];
-static u16 map_water_n[MAP_N * MAP_N];
-static f32 walk_node_x, walk_node_z;
-static u32 map_eye_tick;
-static s32 map_cell(f32 x, f32 z) {
-    s32 cx = (s32) ((x + 10000.0f) / MAP_CELL);
-    s32 cz = (s32) ((z + 10000.0f) / MAP_CELL);
-    if (cx < 0 || cz < 0 || cx >= MAP_N || cz >= MAP_N) {
-        return -1;
-    }
-    return cz * MAP_N + cx;
-}
-static void map_print(void) {
-    char row[MAP_N + 1];
-    s32 cx, cz;
-
-    recomp_printf("[night map] columns x = -10000 .. 10000 by 500; rows z\n");
-    for (cz = 0; cz < MAP_N; cz++) {
-        for (cx = 0; cx < MAP_N; cx++) {
-            u8 k = map_kind[cz * MAP_N + cx];
-            row[cx] = (k & 4) ? '@' : (k & 2) ? ((k & 1) ? '%' : '~') : (k & 1) ? '#' : '.';
-        }
-        row[MAP_N] = 0;
-        recomp_printf("[night map] z=%6d |%s|\n", -10000 + cz * 500 + 250, row);
-    }
-    for (cz = 0; cz < MAP_N; cz++) {
-        for (cx = 0; cx < MAP_N; cx++) {
-            s32 c = cz * MAP_N + cx;
-            if (map_water_n[c] != 0) {
-                recomp_printf("[night water] x=%d z=%d y=%d n=%d\n", -10000 + cx * 500 + 250, -10000 + cz * 500 + 250,
-                              (s32) (map_water_y[c] / (f32) map_water_n[c]), (s32) map_water_n[c]);
-            }
-            map_kind[c] = 0;
-            map_water_y[c] = 0.0f;
-            map_water_n[c] = 0;
-        }
-    }
-    recomp_printf("[night map] end\n");
-}
-#endif
 static u8 lit;                   // the walker's reading of G_LIGHTING
 static u8 flowing;               // the walker's reading of the material: the one that flows
 static u32 slots[64];            // the walker's vertex buffer: where each painted vertex came from
@@ -432,23 +389,6 @@ static void light_vertex(u32 at, s32 steep, s32 toward) {
             }
             flow_y_n++;
         }
-#ifdef NIGHT_MAP
-        if (at >= night->world_lo && at < night->world_hi) {
-            f32 wx = (f32) ((volatile s16*) at)[0] + walk_node_x;
-            f32 wz = (f32) ((volatile s16*) at)[2] + walk_node_z;
-            s32 c = map_cell(wx, wz);
-
-            if (c >= 0) {
-                if (flowing) {
-                    map_kind[c] |= 2;
-                    map_water_y[c] += (f32) ((volatile s16*) at)[1] + walk_node_y;
-                    map_water_n[c]++;
-                } else {
-                    map_kind[c] |= 1;
-                }
-            }
-        }
-#endif
 
         // Under snow, the land's painted colors (much of the land's color is
         // painted, over gray pictures) go to snow first, except where the
@@ -792,15 +732,8 @@ static void walk_payload(DObj* node, s32 kind) {
         return;
     }
     walk_node_y = 0.0f;
-#ifdef NIGHT_MAP
-    walk_node_x = walk_node_z = 0.0f;
-#endif
     while (up != NULL && (u32) up != 1 && guard-- > 0) {
         walk_node_y += up->position.v.y;
-#ifdef NIGHT_MAP
-        walk_node_x += up->position.v.x;
-        walk_node_z += up->position.v.z;
-#endif
         up = up->parent;
     }
     glint_top_n = 0;
@@ -1633,7 +1566,7 @@ static void glint_segment(s32 k, f32 m[4][4], const f32* eye, const f32* la, con
         *opened = 1;
         command(list, (0x64u << 24) | 0x00002Cu, 1);
         gSPDisplayList((*list)++, night_glow_begin);
-        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, 140);
+        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (140.0f * moon_light));
     }
     for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
         o = glint_op[j];
@@ -2423,23 +2356,6 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
             view_fwd[1] = fz / len;
         }
     }
-#ifdef NIGHT_MAP
-    if (night != NULL && obj != NULL && obj->data.dobj != NULL) {
-        u32 t = ticks_of(night);
-
-        if (t - map_eye_tick >= 60 || t < map_eye_tick) {
-            DObj* eye = obj->data.dobj;
-            s32 c = map_cell(eye->position.v.x, eye->position.v.z);
-
-            map_eye_tick = t;
-            if (c >= 0) {
-                map_kind[c] |= 4;
-            }
-            recomp_printf("[night eye] t=%d x=%d y=%d z=%d\n", (s32) t, (s32) eye->position.v.x,
-                          (s32) eye->position.v.y, (s32) eye->position.v.z);
-        }
-    }
-#endif
     if (night != NULL) {
         if (night->twinkle != NULL) {
             twinkle(night);         // at every hour: the fade makes them dark by day
@@ -3009,12 +2925,8 @@ static void relight_record(void) {
 //
 // The day end of every blend is the cartridge itself: its picture texels, its
 // corner colors, its fog, light and background, kept as the course loads.
-#define M_DAWN0  300.0f
-#define M_DAWN1  345.0f
-#define M_DAY0   405.0f
-#define M_DAY1   1050.0f
-#define M_SUN1   1110.0f
-#define M_NIGHT0 1155.0f
+static f32 m_dawn0 = 300.0f, m_dawn1 = 345.0f, m_day0 = 405.0f;      // the fixed hours, or the sun's at a latitude
+static f32 m_day1 = 1050.0f, m_sun1 = 1110.0f, m_night0 = 1155.0f;
 
 static f32 ease(f32 w) {
     w = w < 0.0f ? 0.0f : w > 1.0f ? 1.0f : w;
@@ -3090,7 +3002,7 @@ static void moon_state(f32 moon) {
         }
         if (n >= 9 && (sky[n - 4].words.w0 >> 24) == 0xFA && (sky[n - 8].words.w0 >> 24) == 0xFA) {
             sky[n - 4].words.w1 = 0xFFFFFF00u | (u32) (255.0f * moon);
-            sky[n - 8].words.w1 = 0xFFFFFF00u | (u32) (112.0f * moon);
+            sky[n - 8].words.w1 = 0xFFFFFF00u | (u32) (112.0f * moon * moon_light);     // the halo fades with the phase
         }
     }
 }
@@ -3221,7 +3133,7 @@ static void moment_apply(f32 m) {
     f32 stars = 0.0f, moon = 0.0f;
 
     cycle_minute = m;
-    if (m >= M_NIGHT0 || m < M_DAWN0) {
+    if (m >= m_night0 || m < m_dawn0) {
         // Night.
         palette_blend(pal_b, dir_b, pal_b, dir_b, 0.0f, 0);
         nightness = 1.0f;
@@ -3235,9 +3147,9 @@ static void moment_apply(f32 m) {
         band_state(night->band, night_band_sun_color, 0.0f, 0.0f);
         band_state(night->dawn_band, night_band_dawn_color, 0.0f, 0.0f);
         spare_point(night->sky);
-    } else if (m < M_DAWN1) {
+    } else if (m < m_dawn1) {
         // Night to dawn: the stars and the moon go, the sun comes up pink.
-        f32 w = (m - M_DAWN0) / (M_DAWN1 - M_DAWN0);
+        f32 w = (m - m_dawn0) / (m_dawn1 - m_dawn0);
 
         palette_blend(pal_b, dir_b, pal_d, dir_d, w, 0);
         nightness = 1.0f;
@@ -3251,9 +3163,9 @@ static void moment_apply(f32 m) {
         band_state(night->band, night_band_sun_color, 0.0f, 0.0f);
         band_state(night->dawn_band, night_band_dawn_color, ease(w), 0.0f);
         spare_point(night->dawn_list);
-    } else if (m < M_DAY0) {
+    } else if (m < m_day0) {
         // Dawn to day: the pink lifts off the cartridge's own morning.
-        f32 w = (m - M_DAWN1) / (M_DAY0 - M_DAWN1);
+        f32 w = (m - m_dawn1) / (m_day0 - m_dawn1);
 
         palette_blend(pal_d, dir_d, pal_d, dir_d, 0.0f, 0);
         nightness = 1.0f - ease(w);
@@ -3265,7 +3177,7 @@ static void moment_apply(f32 m) {
         band_state(night->band, night_band_sun_color, 0.0f, 0.0f);
         band_state(night->dawn_band, night_band_dawn_color, 1.0f - ease(w), 0.0f);
         spare_point(w < 0.999f ? night->dawn_list : NULL);
-    } else if (m < M_DAY1) {
+    } else if (m < m_day1) {
         // Day: the cartridge, exactly.
         palette_blend(pal_a, dir_a, pal_a, dir_a, 0.0f, 0);
         nightness = 0.0f;
@@ -3277,9 +3189,9 @@ static void moment_apply(f32 m) {
         band_state(night->band, night_band_sun_color, 0.0f, 0.0f);
         band_state(night->dawn_band, night_band_dawn_color, 0.0f, 0.0f);
         spare_point(NULL);
-    } else if (m < M_SUN1) {
+    } else if (m < m_sun1) {
         // Day to sunset: the sky warms, the sun comes down to its evening place.
-        f32 w = (m - M_DAY1) / (M_SUN1 - M_DAY1);
+        f32 w = (m - m_day1) / (m_sun1 - m_day1);
 
         palette_blend(pal_a, dir_a, pal_a, dir_a, 0.0f, 0);
         nightness = ease(w);
@@ -3294,7 +3206,7 @@ static void moment_apply(f32 m) {
     } else {
         // Sunset to night: the dusk. The sun sinks and fades, the band
         // deepens and goes, the stars rise and the moon comes.
-        f32 t = (m - M_SUN1) / (M_NIGHT0 - M_SUN1);
+        f32 t = (m - m_sun1) / (m_night0 - m_sun1);
         f32 sun_alpha = 1.0f - (t - 0.35f) / 0.3f;
         f32 sink = (t < 0.6f) ? t / 0.6f : 1.0f;
 
@@ -3315,6 +3227,109 @@ static void moment_apply(f32 m) {
     star_fade = (u8) (255.0f * stars);
     moon_state(moon);
     scene_apply();
+}
+
+// ---------------------------------------------------------------------------
+// The calendar. Days since the turn of the century from a date, by the usual
+// integer formula; the day of the year from it.
+static s32 days_from_2000(s32 y, s32 m, s32 d) {
+    return 367 * y - (7 * (y + (m + 9) / 12)) / 4 + (275 * m) / 9 + d - 730530;
+}
+
+static f32 sky_sin(f32 x) {
+    f32 x2, t, sum;
+    s32 n;
+
+    while (x > 3.14159265f) {
+        x -= 6.2831853f;
+    }
+    while (x < -3.14159265f) {
+        x += 6.2831853f;
+    }
+    x2 = x * x;
+    t = x;
+    sum = x;
+    for (n = 1; n < 7; n++) {
+        t *= -x2 / (f32) ((2 * n) * (2 * n + 1));
+        sum += t;
+    }
+    return sum;
+}
+
+static f32 sky_cos(f32 x) {
+    return sky_sin(x + 1.57079633f);
+}
+
+// The hours of the cycle: the fixed ones (sunrise 06:00, sunset 18:30), or the
+// sun's own at the latitude chosen, for today, by the textbook formula (the
+// declination from the day of the year, the hour angle from it and the
+// latitude; solar noon taken as 12:00, so within an hour of the clock's).
+// In a polar season the day or the night is held to two hours.
+static void sun_hours_apply(void) {
+    static const s8 lat_of[12] = { 0, 60, 50, 40, 30, 20, 10, 0, -10, -20, -30, -40 };
+    u32 pick = (setup_of() == 0) ? 0 : recomp_get_config_u32("sun");
+    f32 rise = 360.0f, set = 1110.0f;
+
+    if (pick >= 1 && pick < 12) {
+        u32 date = snap64_local_date();
+        s32 y = (s32) (date >> 16), mo = (s32) ((date >> 8) & 0xFF), d = (s32) (date & 0xFF);
+        s32 doy = days_from_2000(y, mo, d) - days_from_2000(y, 1, 1) + 1;
+        f32 lat = (f32) lat_of[pick] * (3.14159265f / 180.0f);
+        f32 decl = (23.44f * 3.14159265f / 180.0f) * sky_sin((360.0f / 365.0f) * (f32) (284 + doy) * (3.14159265f / 180.0f));
+        f32 x = -(sky_sin(lat) / sky_cos(lat)) * (sky_sin(decl) / sky_cos(decl));
+        f32 lo = 0.0f, hi = 3.14159265f, w;
+        s32 i;
+
+        x = x < -1.0f ? -1.0f : x > 1.0f ? 1.0f : x;
+        for (i = 0; i < 24; i++) {          // acos by halving: cos falls from 1 to -1 over 0..pi
+            w = (lo + hi) / 2.0f;
+            if (sky_cos(w) > x) {
+                lo = w;
+            } else {
+                hi = w;
+            }
+        }
+        w = (lo + hi) / 2.0f * (180.0f / 3.14159265f) / 15.0f;     // hours from noon
+        w = w < 1.0f ? 1.0f : w > 11.0f ? 11.0f : w;
+        rise = (12.0f - w) * 60.0f;
+        set = (12.0f + w) * 60.0f;
+        recomp_printf("[island skies] at %d degrees the sun rises at %u:%u%u and sets at %u:%u%u today\n", (s32) lat_of[pick],
+                      (u32) rise / 60, ((u32) rise % 60) / 10, ((u32) rise % 60) % 10,
+                      (u32) set / 60, ((u32) set % 60) / 10, ((u32) set % 60) % 10);
+    }
+    m_dawn0 = rise - 60.0f;
+    m_dawn1 = rise - 15.0f;
+    m_day0 = rise + 45.0f;
+    m_day1 = set - 60.0f;
+    m_sun1 = set;
+    m_night0 = set + 45.0f;
+}
+
+// The moon's phase by the date: its age from the new moon of January 6, 2000,
+// 18:14 UTC, over the synodic month; one of eight pictures. South of the
+// equator the lit side is the other one.
+static void moon_phase_apply(void) {
+    static const char* const names[8] = { "new", "a waxing crescent", "at first quarter", "waxing gibbous",
+                                          "full", "waning gibbous", "at last quarter", "a waning crescent" };
+    u32 date = snap64_local_date();
+    u32 t = snap64_local_time();
+    s32 y = (s32) (date >> 16), mo = (s32) ((date >> 8) & 0xFF), d = (s32) (date & 0xFF);
+    f32 days = (f32) days_from_2000(y, mo, d) + (f32) ((t >> 16) & 0xFF) / 24.0f - 6.76f;
+    f32 age;
+    u32 k;
+    u32 pick = (setup_of() == 0) ? 0 : recomp_get_config_u32("sun");
+
+    while (days < 0.0f) {
+        days += 29.530588853f;
+    }
+    age = days - 29.530588853f * (f32) (s32) (days / 29.530588853f);
+    k = (u32) (age / 29.530588853f * 8.0f + 0.5f) & 7;
+    moon_light = 0.3f + 0.7f * (1.0f - sky_cos(age / 29.530588853f * 6.2831853f)) / 2.0f;
+    if (pick >= 8) {
+        k = (8 - k) & 7;                // the southern sky: the lit side mirrored
+    }
+    night_use_moon[0].words.w1 = (u32) night_moon_phases[k];
+    recomp_printf("[island skies] the moon is %u days old, %s\n", (u32) age, names[k]);
 }
 
 // The minute a mode stands at, or runs through.
@@ -3340,9 +3355,19 @@ static f32 mode_minutes(void) {
         f32 t = ((f32) ticks_of(night) - 2400.0f) / 4800.0f;
 
         t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
-        return M_SUN1 + (M_NIGHT0 - M_SUN1) * t;
+        return m_sun1 + (m_night0 - m_sun1) * t;
     }
-    return dawn ? M_DAWN1 : sunset ? M_SUN1 : 1380.0f;
+    if (dawn) {
+        return m_dawn1;
+    }
+    if (sunset) {
+        return m_sun1;
+    }
+    {
+        f32 mid = (m_night0 + m_dawn0 + 1440.0f) / 2.0f;     // the middle of the night
+
+        return mid >= 1440.0f ? mid - 1440.0f : mid;
+    }
 }
 
 // Every ten ticks of a frame's drawing, the moment moves on: the dusk by the
@@ -3361,7 +3386,7 @@ static void cycle_tick(void) {
     }
     dusk_last = t;
     m = mode_minutes();
-    if (m >= M_DAY0 && m < M_DAY1 && cycle_minute >= M_DAY0 && cycle_minute < M_DAY1) {
+    if (m >= m_day0 && m < m_day1 && cycle_minute >= m_day0 && cycle_minute < m_day1) {
         return;
     }
     moment_apply(m);
@@ -3426,6 +3451,8 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         sunset = was_sunset;
         dawn = was_dawn;
     }
+    sun_hours_apply();
+    moon_phase_apply();
     star_fade = 255;
     dusk_last = 0xFFFFFFFFu;
     cycle_minute = -1.0f;
@@ -3499,11 +3526,6 @@ RECOMP_HOOK("destroyWorld") void night_destroy_world(void) {
                       (glint_op_n > GLINT_OPS - 64) ? "; the ops FULL" : "",
                       (glint_seg_n >= GLINT_SEGS) ? "; the parts FULL" : "");
     }
-#ifdef NIGHT_MAP
-    if (night != NULL) {
-        map_print();
-    }
-#endif
     night = NULL;
     set_light(NULL);
     if (rain_handle >= 0) {

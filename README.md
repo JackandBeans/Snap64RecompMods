@@ -55,7 +55,8 @@ Simple set-up is three rows (Setup, Time, Weather), Live is one; Custom
 gives each course its own hour and weather and opens the fine switches,
 among them Lightning, gentle by default for sensitive eyes. The
 hour by the clock comes from the port (`include/snap64.h`, Snap64 Recomp
-1.1.3). The Tunnel has no sky box, so it takes the hour's light and sky
+1.1.3), and so does the date: the moon shows its phase, and a Sun row can
+set the hours by a latitude, with no internet. The Tunnel has no sky box, so it takes the hour's light and sky
 color and keeps the weather out.
 
 Checked on the port's scoring replay: the 45 photos of the ride scored the

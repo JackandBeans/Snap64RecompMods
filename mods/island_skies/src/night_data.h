@@ -12,6 +12,8 @@ typedef struct NightTwinkle {
 } NightTwinkle;
 extern const s8 night_sine[];
 extern const NightTwinkle night_twinkles[];
+extern u16 night_moon_phases[8][32 * 32];
+extern Gfx night_use_moon[];      // its first command loads the moon's picture
 
 // The glow band at the horizon toward the sun: its columns and rows, its weights and colors.
 #define NIGHT_BAND_COLS 11

@@ -46,7 +46,13 @@ island's hours, the same the year round:
 - 19:15 to 05:00, night.
 
 A ride that crosses one of these hours changes as it goes. A photo's world
-keeps the hour the ride had.
+keeps the hour the ride had. In Live and Custom the **Sun** row can set the
+hours by your latitude instead, from the date and with no internet: in
+December the night comes early, in June the evening stays light. Solar
+noon is taken as 12:00, so the hours are within an hour of your clock's.
+The moon shows its phase by the date, new to full and back, and its glint
+on the water fades with it; south of the equator its lit side is the
+other one.
 
 Custom shows, in their place:
 
