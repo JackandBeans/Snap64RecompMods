@@ -30,7 +30,9 @@ Simple is two more rows:
   Clear, Rain, Storm, Snow, or Random. Rain and storms bring ash to the
   Volcano; snow lies on the Valley and leaves the other courses clear.
 
-Live is Your clock and Random together, with nothing else to set. The
+A storm flashes. Its flashes are gentle unless Custom's Lightning row says
+Full, and they can be turned off there. Live is Your clock and Random
+together, with nothing else to set. The
 island's hours, the same the year round:
 
 - 05:00 to 05:45, the night turns to dawn: the stars and the moon go, the
@@ -59,6 +61,9 @@ Custom shows, in their place:
 - **Moonlight on Pokémon**: the scene's light leans toward the moon, or
   stays where the game puts it.
 - **Night Sounds**: insects chirping in the dark on a clear night, or quiet.
+- **Lightning**: a storm's flashes. Gentle (the default) keeps the bolt and
+  the thunder but dims the flash that fills the screen, for sensitive
+  eyes; Full is the storm as drawn; Off leaves a storm its rain and wind.
 
 ## Installing
 

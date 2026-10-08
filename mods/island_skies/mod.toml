@@ -179,3 +179,12 @@ type = "Enum"
 options = [ "On", "Off" ]
 default = "On"
 hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
+
+[[manifest.config_options]]
+id = "lightning"
+name = "Lightning"
+description = "A storm's flashes: full, gentle (dimmed, for sensitive eyes), or none with their thunder."
+type = "Enum"
+options = [ "Full", "Gentle", "Off" ]
+default = "Gentle"
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }

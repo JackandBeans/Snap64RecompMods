@@ -166,6 +166,7 @@ static u8 fx_lit = 0;            // the settings: effects take the night's light
 static u8 glows_on = 1;          // the water glows are drawn,
 static u8 moonlight_on = 1;      // the key light leans toward the moon
 static u8 night_sounds_on = 1;   // the night's voices are heard
+static u8 lightning = 1;         // a storm's lightning: 0 full, 1 gentle (the flash dimmed to two fifths), 2 none
 static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
 static u8 dusk;                  // or that the sun sets during the ride
@@ -224,7 +225,7 @@ static u8 drawing_water;         // that model is being drawn this frame
 // the corners, so even the Beach's wide sea triangles carry a compact light.
 // The copies stand under the game's own matrices, read off the commands it
 // wrote for the water's nodes this frame.
-#define GLINT_VTX  12288
+#define GLINT_VTX  12288        // a load op keeps its start in 14 bits (bits 12..25): room for 16383
 #define GLINT_OPS  24576
 #define GLINT_SEGS 128
 #define GLINT_LOAD 0x80000000u   // an op that loads copies: start << 12 | count << 6 | first slot
@@ -593,7 +594,7 @@ static s32 face_toward(u32 a, u32 b, u32 c) {
 // lights it decides, as light_vertex does.
 static void glint_face_set(u32 slot, s32 steep, s32 toward) {
     u32 o = glint_op[glint_slot_op[slot]];
-    u32 copy = ((o >> 12) & 0x1FFF) + (slot - (o & 63));
+    u32 copy = ((o >> 12) & 0x3FFF) + (slot - (o & 63));
 
     if (copy < GLINT_VTX && glint_face[copy] == 0) {
         glint_face[copy] = (u16) (0x8000u | (steep ? 0x4000u : 0u) | (flowing ? 0x2000u : 0u) | ((u32) toward & 0x1FFu));
@@ -1637,7 +1638,7 @@ static void glint_segment(s32 k, f32 m[4][4], const f32* eye, const f32* la, con
     for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
         o = glint_op[j];
         if ((o & GLINT_LOAD) && (o & GLINT_USED)) {
-            u32 start = (o >> 12) & 0x1FFF, count = (o >> 6) & 0x3F, v;
+            u32 start = (o >> 12) & 0x3FFF, count = (o >> 6) & 0x3F, v;
 
             for (v = 0; v < count; v++) {
                 glint_corner(&set[start + v], m, eye, la, breath);
@@ -1664,7 +1665,7 @@ static void glint_segment(s32 k, f32 m[4][4], const f32* eye, const f32* la, con
                 pending = 0xFFFFFFFFu;
             }
             if (o & GLINT_USED) {
-                gSPVertex((*list)++, &set[(o >> 12) & 0x1FFF], (o >> 6) & 0x3F, o & 63);
+                gSPVertex((*list)++, &set[(o >> 12) & 0x3FFF], (o >> 6) & 0x3F, o & 63);
             }
         } else if (!(o & GLINT_FLOW)) {
             continue;       // the land's
@@ -1733,7 +1734,7 @@ static void ember_seed(s32 k) {
         for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
             o = glint_op[j];
             if (o & GLINT_LOAD) {
-                u32 start = (o >> 12) & 0x1FFF, count = (o >> 6) & 0x3F, first = o & 63, i;
+                u32 start = (o >> 12) & 0x3FFF, count = (o >> 6) & 0x3F, first = o & 63, i;
 
                 for (i = 0; i < count && first + i < 64; i++) {
                     slot_copy[first + i] = (u16) (start + i);
@@ -2083,6 +2084,20 @@ static void strike_at(u32 ticks) {
         strike_flash = flash[step];
         if (step < 4) {
             strike_bolt = bolt[step];
+        }
+        // The switch: Gentle keeps the bolt and the thunder but dims the flash
+        // that fills the screen to two fifths; Off has no lightning at all,
+        // and with no strike the thunder never comes either.
+        if (lightning == 2) {
+            strike_flash = 0;
+            strike_bolt = 0;
+            return;
+        }
+        if (lightning == 1) {
+            strike_flash = (strike_flash * 102) / 255;
+        }
+        if (ticks - when < 2) {           // the strike's first frame (the frames step by two ticks)
+            recomp_printf("[island skies] lightning at tick %u: flash %u of 255, bolt %u\n", ticks, strike_flash, strike_bolt);
         }
         strike_turn = (mix >> 16) & 0xFF;
         strike_shape = (mix >> 24) % NIGHT_BOLTS;
@@ -2930,7 +2945,7 @@ static void relight_record(void) {
         if (!(o & GLINT_LOAD)) {
             continue;
         }
-        start = (o >> 12) & 0x1FFF;
+        start = (o >> 12) & 0x3FFF;
         count = (o >> 6) & 0x3F;
         src = glint_load_src[j];
         if (src < night->world_lo || src >= night->world_hi) {
@@ -3391,6 +3406,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         glows_on = simple_setup() || (recomp_get_config_u32("water_glow") == 0);
         moonlight_on = simple_setup() || (recomp_get_config_u32("moonlight") == 0);
         night_sounds_on = simple_setup() || (recomp_get_config_u32("night_sounds") == 0);
+        lightning = (u8) (simple_setup() ? 1 : recomp_get_config_u32("lightning"));     // Gentle unless Custom says
     }
     // The cycle's three ends: the sunset's palette, the night's and the dawn's.
     {

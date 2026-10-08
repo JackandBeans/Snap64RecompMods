@@ -52,7 +52,8 @@ the Volcano. By day the island is exactly as the cartridge draws it: the day
 end of every blend is the course's own picture, corner colors, fog and
 light, kept as the course loads. Photos keep the sky of their instant.
 Simple set-up is three rows (Setup, Time, Weather), Live is one; Custom
-gives each course its own hour and weather and opens the fine switches. The
+gives each course its own hour and weather and opens the fine switches,
+among them Lightning, gentle by default for sensitive eyes. The
 hour by the clock comes from the port (`include/snap64.h`, Snap64 Recomp
 1.1.3). The Tunnel has no sky box, so it takes the hour's light and sky
 color and keeps the weather out.
