@@ -1,4 +1,4 @@
-// Island at Night, a mod for Snap64 Recomp.
+// Island Skies, a mod for Snap64 Recomp.
 //
 // The courses under an open sky -- the Beach, the River, the Volcano and the
 // Valley -- after dark. (The Tunnel and the Cave have no sky to turn.)

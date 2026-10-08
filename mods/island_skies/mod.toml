@@ -57,7 +57,7 @@ hidden_from = { id = "setup", matches = [ "Live", "Custom" ] }
 [[manifest.config_options]]
 id = "weather"
 name = "Weather"
-description = "Island's own is rain on the River, clear elsewhere; snow on the Valley alone; Random draws each ride."
+description = "Island's own: rain on the River, clear elsewhere. Random draws each ride's weather."
 type = "Enum"
 options = [ "Island's own", "Clear", "Rain", "Storm", "Snow", "Random" ]
 default = "Island's own"
