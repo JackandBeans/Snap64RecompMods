@@ -9,7 +9,9 @@
   hour comes; rain, storms, snow and ash with their wind, the moon's glint
   on the water, the River's fireflies, the Volcano's embers and ash,
   insects in the dark and a shooting star now and then; the moon's phase
-  by the date, and the sun's hours and its twilight by a latitude, with
-  the seasons in the weather's odds. Simple set-up is three rows, Live is
-  one; Custom gives each course its own hour and weather. The mod's
-  details page says what Live is doing.
+  by the date, and the sun's hours, solar noon and the twilight from
+  Latitude and Longitude rows, with the seasons in the weather's odds.
+  Simple set-up is three rows, Live is one; Custom gives each course its
+  own hour and weather. The mod's details page says what Live is doing,
+  and a line over the course says the hour and the weather as a ride
+  starts and names a change of weather when one comes.

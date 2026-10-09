@@ -3354,15 +3354,36 @@ static f32 sky_cos(f32 x) {
     return sky_sin(x + 1.57079633f);
 }
 
-static const s8 sun_lat_of[12] = { 0, 60, 50, 40, 30, 20, 10, 0, -10, -20, -30, -40 };
 static f32 m_rise = 360.0f;      // sunrise, for the page's line
 
-// The latitude the Sun row names, in degrees north, or 999 for Fixed hours
-// (Simple has no Sun row).
+// The latitude the Latitude row names, in degrees north, when the Sun row
+// says By latitude; 999 for Fixed hours (and in Simple, which has no Sun row).
 static s32 sun_latitude(void) {
-    u32 pick = (setup_of() == 0) ? 0 : recomp_get_config_u32("sun");
+    f32 lat;
 
-    return (pick >= 1 && pick < 12) ? sun_lat_of[pick] : 999;
+    if (setup_of() == 0 || recomp_get_config_u32("sun") != 1) {
+        return 999;
+    }
+    lat = (f32) recomp_get_config_double("latitude");
+    return (s32) (lat < -60.0f ? -60.0f : lat > 60.0f ? 60.0f : lat);
+}
+
+// Solar noon as the clock reads it, in minutes of the day: 12:00 moved by
+// the longitude's distance from the clock zone's own meridian (four minutes
+// a degree) and by the equation of time (the sun's own lead or lag through
+// the year, up to a quarter of an hour). The Longitude row at 0 takes the
+// zone's meridian, which puts noon within half an hour.
+static f32 sun_noon(s32 doy) {
+    f32 zone = (f32) snap64_utc_offset() / 4.0f;       // the zone's meridian, degrees east
+    f32 lon = (f32) recomp_get_config_double("longitude");
+    f32 b = 6.2831853f * (f32) (doy - 81) / 365.0f;
+    f32 eot = 9.87f * sky_sin(2.0f * b) - 7.53f * sky_cos(b) - 1.5f * sky_sin(b);
+
+    if (lon == 0.0f) {
+        lon = zone;
+    }
+    lon = lon < -180.0f ? -180.0f : lon > 180.0f ? 180.0f : lon;
+    return 720.0f + (zone - lon) * 4.0f - eot;
 }
 
 // The hours from noon at which the sun stands at the altitude given (below
@@ -3395,7 +3416,7 @@ static f32 sun_hours_from_noon(f32 lat, f32 decl, f32 alt) {
 // held to two hours. Cheap enough to call often; it says so in the log when
 // its answer changes.
 static void sun_hours_apply(void) {
-    static s32 logged_lat = 1000, logged_doy = -1;
+    static s32 logged_lat = 1000, logged_doy = -1, logged_noon = -1;
     s32 lat_deg = sun_latitude();
     f32 rise = 360.0f, set = 1110.0f, scale = 1.0f;
 
@@ -3407,24 +3428,29 @@ static void sun_hours_apply(void) {
         f32 decl = (23.44f * 3.14159265f / 180.0f) * sky_sin((360.0f / 365.0f) * (f32) (284 + doy) * (3.14159265f / 180.0f));
         f32 w = sun_hours_from_noon(lat, decl, 0.0f);
         f32 tw;
+        f32 noon = sun_noon(doy);
 
         w = w < 1.0f ? 1.0f : w > 11.0f ? 11.0f : w;
         tw = (sun_hours_from_noon(lat, decl, -6.0f * (3.14159265f / 180.0f)) - w) * 60.0f;     // the civil twilight, in minutes
         scale = tw / 31.0f;                 // 31 minutes: 40 degrees at the equinox, the fixed lengths' own
         scale = scale < 0.75f ? 0.75f : scale > 2.5f ? 2.5f : scale;
-        rise = (12.0f - w) * 60.0f;
-        set = (12.0f + w) * 60.0f;
+        rise = noon - w * 60.0f;
+        set = noon + w * 60.0f;
+        rise = rise < 46.0f ? 46.0f : rise > 700.0f ? 700.0f : rise;        // the dawn and the night stay inside the day
+        set = set < 740.0f ? 740.0f : set > 1393.0f ? 1393.0f : set;
         if (60.0f * scale > rise - 1.0f) {              // the dawn's start stays inside the day
             scale = (rise - 1.0f) / 60.0f;
         }
         if (45.0f * scale > 1439.0f - set) {            // and so does the night's
             scale = (1439.0f - set) / 45.0f;
         }
-        if (lat_deg != logged_lat || doy != logged_doy) {
+        if (lat_deg != logged_lat || doy != logged_doy || (s32) noon != logged_noon) {
             logged_lat = lat_deg;
             logged_doy = doy;
-            recomp_printf("[island skies] at %d degrees the sun rises at %u:%02u and sets at %u:%02u today; the twilight runs %u minutes\n",
-                          lat_deg, (u32) rise / 60, (u32) rise % 60, (u32) set / 60, (u32) set % 60, (u32) (tw < 0.0f ? 0.0f : tw));
+            logged_noon = (s32) noon;
+            recomp_printf("[island skies] at %d degrees the sun rises at %u:%02u and sets at %u:%02u today, noon at %u:%02u; the twilight runs %u minutes\n",
+                          lat_deg, (u32) rise / 60, (u32) rise % 60, (u32) set / 60, (u32) set % 60,
+                          (u32) noon / 60, (u32) noon % 60, (u32) (tw < 0.0f ? 0.0f : tw));
         }
     }
     m_rise = rise;
@@ -3448,7 +3474,7 @@ static void moon_phase_apply(void) {
     f32 days = (f32) days_from_2000(y, mo, d) + (f32) ((t >> 16) & 0xFF) / 24.0f - 6.76f;
     f32 age;
     u32 k;
-    u32 pick = (setup_of() == 0) ? 0 : recomp_get_config_u32("sun");
+    s32 lat = sun_latitude();
 
     while (days < 0.0f) {
         days += 29.530588853f;
@@ -3456,7 +3482,7 @@ static void moon_phase_apply(void) {
     age = days - 29.530588853f * (f32) (s32) (days / 29.530588853f);
     k = (u32) (age / 29.530588853f * 8.0f + 0.5f) & 7;
     moon_light = 0.3f + 0.7f * (1.0f - sky_cos(age / 29.530588853f * 6.2831853f)) / 2.0f;
-    if (pick >= 8) {
+    if (lat != 999 && lat < 0) {
         k = (8 - k) & 7;                // the southern sky: the lit side mirrored
     }
     night_use_moon[0].words.w1 = (u32) night_moon_phases[k];
@@ -3504,20 +3530,28 @@ static f32 mode_minutes(void) {
 // ---------------------------------------------------------------------------
 // The island's weather under Live, from the date and the hour and nothing
 // else, so the next ride finds the weather the last one left. The day is cut
-// into hours; an hour keeps the last hour's weather two times in three and
-// draws afresh the third time: mostly clear, rain about a quarter of the
-// time, a storm less often, the odds leaning with the season. A change comes
-// some minutes into its hour, not on the stroke, and takes a minute and a
-// half: the sky grays and the stars go, then the rain comes; clearing, the
-// rain thins first and the stars return. A ride that meets a change sees it.
+// into half hours; a half hour keeps the last one's weather one time in two
+// and draws afresh the other time: mostly clear, rain about a quarter of the
+// time, a storm less often, the odds leaning with the season. So the weather
+// changes about every two hours, holds across the rides of a sitting, and
+// about one ride in fifteen meets a change: it comes some minutes into its
+// half hour, not on the stroke, over a minute and a half, the sky graying
+// and the stars going before the rain comes; clearing, the rain thins first
+// and the stars return.
+#define STATUS_MOD_ID "snap64_island_skies"      // the id in mod.toml, for the port's two lines
+static char notice_buf[120];
+static void st_begin(char* dst, u32 cap);
+static void st_put(const char* s);
 #define WX_CLEAR 0
 #define WX_RAIN 1               // on the Volcano: ash
 #define WX_STORM 2
 #define WX_SNOW 3               // the Valley's rain in the cold
+#define WX_BLOCK_MINUTES 30.0f
+#define WX_BLOCKS_A_DAY 48
 #define WX_TURN_MINUTES 1.5f
 
-static u32 wx_hash(s32 hour, u32 salt) {
-    u32 x = (u32) hour * 2654435761u + salt * 0x9E3779B1u;
+static u32 wx_hash(s32 block, u32 salt) {
+    u32 x = (u32) block * 2654435761u + salt * 0x9E3779B1u;
 
     x ^= x >> 15;
     x *= 0x85EBCA77u;
@@ -3527,8 +3561,8 @@ static u32 wx_hash(s32 hour, u32 salt) {
     return x & 0xFF;
 }
 
-// Months from midwinter, 0 to 6, on the side of the equator the Sun row
-// names (the north with Fixed hours).
+// Months from midwinter, 0 to 6, on the side of the equator the Latitude
+// row names (the north with Fixed hours).
 static s32 wx_from_midwinter(s32 month) {
     s32 lat = sun_latitude();
     s32 m = (lat != 999 && lat < 0) ? ((month + 5) % 12) + 1 : month;
@@ -3537,10 +3571,10 @@ static s32 wx_from_midwinter(s32 month) {
     return d > 6 ? 12 - d : d;
 }
 
-// A fresh draw for an hour, of 256: clear 170, rain 70, a storm 16 in winter;
-// 150, 70 and 36 between; 140, 64 and 52 in summer.
-static u32 wx_fresh(s32 hour, s32 month) {
-    u32 roll = wx_hash(hour, 1);
+// A fresh draw, of 256: clear 170, rain 70, a storm 16 in winter; 150, 70
+// and 36 between; 140, 64 and 52 in summer.
+static u32 wx_fresh(s32 block, s32 month) {
+    u32 roll = wx_hash(block, 1);
     s32 d = wx_from_midwinter(month);
     u32 clear = d <= 1 ? 170 : d >= 5 ? 140 : 150;
     u32 storm = d <= 1 ? 16 : d >= 5 ? 52 : 36;
@@ -3548,47 +3582,47 @@ static u32 wx_fresh(s32 hour, s32 month) {
     return roll < clear ? WX_CLEAR : roll >= 256 - storm ? WX_STORM : WX_RAIN;
 }
 
-// The island's weather in an hour: the latest fresh draw at or before it.
-static u32 wx_hour(s32 hour, s32 month) {
-    s32 h = hour, n;
+// The island's weather in a half hour: the latest fresh draw at or before it.
+static u32 wx_block(s32 block, s32 month) {
+    s32 b = block, n;
 
-    for (n = 0; n < 72 && wx_hash(h, 2) >= 86; n++) {     // an hour draws afresh one time in three
-        h--;
+    for (n = 0; n < 96 && wx_hash(b, 2) >= 128; n++) {     // a half hour draws afresh one time in two
+        b--;
     }
-    return wx_fresh(h, month);
+    return wx_fresh(b, month);
 }
 
-// The minute of its hour a change comes at: five to forty-five minutes in.
-static f32 wx_turn_at(s32 hour) {
-    return 5.0f + (f32) (wx_hash(hour, 3) * 40) / 255.0f;
+// The minute of its half hour a change comes at: two to twenty minutes in.
+static f32 wx_turn_at(s32 block) {
+    return 2.0f + (f32) (wx_hash(block, 3) * 18) / 255.0f;
 }
 
-// The island's state at a minute of an hour: what the weather was, what it
-// is turning to, how far the turn has come (0 to 1), and the minute of the
-// hour the turn begins (-1 when the hour has none).
-static void wx_state(s32 hour, f32 in_hour, s32 month, u32* from, u32* to, f32* share, f32* turn) {
-    u32 now = wx_hour(hour, month), was = wx_hour(hour - 1, month);
+// The island's state at a minute of a half hour: what the weather was, what
+// it is turning to, how far the turn has come (0 to 1), and the minute of
+// the half hour the turn begins (-1 when it has none).
+static void wx_state(s32 block, f32 in_block, s32 month, u32* from, u32* to, f32* share, f32* turn) {
+    u32 now = wx_block(block, month), was = wx_block(block - 1, month);
 
     *turn = -1.0f;
     *from = *to = now;
     *share = 1.0f;
     if (now != was) {
-        f32 at = wx_turn_at(hour);
+        f32 at = wx_turn_at(block);
 
         *turn = at;
         *from = was;
-        if (in_hour < at) {
+        if (in_block < at) {
             *share = 0.0f;
-        } else if (in_hour < at + WX_TURN_MINUTES) {
-            *share = (in_hour - at) / WX_TURN_MINUTES;
+        } else if (in_block < at + WX_TURN_MINUTES) {
+            *share = (in_block - at) / WX_TURN_MINUTES;
         }
     }
 }
 
 // Whether the Valley's rain falls as snow: in the deep winter from 35
 // degrees, five months of it from 50, one day in three of the deep winter
-// from 20; nearer the equator never. With no latitude the Valley has snow
-// one day in three the year round.
+// from 20; nearer the equator never. With Fixed hours the Valley has snow in
+// December, January and February, the winter of the north.
 static u8 wx_cold(s32 day, s32 month) {
     s32 lat = sun_latitude();
     s32 size = lat < 0 ? -lat : lat;
@@ -3596,7 +3630,7 @@ static u8 wx_cold(s32 day, s32 month) {
     u8 third = (wx_hash(day, 4) < 86);
 
     if (lat == 999) {
-        return third;
+        return d <= 1;
     }
     if (size >= 50) {
         return d <= 2;
@@ -3633,24 +3667,29 @@ static void wx_today(s32* day, s32* month) {
     *day = days_from_2000((s32) (date >> 16), *month, (s32) (date & 0xFF));
 }
 
+// The island's weather in words, for the page's line and the log.
+static const char* wx_island_name(u32 code) {
+    return code == WX_CLEAR ? "clear" : code == WX_STORM ? "a storm" : "rain";
+}
+
 // The course's weather now under Live: wx_from, wx_to, wx_share and the turn's
 // minute of the day set; the one in force returned.
 static u32 weather_live(const Night* by) {
     f32 m = mode_minutes();
-    s32 day, month, hour;
+    s32 day, month, block;
     u32 from, to;
     f32 share, turn;
 
     wx_today(&day, &month);
-    hour = (s32) (m / 60.0f);
-    wx_state(day * 24 + hour, m - 60.0f * (f32) hour, month, &from, &to, &share, &turn);
+    block = (s32) (m / WX_BLOCK_MINUTES);
+    wx_state(day * WX_BLOCKS_A_DAY + block, m - WX_BLOCK_MINUTES * (f32) block, month, &from, &to, &share, &turn);
     wx_from = wx_course(by, from, day, month);
     wx_to = wx_course(by, to, day, month);
     if (wx_from == wx_to) {
         share = 1.0f;
     }
     wx_share = share;
-    wx_turn_minute = (turn < 0.0f) ? -1.0f : 60.0f * (f32) hour + turn;
+    wx_turn_minute = (turn < 0.0f) ? -1.0f : WX_BLOCK_MINUTES * (f32) block + turn;
     return (share < 0.5f) ? wx_from : wx_to;
 }
 
@@ -3696,7 +3735,14 @@ static void weather_shares_apply(s32 say) {
     weather_flags_set(wx_share < 0.5f ? wx_from : wx_to);
     fog_near = (u16) ((f32) night->fog_min - (drop0 + (drop1 - drop0) * e));
     if (say && (r != raining || s != storming || n != snowing || a != ashing)) {
-        recomp_printf("[island skies] the weather turns at tick %u: %s\n", ticks_of(night), wx_name(wx_share < 0.5f ? wx_from : wx_to));
+        u32 code = wx_share < 0.5f ? wx_from : wx_to;
+
+        recomp_printf("[island skies] the weather turns at tick %u: %s\n", ticks_of(night), wx_name(code));
+        // Said over the course too, as the turn comes.
+        st_begin(notice_buf, sizeof(notice_buf));
+        st_put(code == WX_CLEAR ? "Island Skies: the sky clears" : code == WX_STORM ? "Island Skies: a storm comes"
+               : code == WX_SNOW ? "Island Skies: snow comes" : night->embers ? "Island Skies: ash falls" : "Island Skies: the rain comes");
+        snap64_notice(STATUS_MOD_ID, notice_buf);
     }
 }
 
@@ -3739,15 +3785,23 @@ static s32 weather_tick(void) {
 // sun's hours, and the next change of weather when one is within six hours;
 // the port fills %T with the clock as the page is read. Looked at every two
 // seconds, sent when it changes.
-#define STATUS_MOD_ID "snap64_island_skies"
 static char status_buf[200], status_sent[200];
 static u32 status_len, status_ticks;
+static char* st_dst = status_buf;     // the buffer the builder writes, and its size
+static u32 st_cap = sizeof(status_buf);
+
+static void st_begin(char* dst, u32 cap) {
+    st_dst = dst;
+    st_cap = cap;
+    status_len = 0;
+    dst[0] = 0;
+}
 
 static void st_put(const char* s) {
-    while (*s != 0 && status_len < sizeof(status_buf) - 1) {
-        status_buf[status_len++] = *s++;
+    while (*s != 0 && status_len < st_cap - 1) {
+        st_dst[status_len++] = *s++;
     }
-    status_buf[status_len] = 0;
+    st_dst[status_len] = 0;
 }
 
 static void st_num(u32 n) {
@@ -3814,8 +3868,7 @@ static void status_tick(void) {
             }
         }
     }
-    status_len = 0;
-    status_buf[0] = 0;
+    st_begin(status_buf, sizeof(status_buf));
     if (clocked) {
         f32 m = clock_minutes();
 
@@ -3823,28 +3876,27 @@ static void status_tick(void) {
         st_put(setup == 1 ? "Live: %T, " : "Your clock: %T, ");
         st_put(phase_name(m));
         if (setup == 1) {
-            s32 day, month, hour = (s32) (m / 60.0f), h;
+            s32 day, month, block = (s32) (m / WX_BLOCK_MINUTES), b;
             u32 from, to, now;
             f32 share, turn, at = -1.0f;
             u32 next = WX_CLEAR;
 
             wx_today(&day, &month);
-            wx_state(day * 24 + hour, m - 60.0f * (f32) hour, month, &from, &to, &share, &turn);
+            wx_state(day * WX_BLOCKS_A_DAY + block, m - WX_BLOCK_MINUTES * (f32) block, month, &from, &to, &share, &turn);
             st_put(", ");
-            st_put(share < 0.5f ? (from == WX_CLEAR ? "clear" : from == WX_STORM ? "a storm" : "rain")
-                                : (to == WX_CLEAR ? "clear" : to == WX_STORM ? "a storm" : "rain"));
-            // The next change: this hour's own if it is still ahead or under
-            // way, else the first of the six hours after.
+            st_put(wx_island_name(share < 0.5f ? from : to));
+            // The next change: this half hour's own if it is still ahead or
+            // under way, else the first within the six hours after.
             if (turn >= 0.0f && share < 1.0f) {
-                at = 60.0f * (f32) hour + turn;
+                at = WX_BLOCK_MINUTES * (f32) block + turn;
                 next = to;
             } else {
-                now = wx_hour(day * 24 + hour, month);
-                for (h = hour + 1; h <= hour + 6; h++) {
-                    u32 w = wx_hour(day * 24 + h, month);
+                now = wx_block(day * WX_BLOCKS_A_DAY + block, month);
+                for (b = block + 1; b <= block + 12; b++) {
+                    u32 w = wx_block(day * WX_BLOCKS_A_DAY + b, month);
 
                     if (w != now) {
-                        at = 60.0f * (f32) h + wx_turn_at(day * 24 + h);
+                        at = WX_BLOCK_MINUTES * (f32) b + wx_turn_at(day * WX_BLOCKS_A_DAY + b);
                         next = w;
                         break;
                     }
@@ -3883,6 +3935,23 @@ static void status_tick(void) {
         }
     }
     snap64_set_status(STATUS_MOD_ID, status_buf);
+}
+
+// The line over the course as a ride starts (snap64_notice): the hour and
+// its light, and under Live the weather.
+static void ride_notice(void) {
+    f32 m = clock_minutes();
+
+    st_begin(notice_buf, sizeof(notice_buf));
+    st_put("Island Skies: ");
+    st_hm12(m);
+    st_put(", ");
+    st_put(phase_name(m));
+    if (setup_of() == 1 && night != NULL && night->weather != NULL) {
+        st_put(", ");
+        st_put(wx_name(wx_share < 0.5f ? wx_from : wx_to));
+    }
+    snap64_notice(STATUS_MOD_ID, notice_buf);
 }
 
 // Every ten ticks of a frame's drawing, the moment moves on: the dusk by the
@@ -4013,6 +4082,9 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
 
             recomp_printf("[island skies] your clock says %u:%u%u\n", (t >> 16) & 0xFF, ((t >> 8) & 0xFF) / 10, ((t >> 8) & 0xFF) % 10);
             weather_log();
+            if (on_the_ride) {
+                ride_notice();
+            }
         }
     } else {
         // A photo's world of the same load: the moment of its instant.

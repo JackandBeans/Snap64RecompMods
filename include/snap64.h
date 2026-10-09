@@ -25,4 +25,15 @@ RECOMP_IMPORT("*", unsigned long snap64_local_date(void));
 // characters, wrapped to the page's lines.
 RECOMP_IMPORT("*", void snap64_set_status(const char* mod_id, const char* line));
 
+// A short line over a course for five seconds, at the top left in the
+// pages' help face over a dark panel, from the moment the HUD is up: what
+// the mod just did, in words a player can read without a menu. A new one
+// replaces the old; none outlives the scene it was sent in. Up to about
+// forty characters show; longer lines end in dots.
+RECOMP_IMPORT("*", void snap64_notice(const char* mod_id, const char* line));
+
+// The computer's clock zone: minutes east of UTC, daylight saving included,
+// negative to the west (New York in October: -240).
+RECOMP_IMPORT("*", long snap64_utc_offset(void));
+
 #endif

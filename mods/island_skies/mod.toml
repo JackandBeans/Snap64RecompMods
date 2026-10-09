@@ -3,16 +3,12 @@ id = "snap64_island_skies"
 version = "0.5.0"
 display_name = "Island Skies"
 description = """
-The island's sky at any hour and in any weather. The Beach, the Tunnel, the \
-River, the Volcano and the Valley after dark, at sunset, at dawn, through a dusk that \
-falls during the ride, or at the hour your own clock says. Each course's \
-sky, ground, water and light are the course's own, turned as the course is \
-loaded: stars that twinkle between the clouds, a moon over the open sky with \
-its glint on the water, a shooting star now and then, the Volcano lit by its \
-own lava with embers rising off it, and insects chirping in the dark. Rain, \
-storms with lightning and thunder, snow that lies on the Valley, ash over \
-the Volcano. Photos keep the sky of their instant. Simple set-up is three \
-rows; Custom gives each course its own hour and weather.
+The island's sky at any hour and in any weather: night, sunset, dawn, a \
+dusk that falls during the ride, or live by your own clock, under weather \
+of the island's own. Stars, the moon and its glint on the water, shooting \
+stars, the Volcano's embers; rain, storms, snow and ash. Photos keep the \
+sky of their instant. Simple is three rows; Live is one; Custom gives each \
+course its own hour and weather.
 
 Source: https://github.com/JackandBeans/Snap64RecompMods"""
 # One line in the Mods page's help box, which holds about 45 characters.
@@ -66,10 +62,34 @@ hidden_from = { id = "setup", matches = [ "Live", "Custom" ] }
 [[manifest.config_options]]
 id = "sun"
 name = "Sun"
-description = "Fixed hours (sunrise 6:00, sunset 18:30), or your latitude's sunrise and sunset by the date."
+description = "Fixed hours, or the sun's own hours today from the Latitude and Longitude rows."
 type = "Enum"
-options = [ "Fixed hours", "60 N", "50 N", "40 N", "30 N", "20 N", "10 N", "Equator", "10 S", "20 S", "30 S", "40 S" ]
+options = [ "Fixed hours", "By latitude" ]
 default = "Fixed hours"
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "latitude"
+name = "Latitude"
+description = "Degrees north of the equator, minus for south: the sun's hours and the seasons."
+type = "Number"
+min = -60
+max = 60
+step = 1
+precision = 0
+default = 40
+hidden_from = { id = "setup", matches = [ "Simple" ] }
+
+[[manifest.config_options]]
+id = "longitude"
+name = "Longitude"
+description = "Degrees east, minus for west: noon where your clock has it. 0 takes your clock's zone."
+type = "Number"
+min = -180
+max = 180
+step = 1
+precision = 0
+default = 0
 hidden_from = { id = "setup", matches = [ "Simple" ] }
 
 [[manifest.config_options]]
