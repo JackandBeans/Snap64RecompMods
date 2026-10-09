@@ -6,7 +6,8 @@ native PC port of Pokémon Snap.
 The island's sky at any hour and in any weather. The Beach, the Tunnel, the
 River, the Volcano and the Valley after dark, at sunset, at dawn, through a
 dusk that falls during the ride, or live: the island follows your own clock
-round the whole day, and the weather is drawn afresh for each ride. Each
+round the whole day, under weather of its own that holds from one ride to
+the next and turns during a ride when its hour comes. Each
 course's sky, ground, water and light are the course's own, turned as the
 course loads: stars that twinkle between the clouds, a moon over the open
 sky with its glint on the water, now and then a shooting star, the Volcano
@@ -31,8 +32,21 @@ Simple is two more rows:
   Volcano; snow lies on the Valley and leaves the other courses clear.
 
 A storm flashes. Its flashes are gentle unless Custom's Lightning row says
-Full, and they can be turned off there. Live is Your clock and Random
-together, with nothing else to set. The
+Full, and they can be turned off there.
+
+Live is Your clock with the island's own weather, and nothing else to set.
+The weather comes from the date and the hour, so it is the same for every
+ride of that hour and holds from one ride to the next: mostly clear, rain
+about a quarter of the time, a storm one hour in eight, a few changes a
+day. A change comes some minutes into its hour and takes a minute and a
+half, during a ride when it falls in one: the sky grays and the stars go,
+then the rain comes; clearing, the rain thins first and the stars return.
+The odds lean with the season at the Sun row's latitude (summer storms,
+winter calm), and in the cold months there the Valley's rain is snow;
+with no latitude the Valley has snow one day in three. The mod's details
+page (Options > Mods, Island Skies) says what Live is doing: the hour and
+its light, the weather, the sun's hours, and the next change of weather
+when one is within six hours. The
 island's hours, the same the year round:
 
 - 05:00 to 05:45, the night turns to dawn: the stars and the moon go, the
@@ -48,7 +62,9 @@ island's hours, the same the year round:
 A ride that crosses one of these hours changes as it goes. A photo's world
 keeps the hour the ride had. In Live and Custom the **Sun** row can set the
 hours by your latitude instead, from the date and with no internet: in
-December the night comes early, in June the evening stays light. Solar
+December the night comes early, in June the evening stays light, and the
+dawn and the dusk run as long as the twilight does there, short at the
+equator and long in a far northern June. Solar
 noon is taken as 12:00, so the hours are within an hour of your clock's.
 The moon shows its phase by the date, new to full and back, and its glint
 on the water fades with it; south of the equator its lit side is the

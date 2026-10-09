@@ -41,8 +41,9 @@ the cartridge's flash.
 The island's sky at any hour and in any weather. The Beach, the Tunnel, the
 River, the Volcano and the Valley after dark, at sunset, at dawn, through a
 dusk that falls during the ride, or live: the island follows the player's
-own clock round the whole day, and the weather is drawn afresh for each
-ride. Each course's sky, ground, water and light are the course's own,
+own clock round the whole day, under weather of its own that comes from
+the date and the hour, holds from one ride to the next and turns during a
+ride when its hour comes. Each course's sky, ground, water and light are the course's own,
 turned as the course loads: stars that twinkle between the clouds, a moon
 over the open sky with its glint on the water, now and then a shooting
 star, the Volcano lit by its own lava with embers rising off it and its
@@ -56,11 +57,14 @@ gives each course its own hour and weather and opens the fine switches,
 among them Lightning, gentle by default for sensitive eyes. The
 hour by the clock comes from the port (`include/snap64.h`, Snap64 Recomp
 1.1.3), and so does the date: the moon shows its phase, and a Sun row can
-set the hours by a latitude, with no internet. The Tunnel has no sky box, so it takes the hour's light and sky
+set the hours and the twilight's length by a latitude, with no internet,
+and lean the weather's odds with the season. The mod's details page says
+what Live is doing, with the clock kept live by the port
+(`snap64_set_status`). The Tunnel has no sky box, so it takes the hour's light and sky
 color and keeps the weather out.
 
-Checked on the port's scoring replay: the 45 photos of the ride scored the
-same with the mod on as off. The night, the sunset, the dusk, the live
+Checked on the port's scoring replay (`tools/check_mod.py`): the 45 photos
+of the ride scored the same with the mod on as off. The night, the sunset, the dusk, the live
 cycle through an evening and a morning (the port's clock run forty times
 fast), the weather, the moon's glint on the River and the Valley, the
 Volcano's embers and ash and the shooting star were checked frame by frame

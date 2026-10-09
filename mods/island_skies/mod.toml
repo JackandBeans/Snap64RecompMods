@@ -40,7 +40,7 @@ additional_files = [ "thumb.png" ]
 [[manifest.config_options]]
 id = "setup"
 name = "Setup"
-description = "Simple: one hour and weather. Live: your clock, weather by chance. Custom: every row."
+description = "Simple: one hour and weather. Live: your clock, the island's weather. Custom: every row."
 type = "Enum"
 options = [ "Simple", "Live", "Custom" ]
 default = "Simple"

@@ -17,4 +17,12 @@ RECOMP_IMPORT("*", unsigned long snap64_local_time(void));
 // The computer's local date: year << 16 | month << 8 | day.
 RECOMP_IMPORT("*", unsigned long snap64_local_date(void));
 
+// A line of the mod's own on its details page (Options > Mods), shown after
+// the description: what the mod is doing now, in words a player can check.
+// mod_id is the id in mod.toml. A "%T" in the line is filled with the
+// computer's clock ("6:41 PM") as the page is read, so a clock stays right
+// while the page is up; an empty line takes the line away. Up to 240
+// characters, wrapped to the page's lines.
+RECOMP_IMPORT("*", void snap64_set_status(const char* mod_id, const char* line));
+
 #endif

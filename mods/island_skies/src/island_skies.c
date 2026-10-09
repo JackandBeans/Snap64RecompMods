@@ -182,8 +182,21 @@ static u8 sky_orig_cn_kept[2];
 static u8 day_fog[3], day_bg[3];      // the course's own fog and background colors,
 static u16 day_fog_min, day_fog_max;  // its own fog distances,
 static u8 day_ambient[3], day_diffuse[3];    // its own scene light,
-static u8 live_weather[8];            // the weather drawn for each course this session (Live, or Random)
+static u8 live_weather[8];            // Random's draw for each course this session
 static u8 live_weather_drawn[8];
+// Under Live, the course's weather as the island's clock has it: what it
+// was, what it is turning to, how far the turn has come, and the minute of
+// the day the turn begins (-1: none this hour); the shares the drawing
+// takes from them (weather_shares_apply). One weather for the ride
+// otherwise: both the same, the share 1.
+static u32 wx_from, wx_to;            // 0 clear, 1 rain (the Volcano: ash), 2 storm, 3 snow
+static f32 wx_share = 1.0f;
+static f32 wx_turn_minute = -1.0f;
+static f32 pal_share = 1.0f;          // the palettes: 0 the first weather's, 1 the second's
+static f32 overcast_share;            // how gray the day's sky picture goes
+static f32 rain_share, snow_share, ash_share;    // how much falls, of the full fall
+static f32 clear_share = 1.0f;        // how much of the clear sky's stars, moon and glint show
+static u8 snow_cover;                 // snow lies on the land: it was snowing as the ride loaded
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -249,6 +262,8 @@ static u32 glint_load_src[GLINT_OPS];    // where a load's vertices lie in the g
 static u32 glint_orig_cn[GLINT_VTX];     // each copy's day colors, as the course has them
 static u16 glint_face[GLINT_VTX];        // each copy's lighting: bit 15 lit, 14 steep, 13 water, low nine bits toward
 static u8 sky_mask_pic[2][SKY_TEXELS];   // each sky picture's cloud mask, kept for the dusk
+static u8 pal2_a[11][3], pal2_b[11][3], pal2_d[11][3];   // the three palettes for the weather the island turns to
+static u8 mix_a[11][3], mix_b[11][3], mix_d[11][3];      // the two weathers' palettes mixed, as far as the turn has come
 static u8 pal_a[11][3], pal_b[11][3];    // the sunset's palette and the night's,
 static u8 pal_d[11][3];                  // and the dawn's: the cycle's three ends (the fourth, the day, is the cartridge)
 static f32 dir_a[3], dir_b[3], dir_d[3];
@@ -393,7 +408,7 @@ static void light_vertex(u32 at, s32 steep, s32 toward) {
         // Under snow, the land's painted colors (much of the land's color is
         // painted, over gray pictures) go to snow first, except where the
         // face stands steep: there the rock shows, darker and colder.
-        if (snowing && !flowing && !steep) {
+        if (snow_cover && !flowing && !steep) {
             u32 bright = 159 + (97 * ((color[0] * 77 + color[1] * 151 + color[2] * 28) >> 8)) / 255;
 
             color[0] = (u8) snow_channel(color[0], SNOW_R, bright);
@@ -553,7 +568,7 @@ static void light_corners(u32 word) {
         s32 toward = 0;
 
         if (!flowing && slots[a] != 0 && slots[b] != 0 && slots[c] != 0) {
-            if (snowing) {
+            if (snow_cover) {
                 if (tex_addr != 0) {
                     snow_picture();
                 }
@@ -877,6 +892,13 @@ static void model_enters(GObj* obj, s32 kind) {
 static void moon_glint(void);
 static void embers(void);
 static void cycle_tick(void);
+static void status_tick(void);
+static u32 weather_live(const Night* by);
+static void weather_flags_set(u32 code);
+static void weather_shares_apply(s32 say);
+static void weather_palettes_keep(const Night* by);
+static void sun_hours_apply(void);
+static s32 sun_latitude(void);
 static void fireflies(GObj* sky);
 static GObj* sky_now;           // the sky being drawn, for the camera's place
 
@@ -905,7 +927,7 @@ static void model_leaves(void) {
             cmd += 2;
         }
     }
-    if (drawing_glint && night->glint && glows_on && !sunset && !scoring && !raining && !snowing && sky_now != NULL) {
+    if (drawing_glint && night->glint && glows_on && !sunset && !scoring && clear_share > 0.0f && sky_now != NULL) {
         drawing_glint = 0;
         moon_glint();
     } else if (drawing_glint && night->embers && !scoring && sky_now != NULL) {
@@ -915,7 +937,7 @@ static void model_leaves(void) {
     // The water was just drawn: what glows on it or over it is drawn now, so
     // that the water, which is drawn among the see-through things and writes
     // no depth, does not paint over it.
-    if (drawing_water && glows_on && !sunset && !scoring && !raining && !snowing && sky_now != NULL) {
+    if (drawing_water && glows_on && !sunset && !scoring && clear_share > 0.0f && sky_now != NULL) {
         drawing_water = 0;
         glow_turn ^= 1;
         if (night->fireflies != NULL) {
@@ -974,10 +996,11 @@ static u32 day_texel(s32 which, s32 i, s32 k) {
     c[0] = ((t >> 11) & 31) * 255 / 31;
     c[1] = ((t >> 6) & 31) * 255 / 31;
     c[2] = ((t >> 1) & 31) * 255 / 31;
-    if (raining || snowing || ashing) {
+    if (overcast_share > 0.0f) {
         u32 gray = (c[0] * 77 + c[1] * 151 + c[2] * 28) >> 8;
+        u32 wet = ((c[k] * 115 + gray * 141) * 218) >> 16;
 
-        return ((c[k] * 115 + gray * 141) * 218) >> 16;
+        return (u32) ((s32) c[k] + (s32) (((f32) wet - (f32) c[k]) * overcast_share));
     }
     return c[k];
 }
@@ -1364,6 +1387,7 @@ static void rain(GObj* sky) {
     set = rain_mtx[rain_turn];
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
+    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (132.0f * rain_share));     // the rain's own alpha, as far as it has come
     // The wind: the sheets drift sideways on two slow waves, a gust every six
     // seconds or so with a quicker shiver on it, each sheet a little apart.
     for (sheet = 0; sheet < NIGHT_RAIN_SHEETS; sheet++) {
@@ -1412,15 +1436,16 @@ static void snow(GObj* sky) {
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
     gSPDisplayList((*list)++, night_snow_alpha);
-    if (ashing) {
+    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (215.0f * snow_share));     // the snow's own alpha, as far as it has come
+    if (night->embers) {
         // Ash: the flakes take the primitive's gray (the snow's material colors
         // them from their corners alone, which are white), a little see-through.
         gDPSetCombineLERP((*list)++, SHADE, 0, PRIMITIVE, 0, TEXEL0, 0, PRIMITIVE, 0,
                           SHADE, 0, PRIMITIVE, 0, TEXEL0, 0, PRIMITIVE, 0);
-        gDPSetPrimColor((*list)++, 0, 0, 112, 104, 100, 220);
+        gDPSetPrimColor((*list)++, 0, 0, 112, 104, 100, (u8) (220.0f * ash_share));
     }
     for (sheet = 0; sheet < NIGHT_SNOW_SHEETS; sheet++) {
-        u32 fallen = (ticks * night_snow_speed[sheet]) >> (ashing ? 4 : 3);
+        u32 fallen = (ticks * night_snow_speed[sheet]) >> (night->embers ? 4 : 3);
         u32 turn = fallen / NIGHT_SNOW_HEIGHT;
         f32 sway = (f32) (night_sine[(((ticks * (90 + 17 * sheet)) >> 8) + 37 * sheet) & 0xFF] * 40) / 127.0f;
         f32 sway_across = (f32) (night_sine[(((ticks * (70 + 13 * sheet)) >> 8) + 91 * sheet) & 0xFF] * 28) / 127.0f;
@@ -1566,7 +1591,7 @@ static void glint_segment(s32 k, f32 m[4][4], const f32* eye, const f32* la, con
         *opened = 1;
         command(list, (0x64u << 24) | 0x00002Cu, 1);
         gSPDisplayList((*list)++, night_glow_begin);
-        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (140.0f * moon_light));
+        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (140.0f * moon_light * clear_share));
     }
     for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
         o = glint_op[j];
@@ -1948,7 +1973,7 @@ static void fireflies(GObj* sky) {
         command(list, (0x64u << 24) | 0x00000Cu, 0x46460000u | g);
         command(list, 0x00002829u, 0);
         gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u32) pulse * 2);
+        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u32) ((f32) pulse * 2.0f * clear_share));
         gSPDisplayList((*list)++, night->fireflies[g]);
         gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
         command(list, (0x64u << 24) | 0x00000Du, 1);
@@ -1989,6 +2014,7 @@ static u32 strike_shape;        // and which shape it has
 static u32 strike_span;         // the span it belongs to, and that span's number mixed, for the thunder
 static u32 strike_mix;
 static s32 rain_handle = -1;    // the rain's voice while it plays
+static u32 rain_vol;            // and the volume it was last set to
 static u32 thunder_span;        // the span whose strike was heard last
 static u32 thunder_at;          // when the thunder is due, in ticks; 0 when none is
 static u32 body_at, echo_at;    // when its body and its echo are due; 0 when none is
@@ -2100,12 +2126,28 @@ static void thunder(u32 ticks) {
 // drawn, started again should the game have taken the voice for something
 // of its own, and stopped as the world is taken down.
 static void rain_sound(void) {
+    u32 vol = (u32) ((f32) RAIN_VOLUME * rain_share);     // as loud as the rain is
+
     if (rain_handle >= 0 && VOICE_SOUND != NULL && VOICE_SOUND[rain_handle] != RAIN_SOUND) {
         rain_handle = -1;
     }
     if (rain_handle < 0) {
-        rain_handle = auPlaySoundWithParams(RAIN_SOUND, RAIN_VOLUME, 64, 1.1f, 20);
+        rain_handle = auPlaySoundWithParams(RAIN_SOUND, vol, 64, 1.1f, 20);
+        rain_vol = vol;
         recomp_printf("[island skies] the rain's voice: %d\n", rain_handle);
+    } else if (vol != rain_vol) {
+        auSetSoundVolume(rain_handle, vol);
+        rain_vol = vol;
+    }
+}
+
+// The rain's voice stopped: the rain has ended, or the world is taken down.
+static void rain_quiet(void) {
+    if (rain_handle >= 0) {
+        if (VOICE_SOUND != NULL && VOICE_SOUND[rain_handle] == RAIN_SOUND) {
+            auStopSound((u32) rain_handle);
+        }
+        rain_handle = -1;
     }
 }
 
@@ -2374,13 +2416,16 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
         if (moonlight_on) {
             key_light();
         }
-        if (raining && obj != NULL) {
+        if (rain_share > 0.0f && obj != NULL) {
             rain(obj);
             if (on_the_ride) {
                 rain_sound();
             }
-        } else if ((snowing || ashing) && obj != NULL) {
+        } else if ((snow_share > 0.0f || ash_share > 0.0f) && obj != NULL) {
             snow(obj);
+        }
+        if (rain_share <= 0.0f) {
+            rain_quiet();           // the rain has ended, or there was none
         }
         if (night->embers && !scoring) {
             lava_sky();
@@ -2412,7 +2457,7 @@ static void shooting_star(void) {
     f32 az, el, ce, phi, th, cs, sn, len, alpha;
     s32 k;
 
-    if (sky_now == NULL || sky_now->data.dobj == NULL || sunset || raining || snowing || storming || scoring) {
+    if (sky_now == NULL || sky_now->data.dobj == NULL || sunset || raining || snowing || storming || scoring || clear_share < 1.0f) {
         return;
     }
     ticks = ticks_of(night);
@@ -2550,6 +2595,7 @@ RECOMP_HOOK("omDrawAll") void night_cameras_begin(void) {
     s32 list;
 
     fx_lit_n = 0;
+    status_tick();
     cycle_tick();
     if (night == NULL || scoring || !fx_lit) {
         return;
@@ -2671,8 +2717,11 @@ static u32 weather_of(const Night* by) {
         return recomp_get_config_u32(by->weather);
     }
     pick = (setup_of() == 1) ? 5 : recomp_get_config_u32("weather");    // 0 the island's own, 1 clear, 2 rain, 3 storm, 4 snow, 5 drawn
+    if (pick == 5 && setup_of() == 1) {
+        return weather_live(by);        // Live: the island's weather by the clock and the date
+    }
     if (pick == 5) {
-        // Drawn once per ride for the course (a photo's world keeps the ride's):
+        // Random: drawn once per ride for the course (a photo's world keeps the ride's):
         // mostly clear; rain a quarter of the time, a storm one in ten, snow one
         // in ten on the Valley; ash over the Volcano one in three.
         s32 idx = (s32) (by - nights);
@@ -2849,6 +2898,50 @@ static void pal_keep(u8 pal[11][3], f32* dir) {
     }
 }
 
+// The cycle's three ends -- the sunset's palette, the night's and the dawn's
+// -- kept for the weather in force and again for the one the island turns
+// to (the same when there is no turn).
+static void weather_palettes_keep(const Night* by) {
+    u8 was_sunset = sunset, was_dawn = dawn;
+    u8 r = raining, s = storming, n = snowing, a = ashing;
+    s32 pass;
+
+    for (pass = 0; pass < 2; pass++) {
+        weather_flags_set(pass == 0 ? wx_from : wx_to);
+        sunset = 1;
+        dawn = 0;
+        choose_palette(by);
+        pal_keep(pass == 0 ? pal_a : pal2_a, dir_a);
+        sunset = 0;
+        choose_palette(by);
+        pal_keep(pass == 0 ? pal_b : pal2_b, dir_b);
+        sunset = 1;
+        dawn = 1;
+        choose_palette(by);
+        pal_keep(pass == 0 ? pal_d : pal2_d, dir_d);
+    }
+    sunset = was_sunset;
+    dawn = was_dawn;
+    raining = r;
+    storming = s;
+    snowing = n;
+    ashing = a;
+}
+
+// The two weathers' palettes mixed as far as the turn has come, for the
+// moment to blend from.
+static void wx_mix(void) {
+    s32 n, k;
+
+    for (n = 0; n < 11; n++) {
+        for (k = 0; k < 3; k++) {
+            mix_a[n][k] = (u8) ((f32) pal_a[n][k] + ((f32) pal2_a[n][k] - (f32) pal_a[n][k]) * pal_share);
+            mix_b[n][k] = (u8) ((f32) pal_b[n][k] + ((f32) pal2_b[n][k] - (f32) pal_b[n][k]) * pal_share);
+            mix_d[n][k] = (u8) ((f32) pal_d[n][k] + ((f32) pal2_d[n][k] - (f32) pal_d[n][k]) * pal_share);
+        }
+    }
+}
+
 // The land, the water and the scenery lit again from the record's day
 // colors with the colors in force, as light_vertex lit them the first time.
 static void relight_record(void) {
@@ -2885,7 +2978,7 @@ static void relight_record(void) {
             c[0] = (u8) (orig >> 24);
             c[1] = (u8) (orig >> 16);
             c[2] = (u8) (orig >> 8);
-            if (snowing && !flow && !steep) {
+            if (snow_cover && !flow && !steep) {
                 u32 bright = 159 + (97 * ((c[0] * 77 + c[1] * 151 + c[2] * 28) >> 8)) / 255;
 
                 c[0] = (u8) snow_channel(c[0], SNOW_R, bright);
@@ -3133,9 +3226,10 @@ static void moment_apply(f32 m) {
     f32 stars = 0.0f, moon = 0.0f;
 
     cycle_minute = m;
+    wx_mix();
     if (m >= m_night0 || m < m_dawn0) {
         // Night.
-        palette_blend(pal_b, dir_b, pal_b, dir_b, 0.0f, 0);
+        palette_blend(mix_b, dir_b, mix_b, dir_b, 0.0f, 0);
         nightness = 1.0f;
         sunset = 0;
         dawn = 0;
@@ -3151,7 +3245,7 @@ static void moment_apply(f32 m) {
         // Night to dawn: the stars and the moon go, the sun comes up pink.
         f32 w = (m - m_dawn0) / (m_dawn1 - m_dawn0);
 
-        palette_blend(pal_b, dir_b, pal_d, dir_d, w, 0);
+        palette_blend(mix_b, dir_b, mix_d, dir_d, w, 0);
         nightness = 1.0f;
         sunset = (w > 0.5f);
         dawn = 1;
@@ -3159,7 +3253,7 @@ static void moment_apply(f32 m) {
         stars = 1.0f - ease(w);
         moon = 1.0f - ease(w);
         sun_state(night->sun_list, 0, 0.0f, 0.0f);
-        sun_state(night->dawn_list, 1, -260.0f * (1.0f - w), ease(w));
+        sun_state(night->dawn_list, 1, -260.0f * (1.0f - w), ease(w) * clear_share);
         band_state(night->band, night_band_sun_color, 0.0f, 0.0f);
         band_state(night->dawn_band, night_band_dawn_color, ease(w), 0.0f);
         spare_point(night->dawn_list);
@@ -3167,19 +3261,19 @@ static void moment_apply(f32 m) {
         // Dawn to day: the pink lifts off the cartridge's own morning.
         f32 w = (m - m_dawn1) / (m_day0 - m_dawn1);
 
-        palette_blend(pal_d, dir_d, pal_d, dir_d, 0.0f, 0);
+        palette_blend(mix_d, dir_d, mix_d, dir_d, 0.0f, 0);
         nightness = 1.0f - ease(w);
         sunset = 1;
         dawn = 1;
         cloud_top_fade = (u8) (255.0f * (1.0f - w));
         sun_state(night->sun_list, 0, 0.0f, 0.0f);
-        sun_state(night->dawn_list, 1, 350.0f * w, 1.0f - ease(w));
+        sun_state(night->dawn_list, 1, 350.0f * w, (1.0f - ease(w)) * clear_share);
         band_state(night->band, night_band_sun_color, 0.0f, 0.0f);
         band_state(night->dawn_band, night_band_dawn_color, 1.0f - ease(w), 0.0f);
         spare_point(w < 0.999f ? night->dawn_list : NULL);
     } else if (m < m_day1) {
         // Day: the cartridge, exactly.
-        palette_blend(pal_a, dir_a, pal_a, dir_a, 0.0f, 0);
+        palette_blend(mix_a, dir_a, mix_a, dir_a, 0.0f, 0);
         nightness = 0.0f;
         sunset = 1;
         dawn = 0;
@@ -3193,12 +3287,12 @@ static void moment_apply(f32 m) {
         // Day to sunset: the sky warms, the sun comes down to its evening place.
         f32 w = (m - m_day1) / (m_sun1 - m_day1);
 
-        palette_blend(pal_a, dir_a, pal_a, dir_a, 0.0f, 0);
+        palette_blend(mix_a, dir_a, mix_a, dir_a, 0.0f, 0);
         nightness = ease(w);
         sunset = 1;
         dawn = 0;
         cloud_top_fade = 255;
-        sun_state(night->sun_list, 0, 350.0f * (1.0f - w), ease(w));
+        sun_state(night->sun_list, 0, 350.0f * (1.0f - w), ease(w) * clear_share);
         sun_state(night->dawn_list, 1, 0.0f, 0.0f);
         band_state(night->band, night_band_sun_color, ease(w), 0.0f);
         band_state(night->dawn_band, night_band_dawn_color, 0.0f, 0.0f);
@@ -3210,22 +3304,22 @@ static void moment_apply(f32 m) {
         f32 sun_alpha = 1.0f - (t - 0.35f) / 0.3f;
         f32 sink = (t < 0.6f) ? t / 0.6f : 1.0f;
 
-        palette_blend(pal_a, dir_a, pal_b, dir_b, t, 1);
+        palette_blend(mix_a, dir_a, mix_b, dir_b, t, 1);
         nightness = 1.0f;
         sunset = (t < 0.6f);
         dawn = 0;
         cloud_top_fade = (u8) (255.0f * (1.0f - t));
         stars = (t - 0.65f) / 0.3f;
         moon = (t - 0.7f) / 0.3f;
-        sun_state(night->sun_list, 0, -260.0f * sink, sun_alpha);
+        sun_state(night->sun_list, 0, -260.0f * sink, sun_alpha * clear_share);
         sun_state(night->dawn_list, 1, 0.0f, 0.0f);
         band_state(night->band, night_band_sun_color, (t < 0.3f) ? 1.0f : (t > 0.8f) ? 0.0f : (0.8f - t) / 0.5f, t > 0.8f ? 1.0f : t / 0.8f);
         band_state(night->dawn_band, night_band_dawn_color, 0.0f, 0.0f);
         spare_point(night->sun_list);
     }
     stars = stars < 0.0f ? 0.0f : stars > 1.0f ? 1.0f : stars;
-    star_fade = (u8) (255.0f * stars);
-    moon_state(moon);
+    star_fade = (u8) (255.0f * stars * clear_share);
+    moon_state(moon * clear_share);
     scene_apply();
 }
 
@@ -3260,49 +3354,86 @@ static f32 sky_cos(f32 x) {
     return sky_sin(x + 1.57079633f);
 }
 
-// The hours of the cycle: the fixed ones (sunrise 06:00, sunset 18:30), or the
-// sun's own at the latitude chosen, for today, by the textbook formula (the
-// declination from the day of the year, the hour angle from it and the
-// latitude; solar noon taken as 12:00, so within an hour of the clock's).
-// In a polar season the day or the night is held to two hours.
-static void sun_hours_apply(void) {
-    static const s8 lat_of[12] = { 0, 60, 50, 40, 30, 20, 10, 0, -10, -20, -30, -40 };
-    u32 pick = (setup_of() == 0) ? 0 : recomp_get_config_u32("sun");
-    f32 rise = 360.0f, set = 1110.0f;
+static const s8 sun_lat_of[12] = { 0, 60, 50, 40, 30, 20, 10, 0, -10, -20, -30, -40 };
+static f32 m_rise = 360.0f;      // sunrise, for the page's line
 
-    if (pick >= 1 && pick < 12) {
+// The latitude the Sun row names, in degrees north, or 999 for Fixed hours
+// (Simple has no Sun row).
+static s32 sun_latitude(void) {
+    u32 pick = (setup_of() == 0) ? 0 : recomp_get_config_u32("sun");
+
+    return (pick >= 1 && pick < 12) ? sun_lat_of[pick] : 999;
+}
+
+// The hours from noon at which the sun stands at the altitude given (below
+// the horizon when negative), by the textbook formula from the latitude and
+// the declination; acos by halving, since the mod has none. Held to 0 to 12.
+static f32 sun_hours_from_noon(f32 lat, f32 decl, f32 alt) {
+    f32 x = (sky_sin(alt) - sky_sin(lat) * sky_sin(decl)) / (sky_cos(lat) * sky_cos(decl));
+    f32 lo = 0.0f, hi = 3.14159265f, w;
+    s32 i;
+
+    x = x < -1.0f ? -1.0f : x > 1.0f ? 1.0f : x;
+    for (i = 0; i < 24; i++) {          // cos falls from 1 to -1 over 0..pi
+        w = (lo + hi) / 2.0f;
+        if (sky_cos(w) > x) {
+            lo = w;
+        } else {
+            hi = w;
+        }
+    }
+    return (lo + hi) / 2.0f * (180.0f / 3.14159265f) / 15.0f;
+}
+
+// The hours of the cycle: the fixed ones (sunrise 06:00, sunset 18:30, the
+// dawn and the dusk of fixed lengths), or the sun's own at the latitude
+// chosen, for today, with the dawn and the dusk as long as the civil
+// twilight there -- the sun's way from six degrees under to the horizon,
+// about half an hour at 40 degrees at the equinox, twice that in a far
+// northern June, less at the equator. Solar noon is taken as 12:00, so
+// within an hour of the clock's. In a polar season the day or the night is
+// held to two hours. Cheap enough to call often; it says so in the log when
+// its answer changes.
+static void sun_hours_apply(void) {
+    static s32 logged_lat = 1000, logged_doy = -1;
+    s32 lat_deg = sun_latitude();
+    f32 rise = 360.0f, set = 1110.0f, scale = 1.0f;
+
+    if (lat_deg != 999) {
         u32 date = snap64_local_date();
         s32 y = (s32) (date >> 16), mo = (s32) ((date >> 8) & 0xFF), d = (s32) (date & 0xFF);
         s32 doy = days_from_2000(y, mo, d) - days_from_2000(y, 1, 1) + 1;
-        f32 lat = (f32) lat_of[pick] * (3.14159265f / 180.0f);
+        f32 lat = (f32) lat_deg * (3.14159265f / 180.0f);
         f32 decl = (23.44f * 3.14159265f / 180.0f) * sky_sin((360.0f / 365.0f) * (f32) (284 + doy) * (3.14159265f / 180.0f));
-        f32 x = -(sky_sin(lat) / sky_cos(lat)) * (sky_sin(decl) / sky_cos(decl));
-        f32 lo = 0.0f, hi = 3.14159265f, w;
-        s32 i;
+        f32 w = sun_hours_from_noon(lat, decl, 0.0f);
+        f32 tw;
 
-        x = x < -1.0f ? -1.0f : x > 1.0f ? 1.0f : x;
-        for (i = 0; i < 24; i++) {          // acos by halving: cos falls from 1 to -1 over 0..pi
-            w = (lo + hi) / 2.0f;
-            if (sky_cos(w) > x) {
-                lo = w;
-            } else {
-                hi = w;
-            }
-        }
-        w = (lo + hi) / 2.0f * (180.0f / 3.14159265f) / 15.0f;     // hours from noon
         w = w < 1.0f ? 1.0f : w > 11.0f ? 11.0f : w;
+        tw = (sun_hours_from_noon(lat, decl, -6.0f * (3.14159265f / 180.0f)) - w) * 60.0f;     // the civil twilight, in minutes
+        scale = tw / 31.0f;                 // 31 minutes: 40 degrees at the equinox, the fixed lengths' own
+        scale = scale < 0.75f ? 0.75f : scale > 2.5f ? 2.5f : scale;
         rise = (12.0f - w) * 60.0f;
         set = (12.0f + w) * 60.0f;
-        recomp_printf("[island skies] at %d degrees the sun rises at %u:%u%u and sets at %u:%u%u today\n", (s32) lat_of[pick],
-                      (u32) rise / 60, ((u32) rise % 60) / 10, ((u32) rise % 60) % 10,
-                      (u32) set / 60, ((u32) set % 60) / 10, ((u32) set % 60) % 10);
+        if (60.0f * scale > rise - 1.0f) {              // the dawn's start stays inside the day
+            scale = (rise - 1.0f) / 60.0f;
+        }
+        if (45.0f * scale > 1439.0f - set) {            // and so does the night's
+            scale = (1439.0f - set) / 45.0f;
+        }
+        if (lat_deg != logged_lat || doy != logged_doy) {
+            logged_lat = lat_deg;
+            logged_doy = doy;
+            recomp_printf("[island skies] at %d degrees the sun rises at %u:%02u and sets at %u:%02u today; the twilight runs %u minutes\n",
+                          lat_deg, (u32) rise / 60, (u32) rise % 60, (u32) set / 60, (u32) set % 60, (u32) (tw < 0.0f ? 0.0f : tw));
+        }
     }
-    m_dawn0 = rise - 60.0f;
-    m_dawn1 = rise - 15.0f;
-    m_day0 = rise + 45.0f;
-    m_day1 = set - 60.0f;
+    m_rise = rise;
+    m_dawn0 = rise - 60.0f * scale;
+    m_dawn1 = rise - 15.0f * scale;
+    m_day0 = rise + 45.0f * scale;
+    m_day1 = set - 60.0f * scale;
     m_sun1 = set;
-    m_night0 = set + 45.0f;
+    m_night0 = set + 45.0f * scale;
 }
 
 // The moon's phase by the date: its age from the new moon of January 6, 2000,
@@ -3370,12 +3501,397 @@ static f32 mode_minutes(void) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// The island's weather under Live, from the date and the hour and nothing
+// else, so the next ride finds the weather the last one left. The day is cut
+// into hours; an hour keeps the last hour's weather two times in three and
+// draws afresh the third time: mostly clear, rain about a quarter of the
+// time, a storm less often, the odds leaning with the season. A change comes
+// some minutes into its hour, not on the stroke, and takes a minute and a
+// half: the sky grays and the stars go, then the rain comes; clearing, the
+// rain thins first and the stars return. A ride that meets a change sees it.
+#define WX_CLEAR 0
+#define WX_RAIN 1               // on the Volcano: ash
+#define WX_STORM 2
+#define WX_SNOW 3               // the Valley's rain in the cold
+#define WX_TURN_MINUTES 1.5f
+
+static u32 wx_hash(s32 hour, u32 salt) {
+    u32 x = (u32) hour * 2654435761u + salt * 0x9E3779B1u;
+
+    x ^= x >> 15;
+    x *= 0x85EBCA77u;
+    x ^= x >> 13;
+    x *= 0xC2B2AE3Du;
+    x ^= x >> 16;
+    return x & 0xFF;
+}
+
+// Months from midwinter, 0 to 6, on the side of the equator the Sun row
+// names (the north with Fixed hours).
+static s32 wx_from_midwinter(s32 month) {
+    s32 lat = sun_latitude();
+    s32 m = (lat != 999 && lat < 0) ? ((month + 5) % 12) + 1 : month;
+    s32 d = (m + 11) % 12;      // January 0
+
+    return d > 6 ? 12 - d : d;
+}
+
+// A fresh draw for an hour, of 256: clear 170, rain 70, a storm 16 in winter;
+// 150, 70 and 36 between; 140, 64 and 52 in summer.
+static u32 wx_fresh(s32 hour, s32 month) {
+    u32 roll = wx_hash(hour, 1);
+    s32 d = wx_from_midwinter(month);
+    u32 clear = d <= 1 ? 170 : d >= 5 ? 140 : 150;
+    u32 storm = d <= 1 ? 16 : d >= 5 ? 52 : 36;
+
+    return roll < clear ? WX_CLEAR : roll >= 256 - storm ? WX_STORM : WX_RAIN;
+}
+
+// The island's weather in an hour: the latest fresh draw at or before it.
+static u32 wx_hour(s32 hour, s32 month) {
+    s32 h = hour, n;
+
+    for (n = 0; n < 72 && wx_hash(h, 2) >= 86; n++) {     // an hour draws afresh one time in three
+        h--;
+    }
+    return wx_fresh(h, month);
+}
+
+// The minute of its hour a change comes at: five to forty-five minutes in.
+static f32 wx_turn_at(s32 hour) {
+    return 5.0f + (f32) (wx_hash(hour, 3) * 40) / 255.0f;
+}
+
+// The island's state at a minute of an hour: what the weather was, what it
+// is turning to, how far the turn has come (0 to 1), and the minute of the
+// hour the turn begins (-1 when the hour has none).
+static void wx_state(s32 hour, f32 in_hour, s32 month, u32* from, u32* to, f32* share, f32* turn) {
+    u32 now = wx_hour(hour, month), was = wx_hour(hour - 1, month);
+
+    *turn = -1.0f;
+    *from = *to = now;
+    *share = 1.0f;
+    if (now != was) {
+        f32 at = wx_turn_at(hour);
+
+        *turn = at;
+        *from = was;
+        if (in_hour < at) {
+            *share = 0.0f;
+        } else if (in_hour < at + WX_TURN_MINUTES) {
+            *share = (in_hour - at) / WX_TURN_MINUTES;
+        }
+    }
+}
+
+// Whether the Valley's rain falls as snow: in the deep winter from 35
+// degrees, five months of it from 50, one day in three of the deep winter
+// from 20; nearer the equator never. With no latitude the Valley has snow
+// one day in three the year round.
+static u8 wx_cold(s32 day, s32 month) {
+    s32 lat = sun_latitude();
+    s32 size = lat < 0 ? -lat : lat;
+    s32 d = wx_from_midwinter(month);
+    u8 third = (wx_hash(day, 4) < 86);
+
+    if (lat == 999) {
+        return third;
+    }
+    if (size >= 50) {
+        return d <= 2;
+    }
+    if (size >= 35) {
+        return d <= 1;
+    }
+    if (size >= 20) {
+        return d <= 1 && third;
+    }
+    return 0;
+}
+
+// The island's weather as a course has it: the Volcano turns rain or a storm
+// to ash; the Valley's rain is snow in the cold.
+static u32 wx_course(const Night* by, u32 island, s32 day, s32 month) {
+    if (island == WX_CLEAR) {
+        return WX_CLEAR;
+    }
+    if (by->embers) {
+        return WX_RAIN;
+    }
+    if (by->option[0] == 'v' && by->option[1] == 'a' && wx_cold(day, month)) {
+        return WX_SNOW;
+    }
+    return island;
+}
+
+// Today, from the port: the day since the turn of the century, and the month.
+static void wx_today(s32* day, s32* month) {
+    u32 date = snap64_local_date();
+
+    *month = (s32) ((date >> 8) & 0xFF);
+    *day = days_from_2000((s32) (date >> 16), *month, (s32) (date & 0xFF));
+}
+
+// The course's weather now under Live: wx_from, wx_to, wx_share and the turn's
+// minute of the day set; the one in force returned.
+static u32 weather_live(const Night* by) {
+    f32 m = mode_minutes();
+    s32 day, month, hour;
+    u32 from, to;
+    f32 share, turn;
+
+    wx_today(&day, &month);
+    hour = (s32) (m / 60.0f);
+    wx_state(day * 24 + hour, m - 60.0f * (f32) hour, month, &from, &to, &share, &turn);
+    wx_from = wx_course(by, from, day, month);
+    wx_to = wx_course(by, to, day, month);
+    if (wx_from == wx_to) {
+        share = 1.0f;
+    }
+    wx_share = share;
+    wx_turn_minute = (turn < 0.0f) ? -1.0f : 60.0f * (f32) hour + turn;
+    return (share < 0.5f) ? wx_from : wx_to;
+}
+
+static f32 wx_ramp(f32 x) {
+    return x < 0.0f ? 0.0f : x > 1.0f ? 1.0f : x;
+}
+
+// The flags the drawing reads, for one weather of the course.
+static void weather_flags_set(u32 code) {
+    raining = (code == WX_RAIN || code == WX_STORM) && !night->embers;
+    storming = (code == WX_STORM) && !night->embers;
+    snowing = (code == WX_SNOW);
+    ashing = night->embers && code != WX_CLEAR;
+}
+
+static const char* wx_name(u32 code) {
+    return code == WX_CLEAR ? "clear" : code == WX_STORM ? "a storm" : code == WX_SNOW ? "snow" : night != NULL && night->embers ? "ash" : "rain";
+}
+
+// From the turn under way, the shares the drawing takes: the palettes mix over
+// the whole turn, eased; the clear sky's stars, moon and glint go in its first
+// half and come back in its last; the rain, the snow or the ash start a third
+// of the way in and, on the way out, thin over the first two thirds. The
+// flags turn over at the middle. The fog comes in with the wet. A turn of the
+// flags is said in the log when asked (the ticks of a ride, not a load).
+static void weather_shares_apply(s32 say) {
+    u8 r = raining, s = storming, n = snowing, a = ashing;
+    f32 e = ease(wx_share);
+    f32 up = wx_ramp((wx_share - 0.3f) / 0.7f), down = wx_ramp(wx_share / 0.7f);
+    f32 wet0 = (wx_from == WX_RAIN || wx_from == WX_STORM) && !night->embers;
+    f32 wet1 = (wx_to == WX_RAIN || wx_to == WX_STORM) && !night->embers;
+    f32 snow0 = (wx_from == WX_SNOW), snow1 = (wx_to == WX_SNOW);
+    f32 ash0 = night->embers && wx_from != WX_CLEAR, ash1 = night->embers && wx_to != WX_CLEAR;
+    f32 clear0 = (wx_from == WX_CLEAR), clear1 = (wx_to == WX_CLEAR);
+    f32 drop0 = snow0 ? 10.0f : wet0 ? 6.0f : 0.0f, drop1 = snow1 ? 10.0f : wet1 ? 6.0f : 0.0f;
+
+    pal_share = e;
+    overcast_share = (1.0f - clear0) + (clear0 - clear1) * e;
+    rain_share = wet0 + (wet1 - wet0) * (wet1 > wet0 ? up : down);
+    snow_share = snow0 + (snow1 - snow0) * (snow1 > snow0 ? up : down);
+    ash_share = ash0 + (ash1 - ash0) * (ash1 > ash0 ? up : down);
+    clear_share = clear0 + (clear1 - clear0) * (clear1 > clear0 ? wx_ramp((wx_share - 0.5f) / 0.5f) : wx_ramp(wx_share / 0.5f));
+    weather_flags_set(wx_share < 0.5f ? wx_from : wx_to);
+    fog_near = (u16) ((f32) night->fog_min - (drop0 + (drop1 - drop0) * e));
+    if (say && (r != raining || s != storming || n != snowing || a != ashing)) {
+        recomp_printf("[island skies] the weather turns at tick %u: %s\n", ticks_of(night), wx_name(wx_share < 0.5f ? wx_from : wx_to));
+    }
+}
+
+// The state at the load, for the log and the runs that check it.
+static void weather_log(void) {
+    if (wx_from == wx_to) {
+        recomp_printf("[island skies] the island's weather: %s\n", wx_name(wx_from));
+    } else {
+        s32 at = (s32) wx_turn_minute;
+
+        recomp_printf("[island skies] the island's weather: %s, turning to %s at %d:%02d, %d of 100 of the way\n",
+                      wx_name(wx_from), wx_name(wx_to), at / 60, at % 60, (s32) (wx_share * 100.0f));
+    }
+}
+
+// Under Live, every ten ticks: the state now; a new pair of weathers has its
+// palettes kept; the shares follow. Says whether anything moved, so that the
+// scene is painted again.
+static s32 weather_tick(void) {
+    u32 from = wx_from, to = wx_to;
+    f32 share = wx_share;
+
+    if (night->weather == NULL) {
+        return 0;
+    }
+    weather_live(night);
+    if (wx_from != from || wx_to != to) {
+        weather_palettes_keep(night);
+    }
+    if (wx_from == from && wx_to == to && wx_share == share) {
+        return 0;
+    }
+    weather_shares_apply(1);
+    return 1;
+}
+
+// ---------------------------------------------------------------------------
+// The mod's line on its details page (snap64_set_status): under Live, or with
+// a course on Your clock, the hour as the island has it, the weather, the
+// sun's hours, and the next change of weather when one is within six hours;
+// the port fills %T with the clock as the page is read. Looked at every two
+// seconds, sent when it changes.
+#define STATUS_MOD_ID "snap64_island_skies"
+static char status_buf[200], status_sent[200];
+static u32 status_len, status_ticks;
+
+static void st_put(const char* s) {
+    while (*s != 0 && status_len < sizeof(status_buf) - 1) {
+        status_buf[status_len++] = *s++;
+    }
+    status_buf[status_len] = 0;
+}
+
+static void st_num(u32 n) {
+    char digits[12];
+    s32 i = 0;
+
+    do {
+        digits[i++] = (char) ('0' + n % 10);
+        n /= 10;
+    } while (n != 0);
+    while (i > 0) {
+        char one[2] = { digits[--i], 0 };
+
+        st_put(one);
+    }
+}
+
+// A minute of the day as a clock reads it: "6:41 PM".
+static void st_hm12(f32 minutes) {
+    s32 m = (s32) minutes;
+    s32 h = (m / 60) % 24, mm = m % 60;
+
+    st_num((u32) (h % 12 == 0 ? 12 : h % 12));
+    st_put(":");
+    if (mm < 10) {
+        st_put("0");
+    }
+    st_num((u32) mm);
+    st_put(h < 12 ? " AM" : " PM");
+}
+
+static const char* phase_name(f32 m) {
+    if (m >= m_night0 || m < m_dawn0) {
+        return "night";
+    }
+    if (m < m_day0) {
+        return "dawn";
+    }
+    if (m < m_day1) {
+        return "day";
+    }
+    if (m < m_sun1) {
+        return "sunset";
+    }
+    return "dusk";
+}
+
+static void status_tick(void) {
+    u32 setup, i;
+    u8 clocked;
+
+    if (++status_ticks < 60) {
+        return;
+    }
+    status_ticks = 0;
+    setup = setup_of();
+    clocked = (setup == 1);
+    if (setup == 0) {
+        clocked = (recomp_get_config_u32("time") == TIME_CLOCK);
+    } else if (setup == 2) {
+        for (i = 0; i < sizeof(nights) / sizeof(nights[0]); i++) {
+            if (recomp_get_config_u32(nights[i].option) == TIME_CLOCK) {
+                clocked = 1;
+            }
+        }
+    }
+    status_len = 0;
+    status_buf[0] = 0;
+    if (clocked) {
+        f32 m = clock_minutes();
+
+        sun_hours_apply();
+        st_put(setup == 1 ? "Live: %T, " : "Your clock: %T, ");
+        st_put(phase_name(m));
+        if (setup == 1) {
+            s32 day, month, hour = (s32) (m / 60.0f), h;
+            u32 from, to, now;
+            f32 share, turn, at = -1.0f;
+            u32 next = WX_CLEAR;
+
+            wx_today(&day, &month);
+            wx_state(day * 24 + hour, m - 60.0f * (f32) hour, month, &from, &to, &share, &turn);
+            st_put(", ");
+            st_put(share < 0.5f ? (from == WX_CLEAR ? "clear" : from == WX_STORM ? "a storm" : "rain")
+                                : (to == WX_CLEAR ? "clear" : to == WX_STORM ? "a storm" : "rain"));
+            // The next change: this hour's own if it is still ahead or under
+            // way, else the first of the six hours after.
+            if (turn >= 0.0f && share < 1.0f) {
+                at = 60.0f * (f32) hour + turn;
+                next = to;
+            } else {
+                now = wx_hour(day * 24 + hour, month);
+                for (h = hour + 1; h <= hour + 6; h++) {
+                    u32 w = wx_hour(day * 24 + h, month);
+
+                    if (w != now) {
+                        at = 60.0f * (f32) h + wx_turn_at(day * 24 + h);
+                        next = w;
+                        break;
+                    }
+                }
+            }
+            st_put(". Sunrise ");
+            st_hm12(m_rise);
+            st_put(", sunset ");
+            st_hm12(m_sun1);
+            st_put(".");
+            if (at >= 0.0f) {
+                st_put(next == WX_CLEAR ? " Clearing at " : next == WX_STORM ? " A storm from " : " Rain from ");
+                st_hm12(at >= 1440.0f ? at - 1440.0f : at);
+                st_put(".");
+            }
+        } else {
+            st_put(". Sunrise ");
+            st_hm12(m_rise);
+            st_put(", sunset ");
+            st_hm12(m_sun1);
+            st_put(".");
+        }
+    }
+    for (i = 0; i < sizeof(status_buf); i++) {
+        if (status_buf[i] != status_sent[i]) {
+            break;
+        }
+        if (status_buf[i] == 0) {
+            return;             // the same line as last sent
+        }
+    }
+    for (i = 0; i < sizeof(status_buf); i++) {
+        status_sent[i] = status_buf[i];
+        if (status_buf[i] == 0) {
+            break;
+        }
+    }
+    snap64_set_status(STATUS_MOD_ID, status_buf);
+}
+
 // Every ten ticks of a frame's drawing, the moment moves on: the dusk by the
 // ride's clock, the cycle by the player's. The day holds still between its
 // ends, so nothing is repainted there.
 static void cycle_tick(void) {
     u32 t;
     f32 m;
+    s32 turning = 0;
 
     if (night == NULL || scoring || !(cycle || dusk)) {
         return;
@@ -3386,7 +3902,10 @@ static void cycle_tick(void) {
     }
     dusk_last = t;
     m = mode_minutes();
-    if (m >= m_day0 && m < m_day1 && cycle_minute >= m_day0 && cycle_minute < m_day1) {
+    if (cycle) {
+        turning = weather_tick();       // the island's weather moves with the clock
+    }
+    if (!turning && m >= m_day0 && m < m_day1 && cycle_minute >= m_day0 && cycle_minute < m_day1) {
         return;
     }
     moment_apply(m);
@@ -3418,14 +3937,15 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     {
         u32 weather = weather_of(by);
 
-        raining = (weather == 1 || weather == 2);
-        storming = (weather == 2);
-        snowing = (weather == 3);
-        ashing = 0;
-        if (by->embers) {           // the Volcano's weather is ash, not rain
-            ashing = (weather == 1);
-            raining = storming = snowing = 0;
+        if (!(setup_of() == 1 && by->weather != NULL)) {
+            wx_from = wx_to = weather;      // one weather for the ride
+            wx_share = 1.0f;
+            wx_turn_minute = -1.0f;
         }
+        weather_shares_apply(0);
+        // Snow lies on the land when it was snowing as the ride loaded, or had
+        // just stopped; snow that begins during a ride falls and does not lie.
+        snow_cover = (wx_from == WX_SNOW) || (wx_to == WX_SNOW && wx_share >= 0.5f);
         // The fine switches are Custom's; Simple takes their defaults.
         fx_lit = simple_setup() || (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
         glows_on = simple_setup() || (recomp_get_config_u32("water_glow") == 0);
@@ -3433,31 +3953,13 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         night_sounds_on = simple_setup() || (recomp_get_config_u32("night_sounds") == 0);
         lightning = (u8) (simple_setup() ? 1 : recomp_get_config_u32("lightning"));     // Gentle unless Custom says
     }
-    // The cycle's three ends: the sunset's palette, the night's and the dawn's.
-    {
-        u8 was_sunset = sunset, was_dawn = dawn;
-
-        sunset = 1;
-        dawn = 0;
-        choose_palette(by);
-        pal_keep(pal_a, dir_a);
-        sunset = 0;
-        choose_palette(by);
-        pal_keep(pal_b, dir_b);
-        sunset = 1;
-        dawn = 1;
-        choose_palette(by);
-        pal_keep(pal_d, dir_d);
-        sunset = was_sunset;
-        dawn = was_dawn;
-    }
+    weather_palettes_keep(by);      // the cycle's three ends, for both weathers
     sun_hours_apply();
     moon_phase_apply();
     star_fade = 255;
     dusk_last = 0xFFFFFFFFu;
     cycle_minute = -1.0f;
-    fog_near = by->fog_min - (snowing ? 10 : raining ? 6 : 0);
-    fog_far = by->fog_max;
+    fog_far = by->fog_max;          // fog_near: weather_shares_apply
     // The set-up record ends in a byte the game leaves empty; it is marked here
     // so that a load is made night once. A fresh load brings it back empty.
     if (((volatile u8*) setup)[0x1F] != DONE_MARK) {
@@ -3510,6 +4012,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             u32 t = snap64_local_time();
 
             recomp_printf("[island skies] your clock says %u:%u%u\n", (t >> 16) & 0xFF, ((t >> 8) & 0xFF) / 10, ((t >> 8) & 0xFF) % 10);
+            weather_log();
         }
     } else {
         // A photo's world of the same load: the moment of its instant.
@@ -3528,12 +4031,7 @@ RECOMP_HOOK("destroyWorld") void night_destroy_world(void) {
     }
     night = NULL;
     set_light(NULL);
-    if (rain_handle >= 0) {
-        if (VOICE_SOUND != NULL && VOICE_SOUND[rain_handle] == RAIN_SOUND) {
-            auStopSound((u32) rain_handle);
-        }
-        rain_handle = -1;
-    }
+    rain_quiet();
     thunder_at = body_at = echo_at = 0;
     chirp_next[0] = 240;
     chirp_next[1] = 330;
