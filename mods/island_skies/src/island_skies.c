@@ -3740,8 +3740,8 @@ static void weather_shares_apply(s32 say) {
         recomp_printf("[island skies] the weather turns at tick %u: %s\n", ticks_of(night), wx_name(code));
         // Said over the course too, as the turn comes.
         st_begin(notice_buf, sizeof(notice_buf));
-        st_put(code == WX_CLEAR ? "Island Skies: the sky clears" : code == WX_STORM ? "Island Skies: a storm comes"
-               : code == WX_SNOW ? "Island Skies: snow comes" : night->embers ? "Island Skies: ash falls" : "Island Skies: the rain comes");
+        st_put(code == WX_CLEAR ? "The sky clears" : night->embers ? "Ash falls" : code == WX_STORM ? "A storm comes"
+               : code == WX_SNOW ? "Snow comes" : "The rain comes");
         snap64_notice(STATUS_MOD_ID, notice_buf);
     }
 }
@@ -3937,20 +3937,37 @@ static void status_tick(void) {
     snap64_set_status(STATUS_MOD_ID, status_buf);
 }
 
+// The weather over the course now, as a WX_ code: under Live the side of
+// the turn the course is on, else what the flags say.
+static u32 wx_code_now(void) {
+    if (setup_of() == 1 && night != NULL && night->weather != NULL) {
+        return wx_share < 0.5f ? wx_from : wx_to;
+    }
+    return storming ? WX_STORM : snowing ? WX_SNOW : (raining || ashing) ? WX_RAIN : WX_CLEAR;
+}
+
+// The sky in a few words: the weather as a word on the hour's light,
+// "clear night", "rainy dawn", "stormy day"; the Volcano's ash has no
+// such word, so "night under ash".
+static void st_sky(u32 code, const char* phase) {
+    if (code != WX_CLEAR && night != NULL && night->embers) {
+        st_put(phase);
+        st_put(" under ash");
+        return;
+    }
+    st_put(code == WX_CLEAR ? "clear " : code == WX_STORM ? "stormy " : code == WX_SNOW ? "snowy " : "rainy ");
+    st_put(phase);
+}
+
 // The line over the course as a ride starts (snap64_notice): the hour and
-// its light, and under Live the weather.
+// the sky, "7:23 PM, clear night".
 static void ride_notice(void) {
     f32 m = clock_minutes();
 
     st_begin(notice_buf, sizeof(notice_buf));
-    st_put("Island Skies: ");
     st_hm12(m);
     st_put(", ");
-    st_put(phase_name(m));
-    if (setup_of() == 1 && night != NULL && night->weather != NULL) {
-        st_put(", ");
-        st_put(wx_name(wx_share < 0.5f ? wx_from : wx_to));
-    }
+    st_sky(wx_code_now(), phase_name(m));
     snap64_notice(STATUS_MOD_ID, notice_buf);
 }
 
