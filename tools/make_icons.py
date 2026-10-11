@@ -1,11 +1,8 @@
 """The mods' 256x256 icons (mods/<name>/thunderstore/icon.png), one family:
 the port's blue-violet tile and its film canister, both taken from the
 port's own logo with the port's own tools/icon_gen.py, and a gold badge at
-the lower right with the mod's sign drawn on it. Island Skies has its own
-four skies behind the canister instead of the plain tile, inside the same
-rim: the Beach's sunset, night, dawn and day as the mod draws them
-(mods/island_skies/tools/sky, square cuts of captured frames, no HUD). The
-same picture is each mod's thumb.png, the one its details page shows.
+the lower right with the mod's sign drawn on it. Nothing of the game's.
+The same picture is each mod's thumb.png, the one its details page shows.
 
     python tools/make_icons.py <Snap64Recomp checkout>
 
@@ -29,26 +26,12 @@ GOLD_EDGE = (150, 104, 18)
 INK = (46, 34, 78)          # the tile's darkest violet, for the signs
 
 
-def sky_quads(folder, big):
-    """Four square skies as the tile's face: sunset and night above, dawn
-    and day below, the night at the upper right where the canister and
-    the badge leave the most of it showing."""
-    quads = Image.new("RGBA", (big, big), (0, 0, 0, 255))
-    q = big // 2
-    for i, name in enumerate(("sunset", "night", "dawn", "day")):
-        sky = Image.open(os.path.join(folder, name + ".png")).convert("RGBA").resize((q, q), Image.LANCZOS)
-        quads.paste(sky, ((i % 2) * q, (i // 2) * q))
-    return quads
-
-
-def base_with_canister(skies_folder=None):
+def base_with_canister():
     logo = Image.open(ig.LOGO).convert("RGBA")
     can = ig.cut_canister(logo)
     can = can.crop(ig.alpha_bbox(can))
-    tile, face = ig.tile(S)                  # drawn at ig.SS times the size
+    tile, _ = ig.tile(S)                     # drawn at ig.SS times the size
     big = tile.size[0]
-    if skies_folder is not None:
-        tile.paste(sky_quads(skies_folder, big), (0, 0), face)   # inside the rim
     h = round(big * 0.74)
     w = round(can.width * h / can.height)
     can = can.resize((w, h), Image.LANCZOS)
@@ -64,15 +47,29 @@ def badge(img):
     return d, cx, cy, r
 
 
+def stamp(d, pts, width, color=INK):
+    """A stroke as discs stamped along its points: no joins, so no pinholes
+    (a joined line left gold specks all along the infinity loop)."""
+    h = width / 2.0
+    for x, y in pts:
+        d.ellipse((x - h, y - h, x + h, y + h), fill=(*color, 255))
+
+
+def seg(d, p0, p1, width, color=INK):
+    """A straight stroke with round ends."""
+    n = max(2, int(math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / (width * 0.25)) + 1)
+    stamp(d, [(p0[0] + (p1[0] - p0[0]) * i / (n - 1), p0[1] + (p1[1] - p0[1]) * i / (n - 1)) for i in range(n)], width, color)
+
+
 def infinity(img):
     d, cx, cy, r = badge(img)
     a = r * 0.62
     pts = []
-    for i in range(721):
-        t = 2 * math.pi * i / 720
+    for i in range(1440):
+        t = 2 * math.pi * i / 1440
         den = 1 + math.sin(t) ** 2
         pts.append((cx + a * math.cos(t) / den, cy + a * math.sin(t) * math.cos(t) / den * 1.25))
-    d.line(pts, fill=(*INK, 255), width=round(r * 0.20), joint="curve")
+    stamp(d, pts, r * 0.20)
 
 
 def open_padlock(img):
@@ -110,26 +107,56 @@ def crescent(img):
                (sx, sy + sl), (sx - ss, sy + ss), (sx - sl, sy), (sx - ss, sy - ss)], fill=(*INK, 255))
 
 
+def disc(d, x, y, rad, color=INK):
+    d.ellipse((x - rad, y - rad, x + rad, y + rad), fill=(*color, 255))
+
+
 def skies(img):
-    """A crescent moon and a small sun: every hour's sign."""
+    """Every hour and every weather: the sun and the moon above, a storm
+    cloud with rain and a bolt and a snowflake below, four marks of one
+    weight set at the badge's four corners."""
     d, cx, cy, r = badge(img)
-    mr = r * 0.46
-    mx, my = cx - r * 0.22, cy + r * 0.12
-    d.ellipse((mx - mr, my - mr, mx + mr, my + mr), fill=(*INK, 255))
-    bx, by, br = mx + mr * 0.42, my - mr * 0.28, mr * 0.86
-    d.ellipse((bx - br, by - br, bx + br, by + br), fill=(*GOLD, 255))
-    # The sun, upper right: a disc with eight short rays.
-    sx, sy, sr = cx + r * 0.42, cy - r * 0.42, r * 0.17
-    d.ellipse((sx - sr, sy - sr, sx + sr, sy + sr), fill=(*INK, 255))
+    w = r * 0.055                            # the one stroke width
+
+    # The sun, upper left: a disc with eight rays.
+    sx, sy = cx - r * 0.44, cy - r * 0.42
+    disc(d, sx, sy, r * 0.13)
     for k in range(8):
         a = k * math.pi / 4
-        x0, y0 = sx + math.cos(a) * sr * 1.35, sy + math.sin(a) * sr * 1.35
-        x1, y1 = sx + math.cos(a) * sr * 1.95, sy + math.sin(a) * sr * 1.95
-        d.line((x0, y0, x1, y1), fill=(*INK, 255), width=max(2, int(r * 0.05)))
+        seg(d, (sx + math.cos(a) * r * 0.20, sy + math.sin(a) * r * 0.20),
+            (sx + math.cos(a) * r * 0.30, sy + math.sin(a) * r * 0.30), w)
+
+    # The moon, upper right: a disc with its dark cut back out in gold.
+    mx, my, mr = cx + r * 0.44, cy - r * 0.42, r * 0.24
+    disc(d, mx, my, mr)
+    disc(d, mx + mr * 0.42, my - mr * 0.28, mr * 0.86, GOLD)
+
+    # The storm cloud, lower left: three lobes on a flat base, and under
+    # it a bolt between two drops of rain.
+    ex, ey = cx - r * 0.42, cy + r * 0.26
+    disc(d, ex - r * 0.14, ey, r * 0.13)
+    disc(d, ex + r * 0.01, ey - r * 0.08, r * 0.16)
+    disc(d, ex + r * 0.16, ey + r * 0.01, r * 0.12)
+    d.rectangle((ex - r * 0.14, ey, ex + r * 0.16, ey + r * 0.12), fill=(*INK, 255))
+    bolt = [(0.05, 0.00), (-0.06, 0.17), (0.01, 0.17), (-0.05, 0.32), (0.08, 0.13), (0.01, 0.13)]
+    d.polygon([(ex + r * bx, ey + r * (0.14 + by)) for bx, by in bolt], fill=(*INK, 255))
+    for dx in (-0.17, 0.17):
+        seg(d, (ex + r * dx, ey + r * 0.18), (ex + r * (dx - 0.04), ey + r * 0.30), w)
+
+    # The snowflake, lower right: six arms, each with a pair of branches.
+    fx, fy = cx + r * 0.44, cy + r * 0.40
+    for k in range(6):
+        a = k * math.pi / 3
+        ux, uy = math.cos(a), math.sin(a)
+        seg(d, (fx, fy), (fx + ux * r * 0.22, fy + uy * r * 0.22), w)
+        bx, by = fx + ux * r * 0.13, fy + uy * r * 0.13
+        for side in (-1, 1):
+            b = a + side * math.pi / 3
+            seg(d, (bx, by), (bx + math.cos(b) * r * 0.08, by + math.sin(b) * r * 0.08), w)
 
 
-def write(name, sign, skies_folder=None):
-    img = base_with_canister(skies_folder)
+def write(name, sign):
+    img = base_with_canister()
     sign(img)
     small = img.resize((S, S), Image.LANCZOS).convert("RGB")
     for out in (os.path.join(ROOT, "mods", name, "thunderstore", "icon.png"),
@@ -141,4 +168,4 @@ def write(name, sign, skies_folder=None):
 
 write("unlimited_film", infinity)
 write("unlock_everything", open_padlock)
-write("island_skies", skies, os.path.join(ROOT, "mods", "island_skies", "tools", "sky"))
+write("island_skies", skies)
