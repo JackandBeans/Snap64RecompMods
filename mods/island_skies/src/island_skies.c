@@ -993,6 +993,24 @@ static void set_light(const Night* by) {
 // A sky picture painted from its cloud mask with the colors in force.
 // A texel of the cartridge's picture as the day end of the blend: itself, or
 // under rain, snow or ash, grayed and a little darker (an overcast day).
+// The sky over a day under weather: a flat overcast, pale under snow, gray
+// under rain, dark in a storm, dun under ash, with a little of the picture's
+// own light left in it so the clouds still show. (1.0.0 dimmed and grayed the
+// cartridge's picture instead, and the Valley's deep blue dimmed was a
+// night-dark sky over a snowy day: JackandBeans, Oct 11 2026.)
+static void overcast_base(u8 out[3]) {
+    static const u8 snow_sky[3] = { 208, 210, 216 };
+    static const u8 rain_sky[3] = { 150, 153, 160 };
+    static const u8 storm_sky[3] = { 96, 100, 110 };
+    static const u8 ash_sky[3] = { 156, 146, 136 };
+    const u8* b = snowing ? snow_sky : storming ? storm_sky : ashing ? ash_sky : rain_sky;
+    s32 k;
+
+    for (k = 0; k < 3; k++) {
+        out[k] = b[k];
+    }
+}
+
 static u32 day_texel(s32 which, s32 i, s32 k) {
     u16 t = sky_orig_pic[which][i];
     u32 c[3];
@@ -1001,10 +1019,14 @@ static u32 day_texel(s32 which, s32 i, s32 k) {
     c[1] = ((t >> 6) & 31) * 255 / 31;
     c[2] = ((t >> 1) & 31) * 255 / 31;
     if (overcast_share > 0.0f) {
-        u32 gray = (c[0] * 77 + c[1] * 151 + c[2] * 28) >> 8;
-        u32 wet = ((c[k] * 115 + gray * 141) * 218) >> 16;
+        u8 base[3];
+        s32 gray = (s32) ((c[0] * 77 + c[1] * 151 + c[2] * 28) >> 8);
+        s32 flat;
 
-        return (u32) ((s32) c[k] + (s32) (((f32) wet - (f32) c[k]) * overcast_share));
+        overcast_base(base);
+        flat = (s32) base[k] + ((gray - 150) * 12) / 100;
+        flat = flat < 0 ? 0 : flat > 255 ? 255 : flat;
+        return (u32) ((s32) c[k] + (s32) (((f32) flat - (f32) c[k]) * overcast_share));
     }
     return c[k];
 }
@@ -1271,6 +1293,9 @@ static void sky_corners(u32 addr, s32 count, s32 which) {
             s32 tint = low + (((s32) tint_hi[k] - low) * share) / 256;
             s32 day = (i < 64) ? (s32) ((sky_orig_cn[which][i] >> (16 - 8 * k)) & 0xFF) : tint;
 
+            if (i < 64 && overcast_share > 0.0f) {
+                day += (s32) ((f32) (255 - day) * overcast_share);     // a day under weather: the drum untinted, the overcast flat
+            }
             color[k] = (u8) (day + ((tint - day) * (s32) (nightness * 256.0f)) / 256);
         }
         mark(tinted, addr + 16 * i);
@@ -3215,9 +3240,17 @@ static void scene_apply(void) {
         s32 fmin = day_fog_min + (((s32) fog_near - day_fog_min) * share) / 256;
         s32 fmax = day_fog_max + (((s32) fog_far - day_fog_max) * share) / 256;
 
+        u8 base[3];
+
+        overcast_base(base);
         for (k = 0; k < 3; k++) {
-            fog[k] = (u8) (day_fog[k] + (((s32) sky_horizon[k] - day_fog[k]) * share) / 256);
-            bg[k] = (u8) (day_bg[k] + (((s32) sky_top[k] - day_bg[k]) * share) / 256);
+            // The day end: the cartridge's, or under weather the overcast's,
+            // so the far land and the sky's lid meet the flat sky.
+            s32 dfog = day_fog[k] + (s32) ((f32) ((s32) base[k] - day_fog[k]) * overcast_share);
+            s32 dbg = day_bg[k] + (s32) ((f32) ((s32) base[k] - day_bg[k]) * overcast_share);
+
+            fog[k] = (u8) (dfog + (((s32) sky_horizon[k] - dfog) * share) / 256);
+            bg[k] = (u8) (dbg + (((s32) sky_top[k] - dbg) * share) / 256);
         }
         setFogColor(fog[0], fog[1], fog[2]);
         setup->fogDistanceMin = (u16) fmin;

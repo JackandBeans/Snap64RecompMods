@@ -8,6 +8,11 @@
   clear day with a blue sky. Day is now the cycle's day hour held at
   midday when a weather is chosen; under Island's own or Clear it is
   still the cartridge's, untouched. Found by JackandBeans on Oct 11 2026.
+- The sky over a day under weather is a flat overcast: pale under snow,
+  gray under rain, dark gray in a storm, dun under ash, with the fog and
+  the sky's lid matched to it. The day sky had been the cartridge's
+  picture dimmed and grayed, and the Valley's deep blue dimmed made a
+  night-dark sky over the first snowy day JackandBeans saw.
 - The Time row's help line says a change takes effect at the next ride,
   and the Weather row's that snow lies on the Valley alone. The options
   are read as a course loads, so a change made during a ride showed
