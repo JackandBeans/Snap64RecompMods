@@ -48,8 +48,8 @@ Needs Snap64 Recomp 1.1.3 or later. Options > Mods turns it on or off.
 
 ## Setting it up
 
-In the game, open Options > Mods, select Island Skies and press Z. The
-first row is **Setup**:
+In the game, open Options > Mods, select Island Skies and press A for
+its details, then A again for its options. The first row is **Setup**:
 
 - **Simple** is two more rows. **Time**: Night (the default), Sunset,
   Dawn, Dusk (the sun sets during the ride), Day, or Your clock.

@@ -10,7 +10,8 @@ Professor Oak are the newest 60.
 
 ## Option
 
-In the game, open Options > Mods, select Unlimited Film and press Z.
+In the game, open Options > Mods, select Unlimited Film and press A for
+its details, then A again for its options.
 
 - **Film counter**: Always 60 (the default), or Shots taken this ride.
 
