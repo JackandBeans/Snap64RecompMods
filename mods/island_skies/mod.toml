@@ -1,6 +1,6 @@
 [manifest]
 id = "snap64_island_skies"
-version = "1.0.0"
+version = "1.0.1"
 display_name = "Island Skies"
 description = """
 The island's sky at any hour and in any weather: night, sunset, dawn, a \
@@ -44,7 +44,7 @@ default = "Simple"
 [[manifest.config_options]]
 id = "time"
 name = "Time"
-description = "The island's hour, or the one your computer's clock says, day and night."
+description = "The island's hour, or the one your clock says. It takes effect at the next ride."
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"
@@ -53,7 +53,7 @@ hidden_from = { id = "setup", matches = [ "Live", "Custom" ] }
 [[manifest.config_options]]
 id = "weather"
 name = "Weather"
-description = "Island's own: rain on the River, clear elsewhere. Random draws each ride's weather."
+description = "Island's own: rain on the River, clear elsewhere. Snow lies on the Valley alone."
 type = "Enum"
 options = [ "Island's own", "Clear", "Rain", "Storm", "Snow", "Random" ]
 default = "Island's own"

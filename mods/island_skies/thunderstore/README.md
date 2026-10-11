@@ -54,11 +54,15 @@ its details, then A again for its options. The first row is **Setup**:
 - **Simple** is two more rows. **Time**: Night (the default), Sunset,
   Dawn, Dusk (the sun sets during the ride), Day, or Your clock.
   **Weather**: Island's own (rain on the River, clear elsewhere), Clear,
-  Rain, Storm, Snow, or Random.
+  Rain, Storm, Snow, or Random. Snow lies on the Valley alone; Rain and
+  Storm put ash over the Volcano.
 - **Live** is your clock and the island's own weather, with nothing else
   to set.
 - **Custom** opens every row: each course's hour and weather, and the fine
   switches.
+
+A change on the page takes effect as the next ride starts; a ride under
+way keeps the sky it started with.
 
 The mod's details page (Options > Mods, Island Skies) says what it is
 doing right now: the hour and its light, the weather, the sun's hours, and

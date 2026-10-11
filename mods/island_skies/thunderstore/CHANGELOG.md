@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1
+
+- The Time row's help line says a change takes effect at the next ride,
+  and the Weather row's that snow lies on the Valley alone. The options
+  are read as a course loads, so a change made during a ride showed
+  nothing until the next one, and Snow over the River was a clear sky
+  with no word why: JackandBeans set Day and Snow during a ride on Oct 11
+  2026 and saw no change. The README says the same.
+
 ## 1.0.0
 
 - The first release, as Island Skies: the Beach, the Tunnel, the River, the
