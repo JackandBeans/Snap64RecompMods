@@ -37,7 +37,7 @@ first row is **Setup**:
 The mod's details page (Options > Mods, Island Skies) says what it is
 doing right now: the hour and its light, the weather, the sun's hours, and
 the next change of weather when one is near. As a ride starts, a line at
-the top of the screen says the hour and the sky for three seconds, and a
+the top of the screen says the hour and the sky for four seconds, and a
 change of weather during a ride is announced the same way.
 
 ## How Live works
