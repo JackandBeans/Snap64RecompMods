@@ -202,6 +202,7 @@ static f32 overcast_share;            // how gray the day's sky picture goes
 static f32 rain_share, snow_share, ash_share;    // how much falls, of the full fall
 static f32 clear_share = 1.0f;        // how much of the clear sky's stars, moon and glint show
 static u8 snow_cover;                 // snow lies on the land: it was snowing as the ride loaded
+static u8 snow_relit;                 // the record lit again once the water's height is known (the surf line)
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -266,6 +267,8 @@ static u16 glint_vtx_n, glint_op_n, glint_tris, glint_land;
 static u32 glint_load_src[GLINT_OPS];    // where a load's vertices lie in the game's memory (the dusk relights them)
 static u32 glint_orig_cn[GLINT_VTX];     // each copy's day colors, as the course has them
 static u16 glint_face[GLINT_VTX];        // each copy's lighting: bit 15 lit, 14 steep, 13 water, low nine bits toward
+static u8 glint_snow[GLINT_VTX];         // each copy's share of snow, 0 to 255, from its face's slope
+static s16 glint_world_y[GLINT_VTX];     // each copy's height in the world, for the surf line at a relight
 static u8 sky_mask_pic[2][SKY_TEXELS];   // each sky picture's cloud mask, kept for the dusk
 static u8 pal2_a[11][3], pal2_b[11][3], pal2_d[11][3];   // the three palettes for the weather the island turns to
 static u8 mix_a[11][3], mix_b[11][3], mix_d[11][3];      // the two weathers' palettes mixed, as far as the turn has come
@@ -382,13 +385,14 @@ static u32 night_word(u32 word) {
 
 // The night's light falls on one painted vertex, once: the scenery's, a
 // body's, or -- under the material that flows -- the water's or the lava's.
-static u32 snow_channel(u32 channel, u32 white, u32 bright);
+static u32 snow_lie(u32 share, f32 y);
+static void snow_paint(volatile u8* color, s32 toward, u32 share, f32 y);
 
 #define SNOW_R 236
 #define SNOW_G 240
 #define SNOW_B 252
 
-static void light_vertex(u32 at, s32 steep, s32 toward) {
+static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
     if (at != 0 && mark(tinted, at)) {
         volatile u8* color = (volatile u8*) (at + 12);
         const u8* light = flowing ? light_flow
@@ -411,14 +415,11 @@ static void light_vertex(u32 at, s32 steep, s32 toward) {
         }
 
         // Under snow, the land's painted colors (much of the land's color is
-        // painted, over gray pictures) go to snow first, except where the
-        // face stands steep: there the rock shows, darker and colder.
-        if (snow_cover && !flowing && !steep) {
-            u32 bright = 159 + (97 * ((color[0] * 77 + color[1] * 151 + color[2] * 28) >> 8)) / 255;
-
-            color[0] = (u8) snow_channel(color[0], SNOW_R, bright);
-            color[1] = (u8) snow_channel(color[1], SNOW_G, bright);
-            color[2] = (u8) snow_channel(color[2], SNOW_B, bright);
+        // painted, over gray pictures) go toward snow as far as the face's
+        // slope allows, and not at all where it stands steep: there the
+        // rock shows, darker and colder.
+        if (snow_cover && !flowing && snow > 0) {
+            snow_paint(color, toward, snow, (f32) ((volatile s16*) at)[1] + walk_node_y);
         }
         {
             s32 k;
@@ -433,6 +434,13 @@ static void light_vertex(u32 at, s32 steep, s32 toward) {
             color[0] = (u8) part(color[0], steep_shade[0]);
             color[1] = (u8) part(color[1], steep_shade[1]);
             color[2] = (u8) part(color[2], steep_shade[2]);
+            if (snow_cover) {
+                // Rock in snow weather: darker and bluer at any hour, so the
+                // white above it reads as snow and not as paint.
+                color[0] = (u8) part(color[0], 176);
+                color[1] = (u8) part(color[1], 184);
+                color[2] = (u8) part(color[2], 212);
+            }
         }
     }
 }
@@ -445,12 +453,60 @@ static void light_vertex(u32 at, s32 steep, s32 toward) {
 // painted, so their pictures are never touched; nor is the water's, nor
 // the sky's.
 
-// A color under snow: mostly snow, brighter where the color was bright, with
-// a little of the color itself left in it.
-static u32 snow_channel(u32 channel, u32 white, u32 bright) {
-    u32 value = (38 * channel + 218 * ((white * bright) >> 8)) >> 8;
+// Where the snow lies thinner. On the Volcano a dusting only, the ground
+// warm: the share is held under half, so the rock shows through. On a flat
+// water's shore, the sand within SURF units above the water stays wet and
+// bare, the surf line (the Beach's sea; a river that falls has no one
+// height, and keeps its banks). The water's height is known once its first
+// vertex is lit, and the record is lit again then (snow_relit).
+#define SURF 14.0f
+static u32 snow_lie(u32 share, f32 y) {
+    if (night->embers && share > 112) {
+        share = 112;
+    }
+    if (flow_y_n > 0 && (flow_y_max - flow_y_min) < 12.0f) {
+        f32 above = y - flow_y_max;
 
-    return value > 255 ? 255 : value;
+        if (above < SURF) {
+            share = (above <= 2.0f) ? 0 : (u32) ((f32) share * (above - 2.0f) / (SURF - 2.0f));
+        }
+    }
+    return share;
+}
+
+// A painted color under snow: it goes toward the snow's color as far as the
+// share says. The snow's own color turns with the face, cool and a little
+// darker away from the light, warm and bright toward it, which is what gives
+// a blanket its form under a flat sky (by day the cartridge's light leaves
+// the painted colors as they are, so nothing else would). The painted
+// color's brightness keeps a small say, so a blanket is not one flat white.
+static void snow_paint(volatile u8* color, s32 toward, u32 share, f32 y) {
+    static const u8 cool[3] = { 196, 206, 236 };
+    static const u8 warm[3] = { 250, 250, 254 };
+    u32 lum = (color[0] * 77 + color[1] * 151 + color[2] * 28) >> 8;
+    u32 bright = 216 + (40 * lum) / 255;
+    s32 k;
+
+    share = snow_lie(share, y);
+    if (share > 256) {
+        share = 256;
+    }
+    for (k = 0; k < 3; k++) {
+        u32 snow = (((u32) cool[k] + (((u32) warm[k] - cool[k]) * (u32) toward) / 256) * bright) >> 8;
+        u32 value = ((u32) color[k] * (256 - share) + snow * share) >> 8;
+
+        color[k] = (u8) (value > 255 ? 255 : value);
+    }
+}
+
+// The land's pictures under snow: their range of brightness is lifted and
+// compressed, not painted white, so the same picture reads as snow under a
+// white vertex and as rock under a steep face's darker one (a picture is
+// shared by every face that shows it). A quarter of the color stays.
+static u32 snow_lift(u32 channel, u32 lum) {
+    u32 lift = 128 + (lum * 112) / 255;
+
+    return (channel * 64 + lift * 192) >> 8;
 }
 
 static void snow_colors(volatile u16* texel, u32 count) {
@@ -461,11 +517,11 @@ static void snow_colors(volatile u16* texel, u32 count) {
         u32 r = (((t >> 11) & 31) * 255) / 31;
         u32 g = (((t >> 6) & 31) * 255) / 31;
         u32 b = (((t >> 1) & 31) * 255) / 31;
-        u32 bright = 159 + (97 * ((r * 77 + g * 151 + b * 28) >> 8)) / 255;
+        u32 lum = (r * 77 + g * 151 + b * 28) >> 8;
 
-        r = snow_channel(r, SNOW_R, bright);
-        g = snow_channel(g, SNOW_G, bright);
-        b = snow_channel(b, SNOW_B, bright);
+        r = snow_lift(r, lum);
+        g = snow_lift(g, lum);
+        b = snow_lift(b, lum);
         texel[i] = (u16) (((r >> 3) << 11) | ((g >> 3) << 6) | ((b >> 3) << 1) | (t & 1));
     }
 }
@@ -474,9 +530,7 @@ static void snow_intensities(volatile u8* value, u32 count, u32 step) {
     u32 i;
 
     for (i = 0; i < count; i++) {
-        u32 bright = 159 + (97 * value[i * step]) / 255;
-
-        value[i * step] = (u8) snow_channel(value[i * step], SNOW_R, bright);
+        value[i * step] = (u8) snow_lift(value[i * step], value[i * step]);
     }
 }
 
@@ -526,6 +580,30 @@ static s32 steep_face(u32 a, u32 b, u32 c) {
     return all > 1.0f && ny * ny < 0.12f * all;
 }
 
+// How much snow a face holds, 0 to 256, by its slope: all of it on ground
+// within 32 degrees of flat, none past 66 degrees, and between the two a
+// snow line, where a hillside goes from white to its own rock.
+static u32 snow_share_face(u32 a, u32 b, u32 c) {
+    const volatile s16* A = (const volatile s16*) a;
+    const volatile s16* B = (const volatile s16*) b;
+    const volatile s16* C = (const volatile s16*) c;
+    f32 ux = (f32) (B[0] - A[0]), uy = (f32) (B[1] - A[1]), uz = (f32) (B[2] - A[2]);
+    f32 vx = (f32) (C[0] - A[0]), vy = (f32) (C[1] - A[1]), vz = (f32) (C[2] - A[2]);
+    f32 nx = uy * vz - uz * vy;
+    f32 ny = uz * vx - ux * vz;
+    f32 nz = ux * vy - uy * vx;
+    f32 all = nx * nx + ny * ny + nz * nz;
+    f32 up, share;
+
+    if (all <= 1.0f) {
+        return 256;
+    }
+    up = __builtin_sqrtf((ny * ny) / all);
+    share = (up - 0.40f) / 0.45f;
+    share = share < 0.0f ? 0.0f : share > 1.0f ? 1.0f : share;
+    return (u32) (share * 256.0f);
+}
+
 // How much a face faces the light (the sun, or the moon), 0 to 256: the
 // face's normal from its corners' winding against relight_dir.
 static s32 face_toward(u32 a, u32 b, u32 c) {
@@ -552,12 +630,14 @@ static s32 face_toward(u32 a, u32 b, u32 c) {
 
 // A corner's lighting, kept with its copy for the dusk: the first face that
 // lights it decides, as light_vertex does.
-static void glint_face_set(u32 slot, s32 steep, s32 toward) {
+static void glint_face_set(u32 slot, s32 steep, s32 toward, u32 snow) {
     u32 o = glint_op[glint_slot_op[slot]];
     u32 copy = ((o >> 12) & 0x3FFF) + (slot - (o & 63));
 
     if (copy < GLINT_VTX && glint_face[copy] == 0) {
         glint_face[copy] = (u16) (0x8000u | (steep ? 0x4000u : 0u) | (flowing ? 0x2000u : 0u) | ((u32) toward & 0x1FFu));
+        glint_snow[copy] = (u8) (snow > 255 ? 255 : snow);
+        glint_world_y[copy] = (s16) (((volatile s16*) slots[slot])[1] + walk_node_y);
     }
 }
 
@@ -571,6 +651,7 @@ static void light_corners(u32 word) {
     if (a < 64 && b < 64 && c < 64) {
         s32 steep = 0;
         s32 toward = 0;
+        u32 snow = 0;
 
         if (!flowing && slots[a] != 0 && slots[b] != 0 && slots[c] != 0) {
             if (snow_cover) {
@@ -578,6 +659,7 @@ static void light_corners(u32 word) {
                     snow_picture();
                 }
                 steep = steep_face(slots[a], slots[b], slots[c]);
+                snow = snow_share_face(slots[a], slots[b], slots[c]);
             }
             toward = face_toward(slots[a], slots[b], slots[c]);
         }
@@ -585,9 +667,9 @@ static void light_corners(u32 word) {
             u32 used = flowing ? GLINT_USED : GLINT_LAND;
 
             glint_op[glint_op_n++] = (a << 16) | (b << 8) | c | (flowing ? GLINT_FLOW : 0);
-            glint_face_set(a, steep, toward);
-            glint_face_set(b, steep, toward);
-            glint_face_set(c, steep, toward);
+            glint_face_set(a, steep, toward, snow);
+            glint_face_set(b, steep, toward, snow);
+            glint_face_set(c, steep, toward, snow);
             glint_op[glint_slot_op[a]] |= used;
             glint_op[glint_slot_op[b]] |= used;
             glint_op[glint_slot_op[c]] |= used;
@@ -597,9 +679,9 @@ static void light_corners(u32 word) {
                 glint_land++;
             }
         }
-        light_vertex(slots[a], steep, toward);
-        light_vertex(slots[b], steep, toward);
-        light_vertex(slots[c], steep, toward);
+        light_vertex(slots[a], steep, toward, snow);
+        light_vertex(slots[b], steep, toward, snow);
+        light_vertex(slots[c], steep, toward, snow);
     }
 }
 
@@ -901,6 +983,7 @@ static void status_tick(void);
 static u32 weather_live(const Night* by);
 static void weather_flags_set(u32 code);
 static void weather_shares_apply(s32 say);
+static void relight_record(void);
 static u32 weather_of(const Night* by);
 static void weather_palettes_keep(const Night* by);
 static void sun_hours_apply(void);
@@ -2629,6 +2712,12 @@ RECOMP_HOOK("omDrawAll") void night_cameras_begin(void) {
     fx_lit_n = 0;
     status_tick();
     cycle_tick();
+    if (night != NULL && snow_cover && !snow_relit && flow_y_n > 0 && !scoring && ticks_of(night) > 120) {
+        // The water's height is known now: the record lit again once, so
+        // the surf line's sand is bare where it was lit before any water was.
+        snow_relit = 1;
+        relight_record();
+    }
     if (night == NULL || scoring || !fx_lit) {
         return;
     }
@@ -3032,12 +3121,8 @@ static void relight_record(void) {
             c[0] = (u8) (orig >> 24);
             c[1] = (u8) (orig >> 16);
             c[2] = (u8) (orig >> 8);
-            if (snow_cover && !flow && !steep) {
-                u32 bright = 159 + (97 * ((c[0] * 77 + c[1] * 151 + c[2] * 28) >> 8)) / 255;
-
-                c[0] = (u8) snow_channel(c[0], SNOW_R, bright);
-                c[1] = (u8) snow_channel(c[1], SNOW_G, bright);
-                c[2] = (u8) snow_channel(c[2], SNOW_B, bright);
+            if (snow_cover && !flow && glint_snow[start + v] > 0) {
+                snow_paint(c, toward, glint_snow[start + v], (f32) glint_world_y[start + v]);
             }
             for (k = 0; k < 3; k++) {
                 u32 lit = light[k] + (flow ? 0 : ((land_diff[k] * (u32) toward) >> 8));
@@ -3048,6 +3133,11 @@ static void relight_record(void) {
                 c[0] = (u8) part(c[0], steep_shade[0]);
                 c[1] = (u8) part(c[1], steep_shade[1]);
                 c[2] = (u8) part(c[2], steep_shade[2]);
+                if (snow_cover) {
+                    c[0] = (u8) part(c[0], 176);
+                    c[1] = (u8) part(c[1], 184);
+                    c[2] = (u8) part(c[2], 212);
+                }
             }
             color[0] = c[0];
             color[1] = c[1];
@@ -4093,6 +4183,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         // Snow lies on the land when it was snowing as the ride loaded, or had
         // just stopped; snow that begins during a ride falls and does not lie.
         snow_cover = ((wx_from == WX_SNOW) || (wx_to == WX_SNOW && wx_share >= 0.5f)) && by->pics[0] != 0;    // none under the Tunnel's roof
+        snow_relit = 0;
         // The fine switches are Custom's; Simple takes their defaults.
         fx_lit = simple_setup() || (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
         glows_on = simple_setup() || (recomp_get_config_u32("water_glow") == 0);

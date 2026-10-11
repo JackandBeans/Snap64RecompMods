@@ -55,8 +55,10 @@ its details, then A again for its options. The first row is **Setup**:
   Dawn, Dusk (the sun sets during the ride), Day, or Your clock.
   **Weather**: Island's own (rain on the River, clear elsewhere), Clear,
   Rain, Storm, Snow, or Random. A weather chosen falls on every course:
-  snow lies on the Beach's sand as on the Valley's banks, and on the
-  Volcano's rock beside its lava. The Tunnel takes the sky's color
+  snow lies on the Beach's sand as on the Valley's banks, with the surf
+  line left wet and bare, and dusts the Volcano's warm rock without
+  settling deep. Snow lies by the slope: flat ground white, rock faces
+  their own rock, a snow line between. The Tunnel takes the sky's color
   at its mouths; nothing falls under its roof, and its open-air start
   keeps the cartridge's painted sky. Day is the cartridge's own
   day, and the weather chosen falls on it as it does under Live.

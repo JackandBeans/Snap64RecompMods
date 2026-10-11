@@ -167,7 +167,7 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "volcano_weather"
 name = "Volcano Weather"
-description = "The Volcano's sky: clear, rain, a storm with lightning, snow that lies, or ash falling."
+description = "The Volcano's sky: clear, rain, a storm with lightning, a dusting of snow, or ash falling."
 type = "Enum"
 options = [ "Clear", "Rain", "Storm", "Snow", "Ash" ]
 default = "Clear"

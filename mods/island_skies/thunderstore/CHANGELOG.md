@@ -11,6 +11,20 @@
 - Ash is the Volcano's own weather now, not a stand-in for its rain: a
   fifth choice on its Custom row, a draw of its own under Random, and
   under Live three days in eight when the island is clear.
+- Snow lies as a blanket with form, in the console's own way: the painted
+  colors go toward snow by the slope of each face, all of it on ground
+  within 32 degrees of flat, none past 66, and a snow line between, where
+  a hillside goes from white to its own rock; the snow's color turns with
+  the face, cool and a little darker away from the light, warm toward it;
+  rock faces stay rock, darker and bluer under snow at any hour; and the
+  land's pictures are lifted and compressed under the blanket rather than
+  painted white, so the same picture reads as snow under a white face and
+  as rock under a dark one. 1.0.x painted every face but the near-vertical
+  ones one flat white over whitened pictures, which read as chalk. On a
+  flat water's shore, the sand within a few units above the water stays
+  wet and bare, the surf line (the Beach's sea); the record is lit again
+  once, when the water's height is first known. On the Volcano snow is a
+  dusting only, the ground warm, with the rock showing through.
 - The Tunnel takes the weather in the color at its mouths and in its
   light. Nothing falls under its roof and no snow lies there, and its
   Custom row, Tunnel Weather, is new. Its open-air start keeps the
