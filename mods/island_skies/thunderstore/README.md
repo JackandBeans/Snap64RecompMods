@@ -8,8 +8,8 @@ dusk that falls during the ride, or live: the island follows your own clock,
 day and night, under weather of its own that holds from one ride to
 the next and turns during a ride when its time comes. Stars that twinkle,
 a moon with its glint on the water, a shooting star now and then, the
-Volcano lit by its lava; rain, storms with lightning, snow that lies on
-the Valley, ash over the Volcano. By day the island is exactly as the
+Volcano lit by its lava; rain, storms with lightning and snow that lies,
+on every course, and ash over the Volcano. By day the island is exactly as the
 cartridge draws it, and photos keep the sky of their instant.
 
 ## Pictures
@@ -54,9 +54,12 @@ its details, then A again for its options. The first row is **Setup**:
 - **Simple** is two more rows. **Time**: Night (the default), Sunset,
   Dawn, Dusk (the sun sets during the ride), Day, or Your clock.
   **Weather**: Island's own (rain on the River, clear elsewhere), Clear,
-  Rain, Storm, Snow, or Random. Snow lies on the Valley alone; Rain and
-  Storm put ash over the Volcano. Day is the cartridge's own day, and the
-  weather chosen falls on it as it does under Live.
+  Rain, Storm, Snow, or Random. A weather chosen falls on every course:
+  snow lies on the Beach's sand as on the Valley's banks, and on the
+  Volcano's rock beside its lava. The Tunnel takes the sky's color
+  at its mouths; nothing falls under its roof, and its open-air start
+  keeps the cartridge's painted sky. Day is the cartridge's own
+  day, and the weather chosen falls on it as it does under Live.
 - **Live** is your clock and the island's own weather, with nothing else
   to set.
 - **Custom** opens every row: each course's hour and weather, and the fine
@@ -96,7 +99,9 @@ eight, a change about every two hours. A change comes some minutes into
 its half hour and takes a minute and a half, during a ride when it falls
 in one: the sky grays and the stars go, then the rain comes; clearing, the
 rain thins first and the stars return. The odds lean with the season, and
-in the winter months the Valley's rain is snow.
+in the winter months the island's rain is snow, on every course. The
+Volcano adds its own: on three days in eight, ash from the eruption fills
+its clear hours.
 
 The **Sun** row sets the hours by the sun instead: with **By latitude**
 the **Latitude** row (degrees north, minus for south) gives sunrise and
@@ -111,9 +116,11 @@ to full and back, and south of the equator its lit side is the other one.
 
 - **Beach, Tunnel, River, Volcano, Valley**: each course's own hour. The
   Tunnel has no sky, only its light and the color where it opens to the
-  air, and its roof keeps the weather out.
-- **Beach Weather, River Weather, Valley Weather, Volcano Weather**: each
-  course's own sky; the Valley can have snow, the Volcano ash.
+  air.
+- **Beach Weather, River Weather, Valley Weather, Volcano Weather, Tunnel
+  Weather**: each course's own sky, clear, rain, a storm or snow; the
+  Volcano can have ash as well; the Tunnel shows its weather at its
+  mouths only.
 - **Effects at Night**: splashes, dust and mist take the night's light, or
   keep their day colors.
 - **Water Glow**: the moon's glint on the water and the River's fireflies.

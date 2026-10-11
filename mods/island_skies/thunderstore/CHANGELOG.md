@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.0
+
+- The weather is the island's, the same on every course but the Rainbow
+  Cloud: rain, a storm or snow falls on the Beach, the River, the Volcano
+  and the Valley alike, and snow lies on the Beach's sand as it did on the
+  Valley's banks. 1.0.x had snow on the Valley alone, rain and storms
+  turned to ash on the Volcano, and no weather at all in the Tunnel.
+  Asked for by JackandBeans on Oct 11 2026.
+- Ash is the Volcano's own weather now, not a stand-in for its rain: a
+  fifth choice on its Custom row, a draw of its own under Random, and
+  under Live three days in eight when the island is clear.
+- The Tunnel takes the weather in the color at its mouths and in its
+  light. Nothing falls under its roof and no snow lies there, and its
+  Custom row, Tunnel Weather, is new. Its open-air start keeps the
+  cartridge's painted sky, which is level scenery, not a sky box.
+- Under Live in the cold months the island's rain is snow on every
+  course, and the details page says "snow" where it said "rain".
+- The Cave stays as the cartridge has it: lit by its own lights, with no
+  opening to the sky.
+
 ## 1.0.1
 
 - Day with Rain, Storm, Snow or ash: the weather falls by day, as it does

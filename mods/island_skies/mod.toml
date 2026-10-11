@@ -1,6 +1,6 @@
 [manifest]
 id = "snap64_island_skies"
-version = "1.0.1"
+version = "1.1.0"
 display_name = "Island Skies"
 description = """
 The island's sky at any hour and in any weather: night, sunset, dawn, a \
@@ -53,7 +53,7 @@ hidden_from = { id = "setup", matches = [ "Live", "Custom" ] }
 [[manifest.config_options]]
 id = "weather"
 name = "Weather"
-description = "Island's own: rain on the River, clear elsewhere. Snow lies on the Valley alone."
+description = "Island's own: rain on the River, clear elsewhere. Any other falls on every course."
 type = "Enum"
 options = [ "Island's own", "Clear", "Rain", "Storm", "Snow", "Random" ]
 default = "Island's own"
@@ -131,7 +131,7 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "tunnel"
 name = "Tunnel"
-description = "The Tunnel's hour; it has no sky of its own, and its roof keeps the weather out."
+description = "The Tunnel's hour; it has no sky of its own, only its light and the color at its mouths."
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"
@@ -140,25 +140,25 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "beach_weather"
 name = "Beach Weather"
-description = "The Beach's sky: clear, overcast with rain, or a storm with lightning."
+description = "The Beach's sky: clear, rain, a storm with lightning, or snow that lies on the sand."
 type = "Enum"
-options = [ "Clear", "Rain", "Storm" ]
+options = [ "Clear", "Rain", "Storm", "Snow" ]
 default = "Clear"
 hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "river_weather"
 name = "River Weather"
-description = "The River's sky: clear, overcast with rain, or a storm with lightning."
+description = "The River's sky: clear, rain, a storm with lightning, or snow that lies on the banks."
 type = "Enum"
-options = [ "Clear", "Rain", "Storm" ]
+options = [ "Clear", "Rain", "Storm", "Snow" ]
 default = "Rain"
 hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]
 id = "valley_weather"
 name = "Valley Weather"
-description = "The Valley's sky: clear, rain, a storm with lightning, or snow that lies."
+description = "The Valley's sky: clear, rain, a storm with lightning, or snow that lies on the banks."
 type = "Enum"
 options = [ "Clear", "Rain", "Storm", "Snow" ]
 default = "Clear"
@@ -167,9 +167,18 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "volcano_weather"
 name = "Volcano Weather"
-description = "The Volcano's sky: clear, or with ash falling."
+description = "The Volcano's sky: clear, rain, a storm with lightning, snow that lies, or ash falling."
 type = "Enum"
-options = [ "Clear", "Ash" ]
+options = [ "Clear", "Rain", "Storm", "Snow", "Ash" ]
+default = "Clear"
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
+
+[[manifest.config_options]]
+id = "tunnel_weather"
+name = "Tunnel Weather"
+description = "The sky at the Tunnel's mouths: clear, rain, a storm, or snow. Nothing falls under its roof."
+type = "Enum"
+options = [ "Clear", "Rain", "Storm", "Snow" ]
 default = "Clear"
 hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 

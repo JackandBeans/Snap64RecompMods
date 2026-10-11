@@ -1,7 +1,8 @@
 // Island Skies, a mod for Snap64 Recomp.
 //
 // The courses under an open sky -- the Beach, the River, the Volcano and the
-// Valley -- after dark. (The Tunnel and the Cave have no sky to turn.)
+// Valley -- after dark, and the Tunnel's mouths with them. (The Cave, lit by
+// its own lights, has no sky to turn.)
 //
 // These courses are drawn the way most of the game is: every surface is a
 // texture multiplied by a shade, and the shade is either a color painted on
@@ -145,8 +146,9 @@ static const Night nights[] = {
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 12, 16, 44 }, 992, 1000,
         night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn, night_valley_band, night_valley_dawn_band },
     {   // The Tunnel: no sky of its own, a flat color where it opens to the air; the hour's
-        // light and sky color, no weather (its roof keeps the weather out), no stars.
-        NIGHT_TUNNEL_SETUP, "tunnel", NULL, 0, { 0, 0 }, { 0, 0 },
+        // light and sky color, the weather in the color at its mouths (nothing falls and no
+        // snow lies under its roof), no stars.
+        NIGHT_TUNNEL_SETUP, "tunnel", "tunnel_weather", 0, { 0, 0 }, { 0, 0 },
         { 0, 0 }, { 0, 0 }, 0, 0,
         0x8011CB50u, 0x8018BC30u, { 118, 130, 178 }, { 126, 140, 196 }, { 100, 120, 170 },
         { 196, 200, 212 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 996, 1000,
@@ -1456,6 +1458,7 @@ static void snow(GObj* sky) {
     Mtx* set;
     u32 sheet;
     u32 copy;
+    u8 ash = (ash_share > 0.0f && snow_share <= 0.0f);      // the Volcano's ash, unless snow falls with it
 
     if (eye == NULL || *list == NULL) {
         return;
@@ -1466,7 +1469,7 @@ static void snow(GObj* sky) {
     gSPDisplayList((*list)++, night_rain_begin);
     gSPDisplayList((*list)++, night_snow_alpha);
     gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (215.0f * snow_share));     // the snow's own alpha, as far as it has come
-    if (night->embers) {
+    if (ash) {
         // Ash: the flakes take the primitive's gray (the snow's material colors
         // them from their corners alone, which are white), a little see-through.
         gDPSetCombineLERP((*list)++, SHADE, 0, PRIMITIVE, 0, TEXEL0, 0, PRIMITIVE, 0,
@@ -1474,7 +1477,7 @@ static void snow(GObj* sky) {
         gDPSetPrimColor((*list)++, 0, 0, 112, 104, 100, (u8) (220.0f * ash_share));
     }
     for (sheet = 0; sheet < NIGHT_SNOW_SHEETS; sheet++) {
-        u32 fallen = (ticks * night_snow_speed[sheet]) >> (night->embers ? 4 : 3);
+        u32 fallen = (ticks * night_snow_speed[sheet]) >> (ash ? 4 : 3);
         u32 turn = fallen / NIGHT_SNOW_HEIGHT;
         f32 sway = (f32) (night_sine[(((ticks * (90 + 17 * sheet)) >> 8) + 37 * sheet) & 0xFF] * 40) / 127.0f;
         f32 sway_across = (f32) (night_sine[(((ticks * (70 + 13 * sheet)) >> 8) + 91 * sheet) & 0xFF] * 28) / 127.0f;
@@ -2200,7 +2203,7 @@ static void night_voices(void) {
     s32 k;
 
     if (!on_the_ride || !night_sounds_on || sunset || raining || snowing || storming || scoring || night->embers
-        || night->weather == NULL) {
+        || night->pics[0] == 0) {       /* none by the lava, none under the Tunnel's roof */
         return;
     }
     for (k = 0; k < CHIRP_VOICES; k++) {
@@ -2697,6 +2700,14 @@ static u8 simple_setup(void) {
 #define TIME_DAY 4
 #define TIME_CLOCK 5
 
+// The weather codes, the same on every course (the options' rows list them in
+// this order), and the Volcano's own fifth.
+#define WX_CLEAR 0
+#define WX_RAIN 1
+#define WX_STORM 2
+#define WX_SNOW 3               // the island's rain in the cold, on every course
+#define WX_ASH 4                // the Volcano's own: ash from the eruption, a weather of its own
+
 
 // The player's clock, read through the port, as minutes of the day with the
 // seconds in them, so the cycle moves between the minutes too.
@@ -2768,37 +2779,35 @@ static u32 weather_of(const Night* by) {
     if (pick == 5) {
         // Random: drawn once per ride for the course (a photo's world keeps the ride's):
         // mostly clear; rain a quarter of the time, a storm one in ten, snow one
-        // in ten on the Valley; ash over the Volcano one in three.
+        // in ten, on every course; on the Volcano, ash one in six, taken from
+        // the clear.
         s32 idx = (s32) (by - nights);
 
         if (on_the_ride || !live_weather_drawn[idx]) {
             u32 t = snap64_local_time();
             u32 roll = (t * 2654435761u + snap64_local_date() * 40503u + (u32) idx * 97u) >> 24;   // 0..255
 
-            if (by->embers) {
-                live_weather[idx] = (roll < 85) ? 1 : 0;
+            if (by->embers && roll < 40) {
+                live_weather[idx] = WX_ASH;
             } else if (roll < 140) {
-                live_weather[idx] = 0;
+                live_weather[idx] = WX_CLEAR;
             } else if (roll < 204) {
-                live_weather[idx] = 1;
+                live_weather[idx] = WX_RAIN;
             } else if (roll < 230) {
-                live_weather[idx] = 2;
+                live_weather[idx] = WX_STORM;
             } else {
-                live_weather[idx] = (by->option[0] == 'v' && by->option[1] == 'a') ? 3 : 1;
+                live_weather[idx] = WX_SNOW;
             }
             live_weather_drawn[idx] = 1;
         }
         return live_weather[idx];
     }
     if (pick == 0) {
-        return (by->option[0] == 'r') ? 1 : 0;      // the River's rain
+        return (by->option[0] == 'r') ? WX_RAIN : WX_CLEAR;      // the island's own: the River's rain
     }
-    if (by->embers) {
-        return (pick == 2 || pick == 3) ? 1 : 0;     // the Volcano: ash with rain or a storm
-    }
-    if (pick == 4) {
-        return (by->option[0] == 'v' && by->option[1] == 'a') ? 3 : 0;      // the Valley's snow
-    }
+    // Clear, Rain, Storm or Snow: the same on every course, the Tunnel's at
+    // its mouths (his word, Oct 11 2026: the weather is the island's, and
+    // snow lies on the Beach as on the Valley).
     return pick - 1;
 }
 
@@ -3598,10 +3607,6 @@ static f32 mode_minutes(void) {
 static char notice_buf[120];
 static void st_begin(char* dst, u32 cap);
 static void st_put(const char* s);
-#define WX_CLEAR 0
-#define WX_RAIN 1               // on the Volcano: ash
-#define WX_STORM 2
-#define WX_SNOW 3               // the Valley's rain in the cold
 #define WX_BLOCK_MINUTES 30.0f
 #define WX_BLOCKS_A_DAY 48
 #define WX_TURN_MINUTES 1.5f
@@ -3675,10 +3680,10 @@ static void wx_state(s32 block, f32 in_block, s32 month, u32* from, u32* to, f32
     }
 }
 
-// Whether the Valley's rain falls as snow: in the deep winter from 35
-// degrees, five months of it from 50, one day in three of the deep winter
-// from 20; nearer the equator never. With Fixed hours the Valley has snow in
-// December, January and February, the winter of the north.
+// Whether the island's rain falls as snow, on every course: in the deep
+// winter from 35 degrees, five months of it from 50, one day in three of the
+// deep winter from 20; nearer the equator never. With Fixed hours the island
+// has snow in December, January and February, the winter of the north.
 static u8 wx_cold(s32 day, s32 month) {
     s32 lat = sun_latitude();
     s32 size = lat < 0 ? -lat : lat;
@@ -3700,16 +3705,15 @@ static u8 wx_cold(s32 day, s32 month) {
     return 0;
 }
 
-// The island's weather as a course has it: the Volcano turns rain or a storm
-// to ash; the Valley's rain is snow in the cold.
+// The island's weather as a course has it: one weather for every course, the
+// rain snow in the cold. The Volcano adds its own: on three days in eight,
+// ash from the eruption fills its clear hours, so a turn to or from it comes
+// with the island's own turns and fades as they do.
 static u32 wx_course(const Night* by, u32 island, s32 day, s32 month) {
     if (island == WX_CLEAR) {
-        return WX_CLEAR;
+        return (by->embers && wx_hash(day, 6) < 96) ? WX_ASH : WX_CLEAR;
     }
-    if (by->embers) {
-        return WX_RAIN;
-    }
-    if (by->option[0] == 'v' && by->option[1] == 'a' && wx_cold(day, month)) {
+    if (wx_cold(day, month)) {
         return WX_SNOW;
     }
     return island;
@@ -3724,8 +3728,8 @@ static void wx_today(s32* day, s32* month) {
 }
 
 // The island's weather in words, for the page's line and the log.
-static const char* wx_island_name(u32 code) {
-    return code == WX_CLEAR ? "clear" : code == WX_STORM ? "a storm" : "rain";
+static const char* wx_island_name(u32 code, u8 cold) {
+    return code == WX_CLEAR ? "clear" : cold ? "snow" : code == WX_STORM ? "a storm" : "rain";
 }
 
 // The course's weather now under Live: wx_from, wx_to, wx_share and the turn's
@@ -3755,14 +3759,14 @@ static f32 wx_ramp(f32 x) {
 
 // The flags the drawing reads, for one weather of the course.
 static void weather_flags_set(u32 code) {
-    raining = (code == WX_RAIN || code == WX_STORM) && !night->embers;
-    storming = (code == WX_STORM) && !night->embers;
+    raining = (code == WX_RAIN || code == WX_STORM);
+    storming = (code == WX_STORM);
     snowing = (code == WX_SNOW);
-    ashing = night->embers && code != WX_CLEAR;
+    ashing = (code == WX_ASH);
 }
 
 static const char* wx_name(u32 code) {
-    return code == WX_CLEAR ? "clear" : code == WX_STORM ? "a storm" : code == WX_SNOW ? "snow" : night != NULL && night->embers ? "ash" : "rain";
+    return code == WX_CLEAR ? "clear" : code == WX_STORM ? "a storm" : code == WX_SNOW ? "snow" : code == WX_ASH ? "ash" : "rain";
 }
 
 // From the turn under way, the shares the drawing takes: the palettes mix over
@@ -3775,10 +3779,10 @@ static void weather_shares_apply(s32 say) {
     u8 r = raining, s = storming, n = snowing, a = ashing;
     f32 e = ease(wx_share);
     f32 up = wx_ramp((wx_share - 0.3f) / 0.7f), down = wx_ramp(wx_share / 0.7f);
-    f32 wet0 = (wx_from == WX_RAIN || wx_from == WX_STORM) && !night->embers;
-    f32 wet1 = (wx_to == WX_RAIN || wx_to == WX_STORM) && !night->embers;
+    f32 wet0 = (wx_from == WX_RAIN || wx_from == WX_STORM);
+    f32 wet1 = (wx_to == WX_RAIN || wx_to == WX_STORM);
     f32 snow0 = (wx_from == WX_SNOW), snow1 = (wx_to == WX_SNOW);
-    f32 ash0 = night->embers && wx_from != WX_CLEAR, ash1 = night->embers && wx_to != WX_CLEAR;
+    f32 ash0 = (wx_from == WX_ASH), ash1 = (wx_to == WX_ASH);
     f32 clear0 = (wx_from == WX_CLEAR), clear1 = (wx_to == WX_CLEAR);
     f32 drop0 = snow0 ? 10.0f : wet0 ? 6.0f : 0.0f, drop1 = snow1 ? 10.0f : wet1 ? 6.0f : 0.0f;
 
@@ -3796,7 +3800,7 @@ static void weather_shares_apply(s32 say) {
         recomp_printf("[island skies] the weather turns at tick %u: %s\n", ticks_of(night), wx_name(code));
         // Said over the course too, as the turn comes.
         st_begin(notice_buf, sizeof(notice_buf));
-        st_put(code == WX_CLEAR ? "The sky clears" : night->embers ? "Ash falls" : code == WX_STORM ? "A storm comes"
+        st_put(code == WX_CLEAR ? "The sky clears" : code == WX_ASH ? "Ash falls" : code == WX_STORM ? "A storm comes"
                : code == WX_SNOW ? "Snow comes" : "The rain comes");
         snap64_notice(STATUS_MOD_ID, notice_buf);
     }
@@ -3940,7 +3944,7 @@ static void status_tick(void) {
             wx_today(&day, &month);
             wx_state(day * WX_BLOCKS_A_DAY + block, m - WX_BLOCK_MINUTES * (f32) block, month, &from, &to, &share, &turn);
             st_put(", ");
-            st_put(wx_island_name(share < 0.5f ? from : to));
+            st_put(wx_island_name(share < 0.5f ? from : to, wx_cold(day, month)));
             // The next change: this half hour's own if it is still ahead or
             // under way, else the first within the six hours after.
             if (turn >= 0.0f && share < 1.0f) {
@@ -3964,7 +3968,7 @@ static void status_tick(void) {
             st_hm12(m_sun1);
             st_put(".");
             if (at >= 0.0f) {
-                st_put(next == WX_CLEAR ? " Clearing at " : next == WX_STORM ? " A storm from " : " Rain from ");
+                st_put(next == WX_CLEAR ? " Clearing at " : wx_cold(day, month) ? " Snow from " : next == WX_STORM ? " A storm from " : " Rain from ");
                 st_hm12(at >= 1440.0f ? at - 1440.0f : at);
                 st_put(".");
             }
@@ -4006,7 +4010,7 @@ static u32 wx_code_now(void) {
 // "clear night", "rainy dawn", "stormy day"; the Volcano's ash has no
 // such word, so "night under ash".
 static void st_sky(u32 code, const char* phase) {
-    if (code != WX_CLEAR && night != NULL && night->embers) {
+    if (code == WX_ASH) {
         st_put(phase);
         st_put(" under ash");
         return;
@@ -4088,7 +4092,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         weather_shares_apply(0);
         // Snow lies on the land when it was snowing as the ride loaded, or had
         // just stopped; snow that begins during a ride falls and does not lie.
-        snow_cover = (wx_from == WX_SNOW) || (wx_to == WX_SNOW && wx_share >= 0.5f);
+        snow_cover = ((wx_from == WX_SNOW) || (wx_to == WX_SNOW && wx_share >= 0.5f)) && by->pics[0] != 0;    // none under the Tunnel's roof
         // The fine switches are Custom's; Simple takes their defaults.
         fx_lit = simple_setup() || (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
         glows_on = simple_setup() || (recomp_get_config_u32("water_glow") == 0);
