@@ -1,6 +1,6 @@
 [manifest]
 id = "snap64_unlimited_film"
-version = "1.0.1"
+version = "1.0.2"
 display_name = "Unlimited Film"
 description = """
 The roll never runs out. Every course still starts with 60 shots, but the \
