@@ -1,6 +1,6 @@
 [manifest]
 id = "snap64_island_skies"
-version = "0.5.0"
+version = "1.0.0"
 display_name = "Island Skies"
 description = """
 The island's sky at any hour and in any weather: night, sunset, dawn, a \
@@ -44,7 +44,7 @@ default = "Simple"
 [[manifest.config_options]]
 id = "time"
 name = "Time"
-description = "The island's hour, or the one your computer's clock says, round the whole day."
+description = "The island's hour, or the one your computer's clock says, day and night."
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"

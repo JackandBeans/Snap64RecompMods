@@ -4,13 +4,39 @@ A mod for [Snap64 Recomp](https://github.com/JackandBeans/Snap64Recomp), the
 native PC port of Pokémon Snap.
 
 The island's sky at any hour and in any weather. Night, sunset, dawn, a
-dusk that falls during the ride, or live: the island follows your own clock
-round the whole day, under weather of its own that holds from one ride to
+dusk that falls during the ride, or live: the island follows your own clock,
+day and night, under weather of its own that holds from one ride to
 the next and turns during a ride when its time comes. Stars that twinkle,
 a moon with its glint on the water, a shooting star now and then, the
 Volcano lit by its lava; rain, storms with lightning, snow that lies on
 the Valley, ash over the Volcano. By day the island is exactly as the
 cartridge draws it, and photos keep the sky of their instant.
+
+## Pictures
+
+![The Beach at sunset](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/sunset.png)
+
+The Beach at sunset: the sun over the sea, Pikachu on the sand.
+
+![The Beach at night](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/night.png)
+
+The Beach at night: Butterfree under the stars.
+
+![A storm on the Beach](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/storm.png)
+
+A storm on the Beach: rain on the wind under a gray sky.
+
+![The River at night](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/river.png)
+
+The River at night: fireflies over the water under the stars.
+
+![The Valley in snow](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/valley.png)
+
+The Valley in snow: the rapids under a snowfall, the banks white.
+
+![The Volcano at sunset](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/volcano.png)
+
+The Volcano at sunset: the crater's plume over the lava, ash on the wind.
 
 ## Installing
 
@@ -42,7 +68,7 @@ change of weather during a ride is announced the same way.
 
 ## How Live works
 
-The island's hours, the same the year round unless the Sun row says
+The island's hours, the same all year unless the Sun row says
 otherwise:
 
 - 05:00 to 05:45, the night turns to dawn: the stars and the moon go, the

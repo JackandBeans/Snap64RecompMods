@@ -171,7 +171,7 @@ static f32 moon_light = 1.0f;    // how much of the moon is lit: 0.3 at new to 1
 static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
 static u8 dusk;                  // or that the sun sets during the ride
-static u8 cycle;                 // or that the player's clock drives the hour, round the whole day
+static u8 cycle;                 // or that the player's clock drives the hour, day and night
 static f32 nightness = 1.0f;     // how far from the cartridge's day the scene is: 0 the day itself, 1 the night's own colors
 static f32 ride_minutes = -1.0f;     // the clock's minute the ride began at, for its photos' worlds (none yet: -1)
 static f32 cycle_minute = -1.0f;     // the minute last applied
@@ -3009,7 +3009,7 @@ static void relight_record(void) {
 // the stars and the moon have come, which list the sky's spare slot calls.
 // Every mode is a moment: Night is 23:00, Sunset 18:30, Dawn 05:45; Dusk runs
 // the minutes from 18:30 to 19:15 over the ride; the player's clock runs them
-// all. The hours, the same the year round:
+// all. The hours, the same all year:
 //
 //   05:00  night           -> 05:45  dawn (pink, the sun rising)
 //   05:45  dawn            -> 06:45  day (the cartridge's own)
