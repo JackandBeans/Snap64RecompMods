@@ -55,7 +55,8 @@ its details, then A again for its options. The first row is **Setup**:
   Dawn, Dusk (the sun sets during the ride), Day, or Your clock.
   **Weather**: Island's own (rain on the River, clear elsewhere), Clear,
   Rain, Storm, Snow, or Random. Snow lies on the Valley alone; Rain and
-  Storm put ash over the Volcano.
+  Storm put ash over the Volcano. Day is the cartridge's own day, and the
+  weather chosen falls on it as it does under Live.
 - **Live** is your clock and the island's own weather, with nothing else
   to set.
 - **Custom** opens every row: each course's hour and weather, and the fine

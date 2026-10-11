@@ -172,6 +172,9 @@ static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
 static u8 dusk;                  // or that the sun sets during the ride
 static u8 cycle;                 // or that the player's clock drives the hour, day and night
+static u8 daytime;               // or that the time chosen is Day: the cycle's day hour, held at midday
+static u32 day_weather;          // the weather night_of drew for a Day load, for the load to take
+static u8 day_weather_set;
 static f32 nightness = 1.0f;     // how far from the cartridge's day the scene is: 0 the day itself, 1 the night's own colors
 static f32 ride_minutes = -1.0f;     // the clock's minute the ride began at, for its photos' worlds (none yet: -1)
 static f32 cycle_minute = -1.0f;     // the minute last applied
@@ -896,6 +899,7 @@ static void status_tick(void);
 static u32 weather_live(const Night* by);
 static void weather_flags_set(u32 code);
 static void weather_shares_apply(s32 say);
+static u32 weather_of(const Night* by);
 static void weather_palettes_keep(const Night* by);
 static void sun_hours_apply(void);
 static s32 sun_latitude(void);
@@ -2695,7 +2699,23 @@ static const Night* night_of(WorldSetup* setup) {
             sunset = (time == TIME_SUNSET || time == TIME_DAWN || time == TIME_DUSK);
             dawn = (time == TIME_DAWN);
             dusk = (time == TIME_DUSK);
-            return (time == TIME_DAY) ? NULL : &nights[i];
+            daytime = (time == TIME_DAY);
+            day_weather_set = 0;
+            if (daytime) {
+                // Day under clear weather is the cartridge's own, untouched.
+                // Under a weather it is the cycle's day hour, held at midday,
+                // so the rain, the snow or the ash falls by day as it does
+                // under Live (1.0.0 left Day untouched whatever the Weather
+                // row said: JackandBeans, Day and Snow on the Valley, Oct 11
+                // 2026). The weather drawn here is the load's (Random draws
+                // once).
+                day_weather = weather_of(&nights[i]);
+                day_weather_set = 1;
+                if (day_weather == 0) {
+                    return NULL;
+                }
+            }
+            return &nights[i];
         }
     }
     return NULL;
@@ -3506,6 +3526,9 @@ static f32 mode_minutes(void) {
             return m;
         }
     }
+    if (daytime) {
+        return (m_day0 + m_day1) / 2.0f;      // midday, held still; the ride's photos keep it
+    }
     if (dusk) {
         // The ride's own clock: sunset holds for forty seconds, then eighty
         // seconds to night. A photo's world takes its instant's moment.
@@ -4021,8 +4044,9 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     // The lights and the sky in force. A rainy night is overcast and a little
     // darker; nothing of it shows a star or the moon.
     {
-        u32 weather = weather_of(by);
+        u32 weather = day_weather_set ? day_weather : weather_of(by);     // a Day load's is night_of's draw
 
+        day_weather_set = 0;
         if (!(setup_of() == 1 && by->weather != NULL)) {
             wx_from = wx_to = weather;      // one weather for the ride
             wx_share = 1.0f;
@@ -4092,7 +4116,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             moment_apply(m);
         }
         recomp_printf("[island skies] the %s was loaded: %s%s\n", by->option,
-                      cycle ? "the clock's hour" : dusk ? "the sun is setting" : dawn ? "the sun rises" : sunset ? "the sun sets" : "night falls",
+                      cycle ? "the clock's hour" : daytime ? "by day" : dusk ? "the sun is setting" : dawn ? "the sun rises" : sunset ? "the sun sets" : "night falls",
                       storming ? ", with a storm" : raining ? ", with rain" : snowing ? ", with snow" : ashing ? ", with ash" : "");
         if (cycle) {
             u32 t = snap64_local_time();

@@ -2,6 +2,12 @@
 
 ## 1.0.1
 
+- Day with Rain, Storm, Snow or ash: the weather falls by day, as it does
+  under Live. 1.0.0 took Day as the cartridge's own day, untouched,
+  whatever the Weather row said, so Day and Snow on the Valley was a
+  clear day with a blue sky. Day is now the cycle's day hour held at
+  midday when a weather is chosen; under Island's own or Clear it is
+  still the cartridge's, untouched. Found by JackandBeans on Oct 11 2026.
 - The Time row's help line says a change takes effect at the next ride,
   and the Weather row's that snow lies on the Valley alone. The options
   are read as a course loads, so a change made during a ride showed
