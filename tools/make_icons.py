@@ -1,7 +1,11 @@
 """The mods' 256x256 icons (mods/<name>/thunderstore/icon.png), one family:
 the port's blue-violet tile and its film canister, both taken from the
 port's own logo with the port's own tools/icon_gen.py, and a gold badge at
-the lower right with the mod's sign drawn on it. Nothing of the game's.
+the lower right with the mod's sign drawn on it. Island Skies has its own
+four skies behind the canister instead of the plain tile, inside the same
+rim: the Beach's sunset, night, dawn and day as the mod draws them
+(mods/island_skies/tools/sky, square cuts of captured frames, no HUD). The
+same picture is each mod's thumb.png, the one its details page shows.
 
     python tools/make_icons.py <Snap64Recomp checkout>
 
@@ -25,12 +29,26 @@ GOLD_EDGE = (150, 104, 18)
 INK = (46, 34, 78)          # the tile's darkest violet, for the signs
 
 
-def base_with_canister():
+def sky_quads(folder, big):
+    """Four square skies as the tile's face: sunset and night above, dawn
+    and day below, the night at the upper right where the canister and
+    the badge leave the most of it showing."""
+    quads = Image.new("RGBA", (big, big), (0, 0, 0, 255))
+    q = big // 2
+    for i, name in enumerate(("sunset", "night", "dawn", "day")):
+        sky = Image.open(os.path.join(folder, name + ".png")).convert("RGBA").resize((q, q), Image.LANCZOS)
+        quads.paste(sky, ((i % 2) * q, (i // 2) * q))
+    return quads
+
+
+def base_with_canister(skies_folder=None):
     logo = Image.open(ig.LOGO).convert("RGBA")
     can = ig.cut_canister(logo)
     can = can.crop(ig.alpha_bbox(can))
-    tile, _ = ig.tile(S)                     # drawn at ig.SS times the size
+    tile, face = ig.tile(S)                  # drawn at ig.SS times the size
     big = tile.size[0]
+    if skies_folder is not None:
+        tile.paste(sky_quads(skies_folder, big), (0, 0), face)   # inside the rim
     h = round(big * 0.74)
     w = round(can.width * h / can.height)
     can = can.resize((w, h), Image.LANCZOS)
@@ -110,15 +128,17 @@ def skies(img):
         d.line((x0, y0, x1, y1), fill=(*INK, 255), width=max(2, int(r * 0.05)))
 
 
-def write(name, sign):
-    img = base_with_canister()
+def write(name, sign, skies_folder=None):
+    img = base_with_canister(skies_folder)
     sign(img)
-    out = os.path.join(ROOT, "mods", name, "thunderstore", "icon.png")
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    img.resize((S, S), Image.LANCZOS).convert("RGB").save(out)
-    print("wrote", os.path.relpath(out, ROOT))
+    small = img.resize((S, S), Image.LANCZOS).convert("RGB")
+    for out in (os.path.join(ROOT, "mods", name, "thunderstore", "icon.png"),
+                os.path.join(ROOT, "mods", name, "thumb.png")):
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        small.save(out)
+        print("wrote", os.path.relpath(out, ROOT))
 
 
 write("unlimited_film", infinity)
 write("unlock_everything", open_padlock)
-write("island_skies", skies)
+write("island_skies", skies, os.path.join(ROOT, "mods", "island_skies", "tools", "sky"))
