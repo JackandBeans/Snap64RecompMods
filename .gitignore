@@ -3,3 +3,5 @@ build/
 pokemonsnap/
 Snap64RecompSyms/
 dist/
+mods/zz_*/
+__pycache__/

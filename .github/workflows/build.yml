@@ -1,17 +1,21 @@
-# Builds both mods and their Thunderstore packages from a clean clone, the
-# way the README says to: the decompilation (for its headers) and the
-# symbol files checked out beside the Makefile at the commits the mod
-# template pins, clang and lld for the MIPS code, RecompModTool built from
-# N64Recomp at the commit the port is built against, zip for the .nrm, and
+# Builds every mod and its Thunderstore package from a clean clone, the way
+# the README says to: the decompilation (for its headers) and the symbol
+# files checked out beside the Makefile at the commits the mod template
+# pins, clang and lld for the MIPS code, RecompModTool built from N64Recomp
+# at the commit the port is built against, zip for the .nrm, and
 # tools/pack_thunderstore.py for the packages. What it proves is that the
 # mods build and pack; whether the port loads them is checked by hand
-# against a release (README, "What has been checked").
+# against a release (README, "What has been checked"). A new mod is added
+# to MODS below.
 name: build
 
 on:
   push:
   pull_request:
   workflow_dispatch:
+
+env:
+  MODS: unlimited_film unlock_everything island_skies
 
 jobs:
   build:
@@ -37,8 +41,9 @@ jobs:
 
       - name: The mods' code
         run: |
-          make MOD=unlimited_film
-          make MOD=unlock_everything
+          for mod in $MODS; do
+            make MOD="$mod"
+          done
 
       - name: The mod tool, from N64Recomp's source
         run: |
@@ -51,14 +56,14 @@ jobs:
 
       - name: The .nrm files
         run: |
-          for mod in unlimited_film unlock_everything; do
+          for mod in $MODS; do
             "$RUNNER_TEMP/N64Recomp/build/RecompModTool" "mods/$mod/mod.toml" "build/$mod"
           done
           ls -l build/*/*.nrm
 
       - name: The Thunderstore packages
         run: |
-          python3 tools/pack_thunderstore.py unlimited_film unlock_everything
+          python3 tools/pack_thunderstore.py $MODS
           for z in dist/*.zip; do unzip -l "$z"; done
 
       - uses: actions/upload-artifact@v4
