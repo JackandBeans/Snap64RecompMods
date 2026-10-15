@@ -131,7 +131,7 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "tunnel"
 name = "Tunnel"
-description = "The Tunnel's hour; it has no sky of its own, only its light and the color at its mouths."
+description = "The Tunnel's hour: its light, the color at its mouths, and the painted sky over its start."
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"
@@ -176,7 +176,7 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "tunnel_weather"
 name = "Tunnel Weather"
-description = "The sky at the Tunnel's mouths: clear, rain, a storm, or snow. Nothing falls under its roof."
+description = "The weather over the Tunnel's open-air start, down to its doorway. Nothing falls under the roof."
 type = "Enum"
 options = [ "Clear", "Rain", "Storm", "Snow" ]
 default = "Clear"

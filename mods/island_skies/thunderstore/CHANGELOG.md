@@ -25,10 +25,17 @@
   wet and bare, the surf line (the Beach's sea); the record is lit again
   once, when the water's height is first known. On the Volcano snow is a
   dusting only, the ground warm, with the rock showing through.
-- The Tunnel takes the weather in the color at its mouths and in its
-  light. Nothing falls under its roof and no snow lies there, and its
-  Custom row, Tunnel Weather, is new. Its open-air start keeps the
-  cartridge's painted sky, which is level scenery, not a sky box.
+- The Tunnel's open-air start takes the weather: rain, a storm or snow
+  falls from the slope through the arch and the cave to the doorway,
+  twenty-four seconds into the ride, where it stays behind and thins as
+  the cart goes under the roof, so it still shows in the doorway when
+  you look back; nothing falls under the roof. Snow lies on that
+  stretch's rock, the painted sky over it goes overcast under weather,
+  and the Custom row Tunnel Weather is new. The weather is drawn into
+  the game's main list under the counter and the pointer: the
+  see-through list the Tunnel's sky uses is 3072 bytes by the level's
+  setup, and the rain's sheets overran it at Electrode's explosion, a
+  hang (found by JackandBeans, Oct 11 2026).
 - Under Live in the cold months the island's rain is snow on every
   course, and the details page says "snow" where it said "rain".
 - The Cave stays as the cartridge has it: lit by its own lights, with no

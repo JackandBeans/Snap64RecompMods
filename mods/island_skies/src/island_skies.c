@@ -116,9 +116,16 @@ typedef struct Night {
     Gfx* dawn_list;         // the dawn's sun, for the sky at dawn
     Vtx* band;              // the glow band at the horizon toward the sunset's sun (night_data.h)
     Vtx* dawn_band;         // and toward the dawn's
+    f32 roof_z;             // a roofed course: its doorway for the weather, the camera's z in the first block
 } Night;
 
 #define NIGHT_TUNNEL_SETUP 0x8011E6CCu  // tunnel_WorldSetup: no sky box; a flat sky color where it opens
+// The Tunnel's doorway: where the open air ends for the weather, 24 seconds
+// into the ride by JackandBeans's timing (Oct 15 2026): z 1725 of the first
+// block (the game moves its origin at each block: world/block.c; the first
+// block ends two seconds later). The arch at z -690 and the cave past it
+// are open to the sky behind, so the weather falls through them.
+#define NIGHT_TUNNEL_ROOF_Z (1725.0f)
 
 static const Night nights[] = {
     {   // The Beach: a clear night, a full moon over the sea.
@@ -126,33 +133,35 @@ static const Night nights[] = {
         NIGHT_BEACH_SKY_VTX, NIGHT_BEACH_SKY_VTX_N, NIGHT_BEACH_R_LO, NIGHT_BEACH_R_SCALE,
         0x8011B050u, 0x80135BD4u, { 92, 123, 205 }, { 108, 141, 220 }, { 80, 112, 190 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 990, 1000,
-        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun, NIGHT_BEACH_DAWN, night_beach_dawn, night_beach_band, night_beach_dawn_band },
+        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun, NIGHT_BEACH_DAWN, night_beach_dawn, night_beach_band, night_beach_dawn_band, 0.0f },
     {   // The River: broken cloud, a mist over the water.
         NIGHT_RIVER_SETUP, "river", "river_weather", NIGHT_RIVER_SPARE, NIGHT_RIVER_PICS, NIGHT_RIVER_ROWS,
         NIGHT_RIVER_SKY_VTX, NIGHT_RIVER_SKY_VTX_N, NIGHT_RIVER_R_LO, NIGHT_RIVER_R_SCALE,
         0x8012A0C0u, 0x801416F0u, { 86, 124, 196 }, { 104, 142, 214 }, { 66, 104, 156 },
         { 104, 120, 176 }, { 188, 192, 208 }, { 48, 56, 80 }, { 16, 20, 44 }, 988, 1000,
-        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn, night_river_band, night_river_dawn_band },
+        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn, night_river_band, night_river_dawn_band, 0.0f },
     {   // The Volcano: no moon. The lava keeps its own light and lights the smoke from below.
         NIGHT_VOLCANO_SETUP, "volcano", "volcano_weather", NIGHT_VOLCANO_SPARE, NIGHT_VOLCANO_PICS, NIGHT_VOLCANO_ROWS,
         NIGHT_VOLCANO_SKY_VTX, NIGHT_VOLCANO_SKY_VTX_N, NIGHT_VOLCANO_R_LO, NIGHT_VOLCANO_R_SCALE,
         0x800FFF90u, 0x80112260u, { 132, 96, 92 }, { 172, 132, 122 }, { 255, 240, 228 },
         { 72, 56, 64 }, { 255, 210, 150 }, { 108, 60, 44 }, { 24, 20, 40 }, 986, 1000,
-        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun, NIGHT_VOLCANO_DAWN, night_volcano_dawn, night_volcano_band, night_volcano_dawn_band },
+        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun, NIGHT_VOLCANO_DAWN, night_volcano_dawn, night_volcano_band, night_volcano_dawn_band, 0.0f },
     {   // The Valley: a high, clear mountain night.
         NIGHT_VALLEY_SETUP, "valley", "valley_weather", NIGHT_VALLEY_SPARE, NIGHT_VALLEY_PICS, NIGHT_VALLEY_ROWS,
         NIGHT_VALLEY_SKY_VTX, NIGHT_VALLEY_SKY_VTX_N, NIGHT_VALLEY_R_LO, NIGHT_VALLEY_R_SCALE,
         0x800FFF90u, 0x80116A70u, { 84, 112, 190 }, { 104, 136, 220 }, { 46, 72, 126 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 12, 16, 44 }, 992, 1000,
-        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn, night_valley_band, night_valley_dawn_band },
-    {   // The Tunnel: no sky of its own, a flat color where it opens to the air; the hour's
-        // light and sky color, the weather in the color at its mouths (nothing falls and no
-        // snow lies under its roof), no stars.
-        NIGHT_TUNNEL_SETUP, "tunnel", "tunnel_weather", 0, { 0, 0 }, { 0, 0 },
+        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn, night_valley_band, night_valley_dawn_band, 0.0f },
+    {   // The Tunnel: no sky list of its own (no stars, no moon), but an open-air start
+        // under two painted 64x32 pictures, which take the hour and the weather as the
+        // other courses' sky pictures do; the weather falls there until the mouth
+        // (roof_z), and inside only the mouths' color and the light carry it. Found
+        // by the texture log, Oct 11 2026: 801565B8 and 80101FB8, RGBA16.
+        NIGHT_TUNNEL_SETUP, "tunnel", "tunnel_weather", 0, { 0x801565B8u, 0x80101FB8u }, { 0, 0 },
         { 0, 0 }, { 0, 0 }, 0, 0,
         0x8011CB50u, 0x8018BC30u, { 118, 130, 178 }, { 126, 140, 196 }, { 100, 120, 170 },
         { 196, 200, 212 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 996, 1000,
-        NULL, NULL, 0, { 0, 127, 0 }, 0, 0, NULL, { 0, 13, -127 }, NULL, { 0, 13, 127 }, NULL, NULL, NULL },
+        NULL, NULL, 0, { 0, 127, 0 }, 0, 0, NULL, { 0, 13, -127 }, NULL, { 0, 13, 127 }, NULL, NULL, NULL, NIGHT_TUNNEL_ROOF_Z },
 };
 
 extern f32 GlobalTimer;         // the world's clock: it advances by the set-up's sky speed each tick
@@ -203,6 +212,24 @@ static f32 rain_share, snow_share, ash_share;    // how much falls, of the full 
 static f32 clear_share = 1.0f;        // how much of the clear sky's stars, moon and glint show
 static u8 snow_cover;                 // snow lies on the land: it was snowing as the ride loaded
 static u8 snow_relit;                 // the record lit again once the water's height is known (the surf line)
+// A roofed course (the Tunnel, with no sky list of its own) has an open-air
+// start under a painted sky, which is drawn every frame, inside too. Its
+// weather is a thing of the open air, not of the cart: while the camera is
+// outside it falls around the camera; once the camera passes the doorway
+// (the record's roof_z, in the first block's own frame) it keeps falling
+// where the camera last was outside, so it thins as the cart rides in and
+// still shows in the doorway behind, and it is drawn no more once the
+// doorway is far (JackandBeans, Oct 15 2026).
+static u8 roof_outside;          // this frame: the camera is in the open air (noted at a world model's drawing)
+static u8 roof_near;             // this frame: under the roof, the open air's last spot still near
+static GObj* roof_cam;           // the camera that drew the world this frame, whose matrices the weather takes
+static f32 roof_center[3];       // where the weather falls: the camera while outside, then its last spot outside
+static s32 roof_block;           // the block that spot was noted in (the game moves its origin at each block)
+static f32 roof_fade;            // how much of the weather is drawn: whole outside, thinning past the doorway
+static u8 roof_blink;            // the main camera's blink frame (the shutter's black): nothing is drawn on it
+static f32 weather_fade = 1.0f;  // what the sheets' alpha is scaled by as they are drawn
+#define NIGHT_ROOF_WHOLE 0.0f    // past the doorway the weather thins at once...
+#define NIGHT_ROOF_FAR 250.0f    // ...and is gone by here, about three seconds in
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -387,6 +414,15 @@ static u32 night_word(u32 word) {
 // body's, or -- under the material that flows -- the water's or the lava's.
 static u32 snow_lie(u32 share, f32 y);
 static void snow_paint(volatile u8* color, s32 toward, u32 share, f32 y);
+static u32 ticks_of(const Night* by);
+static void strike_at(u32 ticks);
+static void storm_light(void);
+static void thunder(u32 ticks);
+static void rain_sound(void);
+static void rain_quiet(void);
+static void rain_at(Gfx** list, f32 ex, f32 ey, f32 ez);
+static void snow_at(Gfx** list, f32 ex, f32 ey, f32 ez);
+static void roof_weather(void);
 
 #define SNOW_R 236
 #define SNOW_G 240
@@ -604,6 +640,16 @@ static u32 snow_share_face(u32 a, u32 b, u32 c) {
     return (u32) (share * 256.0f);
 }
 
+// On a roofed course (the Tunnel), the open air is told from the rock by
+// the painting: the sand and the hills outside are painted bright, the
+// cave's walls and floor dark, so snow lies and the pictures lift only
+// where every channel of a corner's paint reads 120 or more.
+static u8 open_air(u32 at) {
+    volatile u8* c = (volatile u8*) (at + 12);
+
+    return night->sky != NULL || (c[0] >= 120 && c[1] >= 120 && c[2] >= 120);
+}
+
 // How much a face faces the light (the sun, or the moon), 0 to 256: the
 // face's normal from its corners' winding against relight_dir.
 static s32 face_toward(u32 a, u32 b, u32 c) {
@@ -654,7 +700,7 @@ static void light_corners(u32 word) {
         u32 snow = 0;
 
         if (!flowing && slots[a] != 0 && slots[b] != 0 && slots[c] != 0) {
-            if (snow_cover) {
+            if (snow_cover && open_air(slots[a])) {
                 if (tex_addr != 0) {
                     snow_picture();
                 }
@@ -925,6 +971,39 @@ static void model_enters(GObj* obj, s32 kind) {
     }
     if (first == NULL || unit_of((u32) first->payload.any) < 0) {
         return;
+    }
+    // A roofed course's open-air start (roof_center): where the camera is
+    // against the doorway, noted at the first world model's drawing with the
+    // camera drawing it; the weather is drawn as the UI camera begins
+    // (night_ui_begins). First found by JackandBeans's picture, Oct 11 2026:
+    // rain in the tunnel, and a hang where it met Electrode's explosion in
+    // the same list.
+    if (night->sky == NULL && on_the_ride && !scoring && !roof_outside && !roof_near
+        && (u32) first->payload.any >= night->world_lo && (u32) first->payload.any < night->world_hi) {
+        GObj* cam = *(GObj* volatile*) 0x8004AC48u;
+
+        if (cam != NULL && cam->data.cam != NULL) {
+            volatile f32* eye = (volatile f32*) ((u32) cam->data.cam + 0x3C);
+            u32 block = *(volatile u32*) 0x800E6AD0u;          // CurrentWorldBlock (world/block.c); its index first
+            s32 index = (block != 0) ? *(volatile s32*) block : 0;
+            f32 past = eye[2] - night->roof_z;                  // how far the camera is past the mouth
+
+            roof_cam = cam;
+            if (index == 0 && past < 0.0f) {
+                roof_outside = 1;
+                roof_fade = 1.0f;
+                roof_center[0] = eye[0];
+                roof_center[1] = eye[1];
+                roof_center[2] = eye[2];
+                roof_block = 0;
+            } else if (index == 0 && roof_block == 0 && past < NIGHT_ROOF_FAR) {
+                // Under the roof with the doorway still near: the weather stays
+                // where the camera last was outside, thinning from the doorway on.
+                roof_near = 1;
+                roof_fade = (past < NIGHT_ROOF_WHOLE) ? 1.0f
+                          : 1.0f - (past - NIGHT_ROOF_WHOLE) / (NIGHT_ROOF_FAR - NIGHT_ROOF_WHOLE);
+            }
+        }
     }
     drawing_water = (water_model != 0 && (u32) first->payload.any == water_model);
     drawing_glint = 0;
@@ -1486,22 +1565,20 @@ static void place(Mtx* mtx, f32 x, f32 y, f32 z) {
 // is raised. The camera's place is the sky's own: the sky box follows the
 // camera on the ride and is set to a photo's camera for a photo. The lists
 // go among the see-through things, which are drawn after the solid world.
-static void rain(GObj* sky) {
-    Gfx** list = &MAIN_GFX_POS[1];
-    DObj* eye = sky->data.dobj;
+static void rain_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     u32 ticks = ticks_of(night);
     Mtx* set;
     u32 sheet;
     u32 copy;
 
-    if (eye == NULL || *list == NULL) {
+    if (*list == NULL) {
         return;
     }
     rain_turn ^= 1;
     set = rain_mtx[rain_turn];
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
-    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (132.0f * rain_share));     // the rain's own alpha, as far as it has come
+    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (132.0f * rain_share * weather_fade));     // the rain's own alpha, as far as it has come
     // The wind: the sheets drift sideways on two slow waves, a gust every six
     // seconds or so with a quicker shiver on it, each sheet a little apart.
     for (sheet = 0; sheet < NIGHT_RAIN_SHEETS; sheet++) {
@@ -1515,9 +1592,9 @@ static void rain(GObj* sky) {
             s32 below = (s32) fallen - (s32) (which * NIGHT_RAIN_HEIGHT);     // from -HEIGHT up to HEIGHT
             Mtx* mtx = &set[sheet * 2 + copy];
 
-            place(mtx, eye->position.v.x + NIGHT_RAIN_SLANT_X * (f32) below + gust * 0.9f,
-                  eye->position.v.y - (f32) (NIGHT_RAIN_HEIGHT / 2) - (f32) below,
-                  eye->position.v.z + NIGHT_RAIN_SLANT_Z * (f32) below + gust * 0.4f);
+            place(mtx, ex + NIGHT_RAIN_SLANT_X * (f32) below + gust * 0.9f,
+                  ey - (f32) (NIGHT_RAIN_HEIGHT / 2) - (f32) below,
+                  ez + NIGHT_RAIN_SLANT_Z * (f32) below + gust * 0.4f);
             // The group: this id, pushed; place, turn, perspective and vertices followed between ticks.
             command(list, (0x64u << 24) | 0x00000Cu, 0x52410000u | (sheet << 8) | (which & 0xFF));
             command(list, 0x00002829u, 0);
@@ -1534,16 +1611,14 @@ static void rain(GObj* sky) {
 // The snow: made and moved as the rain is, but slowly (its paces are in
 // eighths of a unit a tick), and each sheet sways from side to side on a
 // slow wave of its own as it falls.
-static void snow(GObj* sky) {
-    Gfx** list = &MAIN_GFX_POS[1];
-    DObj* eye = sky->data.dobj;
+static void snow_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     u32 ticks = ticks_of(night);
     Mtx* set;
     u32 sheet;
     u32 copy;
     u8 ash = (ash_share > 0.0f && snow_share <= 0.0f);      // the Volcano's ash, unless snow falls with it
 
-    if (eye == NULL || *list == NULL) {
+    if (*list == NULL) {
         return;
     }
     rain_turn ^= 1;
@@ -1551,7 +1626,7 @@ static void snow(GObj* sky) {
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
     gSPDisplayList((*list)++, night_snow_alpha);
-    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (215.0f * snow_share));     // the snow's own alpha, as far as it has come
+    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (215.0f * snow_share * weather_fade));     // the snow's own alpha, as far as it has come
     if (ash) {
         // Ash: the flakes take the primitive's gray (the snow's material colors
         // them from their corners alone, which are white), a little see-through.
@@ -1570,8 +1645,7 @@ static void snow(GObj* sky) {
             s32 below = (s32) fallen - (s32) (which * NIGHT_SNOW_HEIGHT);
             Mtx* mtx = &set[sheet * 2 + copy];
 
-            place(mtx, eye->position.v.x + sway, eye->position.v.y - (f32) (NIGHT_SNOW_HEIGHT / 2) - (f32) below,
-                  eye->position.v.z + sway_across);
+            place(mtx, ex + sway, ey - (f32) (NIGHT_SNOW_HEIGHT / 2) - (f32) below, ez + sway_across);
             command(list, (0x64u << 24) | 0x00000Cu, 0x534E0000u | (sheet << 8) | (which & 0xFF));
             command(list, 0x00002829u, 0);
             gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
@@ -2286,7 +2360,7 @@ static void night_voices(void) {
     s32 k;
 
     if (!on_the_ride || !night_sounds_on || sunset || raining || snowing || storming || scoring || night->embers
-        || night->pics[0] == 0) {       /* none by the lava, none under the Tunnel's roof */
+        || night->sky == NULL) {        /* none by the lava, none under the Tunnel's roof */
         return;
     }
     for (k = 0; k < CHIRP_VOICES; k++) {
@@ -2499,6 +2573,24 @@ static void lava_sky(void) {
     }
 }
 
+// The sky's own drawing places the weather at the sky object, which rides
+// with the camera.
+static void rain(GObj* sky) {
+    DObj* eye = sky->data.dobj;
+
+    if (eye != NULL) {
+        rain_at(&MAIN_GFX_POS[1], eye->position.v.x, eye->position.v.y, eye->position.v.z);
+    }
+}
+
+static void snow(GObj* sky) {
+    DObj* eye = sky->data.dobj;
+
+    if (eye != NULL) {
+        snow_at(&MAIN_GFX_POS[1], eye->position.v.x, eye->position.v.y, eye->position.v.z);
+    }
+}
+
 RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
     sky_now = obj;
     glint_turn ^= 1;        // the record's two sets turn once a frame
@@ -2706,12 +2798,15 @@ static s32 fire_color(u32 word) {
     return r >= 232 && g <= 176 && b <= 96;
 }
 
+
 RECOMP_HOOK("omDrawAll") void night_cameras_begin(void) {
     s32 list;
 
     fx_lit_n = 0;
     status_tick();
     cycle_tick();
+    roof_outside = 0;
+    roof_near = 0;
     if (night != NULL && snow_cover && !snow_relit && flow_y_n > 0 && !scoring && ticks_of(night) > 120) {
         // The water's height is known now: the record lit again once, so
         // the surf line's sand is bare where it was lit before any water was.
@@ -2750,6 +2845,93 @@ RECOMP_HOOK_RETURN("omDrawAll") void night_cameras_end(void) {
         *(volatile u32*) (fx_lit_at[i] + 0x50) = fx_env[i];
     }
     fx_lit_n = 0;
+}
+
+// A roofed course's open-air start: the weather drawn into the frame's main
+// list as the UI camera begins, after the whole scene with its depth and
+// before the counter and the pointer (the see-through list the sky's own
+// drawing uses is 3072 bytes on the Tunnel by the level's setup, and rain's
+// sheets overran it at Electrode's explosion: the game's own panic, a hang,
+// Oct 11 2026). In the scene camera's viewport and the border the game cuts
+// its picture to (the intro's black bars), under that camera's projection
+// and view by the game's own sub-list for them (ren_D_8004B248 + 1, with the
+// perspective normalization). Placed at the open air's spot (roof_center),
+// with the storm's strikes, thunder and the rain's voice while it is whole.
+// A blink frame (the shutter's black) is left black.
+RECOMP_HOOK("mainCameraRender") void night_scene_begins(GObj* obj) {
+    roof_blink = (*(volatile s32*) 0x80382DA0u > 0);       // MainCameraBlinkTimeout (app_level/player.c)
+}
+
+RECOMP_HOOK("renSpriteCameraRender") void night_ui_begins(GObj* ui) {
+    roof_weather();
+}
+
+static void roof_weather(void) {
+    GObj* cam = roof_cam;
+
+    if (night == NULL || night->sky != NULL || !(roof_outside || roof_near) || roof_blink || cam == NULL
+        || cam->data.cam == NULL || !on_the_ride || scoring) {
+        if (night != NULL && night->sky == NULL) {
+            rain_quiet();           // under the roof, past the doorway, the rain is not heard
+        }
+        return;
+    }
+    {
+        u32 oc = (u32) cam->data.cam;
+        Gfx** list = &MAIN_GFX_POS[0];
+        u32 matrices = *(volatile u32*) 0x8004B248u;  // ren_D_8004B248: the camera's matrix sub-list begins after it
+        const volatile s32* border = (const volatile s32*) 0x803AE540u;    // MainCameraBorderXmin, Ymin, Xmax, Ymax (app_level/player.c)
+        s32 x0 = border[0], y0 = border[1], x1 = border[2], y1 = border[3];
+        u32 t = ticks_of(night);
+
+        if (x0 < 0) {
+            x0 = 0;
+        }
+        if (y0 < 0) {
+            y0 = 0;
+        }
+        if (x1 > 320) {
+            x1 = 320;
+        }
+        if (y1 > 240) {
+            y1 = 240;
+        }
+        if (matrices != 0 && *list != NULL && x1 > x0 && y1 > y0 && roof_fade > 0.0f) {
+            gDPPipeSync((*list)++);
+            gSPViewport((*list)++, oc + 0x08);
+            gDPSetScissor((*list)++, G_SC_NON_INTERLACE, x0, y0, x1, y1);
+            gSPDisplayList((*list)++, (Gfx*) (matrices + sizeof(Gfx)));
+            // The scene's last objects leave their own modes behind (the effects
+            // the primitive's depth and no texture perspective, app_render/effect.c;
+            // models their alpha compare): the whole word is set for the sheets,
+            // as a camera's start sets it.
+            gDPPipeSync((*list)++);
+            gDPSetOtherMode((*list)++,
+                            G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
+                            | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
+                            G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
+            weather_fade = roof_fade;
+            if (storming && roof_fade >= 0.5f) {
+                strike_at(t);
+                storm_light();
+                thunder(t);
+            }
+            if (rain_share > 0.0f) {
+                rain_at(list, roof_center[0], roof_center[1], roof_center[2]);
+                if (roof_fade >= 0.5f) {
+                    rain_sound();
+                } else {
+                    rain_quiet();
+                }
+            } else if (snow_share > 0.0f) {
+                snow_at(list, roof_center[0], roof_center[1], roof_center[2]);
+            }
+            weather_fade = 1.0f;
+            if (rain_share <= 0.0f) {
+                rain_quiet();
+            }
+        }
+    }
 }
 
 // The game scores a photo by redrawing its scene into small depth pictures
@@ -4182,8 +4364,12 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         weather_shares_apply(0);
         // Snow lies on the land when it was snowing as the ride loaded, or had
         // just stopped; snow that begins during a ride falls and does not lie.
-        snow_cover = ((wx_from == WX_SNOW) || (wx_to == WX_SNOW && wx_share >= 0.5f)) && by->pics[0] != 0;    // none under the Tunnel's roof
+        snow_cover = (wx_from == WX_SNOW) || (wx_to == WX_SNOW && wx_share >= 0.5f);    // on a roofed course, only in the open air (open_air)
         snow_relit = 0;
+        roof_outside = 0;
+        roof_near = 0;
+        roof_block = -1;
+        roof_fade = 0.0f;
         // The fine switches are Custom's; Simple takes their defaults.
         fx_lit = simple_setup() || (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
         glows_on = simple_setup() || (recomp_get_config_u32("water_glow") == 0);
