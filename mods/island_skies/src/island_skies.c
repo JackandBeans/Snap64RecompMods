@@ -230,7 +230,7 @@ static u8 roof_blink;            // the main camera's blink frame (the shutter's
 static f32 weather_fade = 1.0f;  // what the sheets' alpha is scaled by as they are drawn
 #define NIGHT_ROOF_WHOLE 0.0f    // past the doorway the weather thins at once...
 #define NIGHT_ROOF_FAR 250.0f    // ...and is gone by here, about three seconds in
-#define NIGHT_ROOF_RAIN_LEAD 250.0f  // rain and storms thin from this far before the doorway (JackandBeans's ride: snow's timing right, rain's a little late)
+#define NIGHT_ROOF_RAIN_LEAD 920.0f  // rain and storms thin from this far before the doorway: about seven seconds of riding (JackandBeans's rides: the snow's timing right, the rain's late)
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
