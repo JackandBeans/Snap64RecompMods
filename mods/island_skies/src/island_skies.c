@@ -231,17 +231,6 @@ static f32 weather_fade = 1.0f;  // what the sheets' alpha is scaled by as they 
 #define NIGHT_ROOF_WHOLE 0.0f    // past the doorway the weather thins at once...
 #define NIGHT_ROOF_FAR 250.0f    // ...and is gone by here, about three seconds in
 #define NIGHT_ROOF_RAIN_LEAD 250.0f  // rain and storms thin from this far before the doorway (JackandBeans's ride: snow's timing right, rain's a little late)
-// Water drips from the cave entrance's lip when it rains: seven drips across
-// the passage, three drops each, from the lip to the ground.
-#define NIGHT_DRIPS 7
-#define NIGHT_DRIP_DROPS 3
-#define NIGHT_DRIP_HEIGHT 240
-#define NIGHT_DRIP_FAR 500.0f    // the drips are drawn until the entrance is this far behind
-static u8 roof_drip;             // it was raining as the cart reached the entrance
-static u8 roof_lip_near;         // this frame: the entrance is close enough for its drips to be drawn
-static f32 roof_lip[3];          // the entrance: the camera's x and height on reaching it, the roof's z
-static Mtx drip_mtx[2][NIGHT_DRIPS * NIGHT_DRIP_DROPS];
-static u8 drip_turn;
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -1002,15 +991,6 @@ static void model_enters(GObj* obj, s32 kind) {
             f32 past = lip + ((rain_share > 0.0f) ? NIGHT_ROOF_RAIN_LEAD : 0.0f);   // past the weather's own doorway
 
             roof_cam = cam;
-            // The entrance's drips: where the camera reaches the lip is the lip's
-            // place; they fall while it rains there and until the entrance is far.
-            if (index == 0 && lip >= -250.0f && lip < 0.0f) {
-                roof_lip[0] = eye[0];
-                roof_lip[1] = eye[1];
-                roof_lip[2] = night->roof_z + 30.0f;
-                roof_drip = (rain_share > 0.0f);
-            }
-            roof_lip_near = (index == 0 && roof_drip && lip >= -250.0f && lip < NIGHT_DRIP_FAR);
             if (index == 0 && past < 0.0f) {
                 roof_outside = 1;
                 roof_fade = 1.0f;
@@ -1560,18 +1540,6 @@ static void command(Gfx** list, u32 w0, u32 w1) {
 // A matrix that only moves a thing to a place: the identity, with the place
 // in its last row. The record holds sixteen whole parts, then their sixteen
 // fractions.
-#define DV(x, y, z, s, t) { { { (x), (y), (z) }, 0, { (s), (t) }, { 200, 215, 235, 255 } } }
-static Vtx drip_vtx[] = {
-    DV(-3, 0, 0, 0, 512), DV(3, 0, 0, 512, 512), DV(3, 22, 0, 512, 0), DV(-3, 22, 0, 0, 0),
-    DV(0, 0, -3, 0, 512), DV(0, 0, 3, 512, 512), DV(0, 22, 3, 512, 0), DV(0, 22, -3, 0, 0),
-};
-static Gfx drip_list[] = {
-    gsSPVertex(drip_vtx, 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-
 static void place(Mtx* mtx, f32 x, f32 y, f32 z) {
     volatile u16* half = (volatile u16*) mtx;
     s32 at[3];
@@ -2841,7 +2809,6 @@ RECOMP_HOOK("omDrawAll") void night_cameras_begin(void) {
     cycle_tick();
     roof_outside = 0;
     roof_near = 0;
-    roof_lip_near = 0;
     if (night != NULL && snow_cover && !snow_relit && flow_y_n > 0 && !scoring && ticks_of(night) > 120) {
         // The water's height is known now: the record lit again once, so
         // the surf line's sand is bare where it was lit before any water was.
@@ -2901,47 +2868,10 @@ RECOMP_HOOK("renSpriteCameraRender") void night_ui_begins(GObj* ui) {
     roof_weather();
 }
 
-// The entrance's drips: each a drop that falls from the lip to the ground and
-// falls again, three to a drip a third of a fall apart, at their own paces across the
-// passage. Drawn with the rain's own material, in groups the renderer follows
-// between ticks as it does the rain's sheets.
-static void drips_at(Gfx** list, u32 t, f32 lip) {
-    Mtx* set;
-    u32 i;
-    f32 left = NIGHT_DRIP_FAR - lip;
-    u8 alpha = (left < 150.0f) ? (u8) (210.0f * left / 150.0f) : 210;
-
-    drip_turn ^= 1;
-    set = drip_mtx[drip_turn];
-    command(list, (0x64u << 24) | 0x00002Cu, 1);
-    gSPDisplayList((*list)++, night_rain_begin);
-    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, alpha);
-    for (i = 0; i < NIGHT_DRIPS; i++) {
-        u32 speed = 4 + (i % 3);                                  // units a tick
-        f32 x = roof_lip[0] + (f32) ((s32) i - 3) * 40.0f + (f32) night_sine[(i * 53) & 0xFF] / 10.0f;
-        u32 copy;
-
-        for (copy = 0; copy < NIGHT_DRIP_DROPS; copy++) {
-            u32 fallen = (t * speed + i * 97u + copy * (NIGHT_DRIP_HEIGHT / NIGHT_DRIP_DROPS)) % NIGHT_DRIP_HEIGHT;
-            Mtx* mtx = &set[i * NIGHT_DRIP_DROPS + copy];
-
-            place(mtx, x, roof_lip[1] + 140.0f - (f32) fallen, roof_lip[2]);
-            command(list, (0x64u << 24) | 0x00000Cu, 0x44520000u | (i << 8) | copy);
-            command(list, 0x00002829u, 0);
-            gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-            gSPDisplayList((*list)++, drip_list);
-            gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
-            command(list, (0x64u << 24) | 0x00000Du, 1);
-        }
-    }
-    gSPDisplayList((*list)++, night_rain_end);
-    command(list, (0x64u << 24) | 0x00002Cu, 0);
-}
-
 static void roof_weather(void) {
     GObj* cam = roof_cam;
 
-    if (night == NULL || night->sky != NULL || !(roof_outside || roof_near || roof_lip_near) || roof_blink || cam == NULL
+    if (night == NULL || night->sky != NULL || !(roof_outside || roof_near) || roof_blink || cam == NULL
         || cam->data.cam == NULL || !on_the_ride || scoring) {
         if (night != NULL && night->sky == NULL) {
             rain_quiet();           // under the roof, past the doorway, the rain is not heard
@@ -2968,7 +2898,7 @@ static void roof_weather(void) {
         if (y1 > 240) {
             y1 = 240;
         }
-        if (matrices != 0 && *list != NULL && x1 > x0 && y1 > y0 && (roof_fade > 0.0f || roof_lip_near)) {
+        if (matrices != 0 && *list != NULL && x1 > x0 && y1 > y0 && roof_fade > 0.0f) {
             gDPPipeSync((*list)++);
             gSPViewport((*list)++, oc + 0x08);
             gDPSetScissor((*list)++, G_SC_NON_INTERLACE, x0, y0, x1, y1);
@@ -3001,11 +2931,6 @@ static void roof_weather(void) {
                 }
             }
             weather_fade = 1.0f;
-            if (roof_lip_near) {
-                volatile f32* eye = (volatile f32*) (oc + 0x3C);
-
-                drips_at(list, t, eye[2] - night->roof_z);
-            }
             if (rain_share <= 0.0f) {
                 rain_quiet();
             }
@@ -4447,8 +4372,6 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         snow_relit = 0;
         roof_outside = 0;
         roof_near = 0;
-        roof_lip_near = 0;
-        roof_drip = 0;
         roof_block = -1;
         roof_fade = 0.0f;
         // The fine switches are Custom's; Simple takes their defaults.

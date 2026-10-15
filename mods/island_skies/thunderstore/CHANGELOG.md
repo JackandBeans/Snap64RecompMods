@@ -30,12 +30,10 @@
   twenty-four seconds into the ride, where it stays behind and thins as
   the cart goes under the roof, so it still shows in the doorway when
   you look back; rain begins to thin a little before the doorway, snow
-  at it; nothing falls under the roof. After rain, water drips from the
-  entrance's lip, seven drips across the passage, until the entrance is
-  well behind. Snow lies on that stretch's rock, the painted sky over it
-  goes overcast under weather, and the Custom row Tunnel Weather is new.
-  Timed and asked for by JackandBeans on his rides, Oct 15 2026. The
-  weather is drawn into
+  at it; nothing falls under the roof. Snow lies on that stretch's rock,
+  the painted sky over it goes overcast under weather, and the Custom row
+  Tunnel Weather is new. Timed by JackandBeans on his rides, Oct 15 2026.
+  The weather is drawn into
   the game's main list under the counter and the pointer: the
   see-through list the Tunnel's sky uses is 3072 bytes by the level's
   setup, and the rain's sheets overran it at Electrode's explosion, a

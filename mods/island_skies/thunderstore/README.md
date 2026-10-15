@@ -61,9 +61,9 @@ its details, then A again for its options. The first row is **Setup**:
   their own rock, a snow line between. The Tunnel's open-air start, the
   slope and the cave down to its doorway, takes the weather like any
   course, under its painted sky gone overcast: rain thins a little before
-  the doorway, snow at it, water drips from the entrance's lip after rain,
-  and under the roof nothing falls. Day is the cartridge's own day, and
-  the weather chosen falls on it as it does under Live.
+  the doorway, snow at it, and under the roof nothing falls. Day is the
+  cartridge's own day, and the weather chosen falls on it as it does
+  under Live.
 - **Live** is your clock and the island's own weather, with nothing else
   to set.
 - **Custom** opens every row: each course's hour and weather, and the fine
