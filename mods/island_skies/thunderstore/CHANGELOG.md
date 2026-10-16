@@ -35,9 +35,15 @@
   Snow lies on the whole stretch, the track with the rest, the painted
   sky over it takes the weather and the hour as one, as the other
   courses' skies do (it stood in panels of three tints under snow), and
-  the Custom row Tunnel Weather is new. Shaped on JackandBeans's rides
-  and pictures, Oct 15 2026: rain seen through the openings, none under
-  the roof, the snow still falling at the mouth looking back. The
+  the Custom row Tunnel Weather is new. Under the roof the cave keeps
+  the hour's own light, fog and fog distance; the weather's light, its
+  nearer fog and the snow on the ground stay with the open air, told
+  apart by the blocks' own ceilings (a map of every ceiling face, from
+  the decompilation's meshes), and the rock picture the cave shares with
+  the cliffs outside is not lifted under snow. Shaped on JackandBeans's
+  rides and pictures, Oct 15 and 16 2026: rain seen through the
+  openings, none under the roof, the snow still falling at the mouth
+  looking back, the snow's light gone from inside the cave. The
   weather is drawn into
   the game's main list under the counter and the pointer: the
   see-through list the Tunnel's sky uses is 3072 bytes by the level's

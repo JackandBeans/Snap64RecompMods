@@ -129,9 +129,12 @@ typedef struct Night {
 // dense as the ring around the camera, ending at the mouth, drawn in the
 // first block and the next.
 #define NIGHT_TUNNEL_ROOF_Z (1380.0f)
-#define NIGHT_TUNNEL_BLOCK0 0x8011E7D0u     // the first block's model (tunnel_block0_gfx_data): the slope, the mouth, the far hills
+// Its blocks' ceilings over a grid, from the decompilation's meshes: which
+// corners are under the roof, in every block (tools/gen_tunnel_roof.py).
+#include "tunnel_roof.inc"
 #define NIGHT_TUNNEL_OPEN_Y (400.0f)
 #define NIGHT_TUNNEL_VOICE_Z (900.0f)    // the rain's voice fades to nothing this far under the roof
+#define NIGHT_TUNNEL_CAVE_Z (400.0f)     // the fog and the scene light are the hour's own this far under the roof
 
 static const Night nights[] = {
     {   // The Beach: a clear night, a full moon over the sea.
@@ -228,6 +231,7 @@ static u8 snow_relit;                 // the record lit again once the water's h
 static u8 roof_block0;           // this frame: the first block or the next is current (noted at a world model's drawing)
 static f32 roof_shift[3];        // the first block's origin in the current block's frame (the game moves its origin at each block)
 static f32 roof_past;            // how far the camera is under the roof, in the first block's frame; 0 under the open sky
+static f32 cave_now;             // how far the camera is in the cave's own light: 0 under the open sky, 1 under the roof
 static u8 roof_outside;          // this frame: the camera is under the open sky, before the roof
 static GObj* roof_cam;           // the camera that drew the world this frame, whose matrices the weather takes
 static u8 roof_blink;            // the main camera's blink frame (the shutter's black): nothing is drawn on it
@@ -302,6 +306,8 @@ static s16 glint_world_y[GLINT_VTX];     // each copy's height in the world, for
 static u8 sky_mask_pic[2][SKY_TEXELS];   // each sky picture's cloud mask, kept for the dusk
 static u8 pal2_a[11][3], pal2_b[11][3], pal2_d[11][3];   // the three palettes for the weather the island turns to
 static u8 mix_a[11][3], mix_b[11][3], mix_d[11][3];      // the two weathers' palettes mixed, as far as the turn has come
+static u8 palc_a[11][3], palc_b[11][3], palc_d[11][3];   // the three palettes under a clear sky, for a roofed course's cave
+static u8 cave_palette[11][3];   // the live colors the cave takes: the same moment under a clear sky
 static u8 pal_a[11][3], pal_b[11][3];    // the sunset's palette and the night's,
 static u8 pal_d[11][3];                  // and the dawn's: the cycle's three ends (the fourth, the day, is the cartridge)
 static f32 dir_a[3], dir_b[3], dir_d[3];
@@ -437,12 +443,17 @@ static void roof_weather(void);
 // hour darkens; no snow lies on them and none is steep. (JackandBeans's
 // pictures, Oct 15 2026: the sky in panels of three tints under snow.)
 static u8 sky_face;
+// Its cave: the corners under the roof, lit by the hour alone (the cave
+// palette), the weather kept to the open air. (JackandBeans, Oct 15 2026:
+// the snow's light reached inside the cave.)
+static u8 cave_face;
 
 static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
     if (at != 0 && mark(tinted, at)) {
         volatile u8* color = (volatile u8*) (at + 12);
         const u8* light = flowing ? light_flow
-                        : (at >= night->world_lo && at < night->world_hi) ? light_world : light_body;
+                        : (at >= night->world_lo && at < night->world_hi) ? (cave_face ? cave_palette[0] : light_world) : light_body;
+        const u8* diff = cave_face ? cave_palette[3] : land_diff;
 
         // The water's height in the world: the vertex's, plus its block's place.
         // Only the course's own water counts: the Zero-One has parts of the
@@ -471,7 +482,7 @@ static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
             s32 k;
 
             for (k = 0; k < 3; k++) {
-                u32 lit = light[k] + (flowing ? 0 : ((land_diff[k] * (u32) toward) >> 8));
+                u32 lit = light[k] + (flowing ? 0 : ((diff[k] * (u32) toward) >> 8));
 
                 color[k] = (u8) part(color[k], whole(lit));
             }
@@ -489,7 +500,7 @@ static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
             color[0] = (u8) part(color[0], steep_shade[0]);
             color[1] = (u8) part(color[1], steep_shade[1]);
             color[2] = (u8) part(color[2], steep_shade[2]);
-            if (snow_cover) {
+            if (snow_cover && !cave_face) {
                 // Rock in snow weather: darker and bluer at any hour, so the
                 // white above it reads as snow and not as paint.
                 color[0] = (u8) part(color[0], 176);
@@ -593,6 +604,19 @@ static void snow_picture(void) {
     if (tex_addr == night->pics[0] || tex_addr == night->pics[1]) {
         return;
     }
+    // A roofed course: a picture the cave's faces show too (the rock's, shared
+    // by the walls inside and the cliffs outside) stays as it is, or the cave
+    // would brighten with the snow it never sees.
+    if (night->sky == NULL) {
+        u32 key = (tile_fmt == 2) ? tlut_addr : tex_addr;
+        s32 i;
+
+        for (i = 0; i < TUNNEL_CAVE_PICTURES; i++) {
+            if (tunnel_cave_pictures[i] == key) {
+                return;
+            }
+        }
+    }
     switch (tile_fmt) {
         case 2:     // color index: the palette
             if (tlut_addr != 0 && mark(tinted, tlut_addr)) {
@@ -659,19 +683,40 @@ static u32 snow_share_face(u32 a, u32 b, u32 c) {
     return (u32) (share * 256.0f);
 }
 
-// On a roofed course (the Tunnel), the open air is told by place on the
-// first block (everything before the roof, the track with the rest) and
-// elsewhere from the rock by the painting: the hills outside are painted
-// bright, the cave's walls and floor dark, so snow lies and the pictures
-// lift where every channel of a corner's paint reads 120 or more.
+// On a roofed course (the Tunnel), a block's corner is under the open sky
+// where its block's ceiling map has no ceiling over its cell, or where it
+// stands above the ceiling there (the hill over the cave); the cave is the
+// rest, the track with it. What is not a block's (the scenery set about)
+// is told from the rock by its painting: the things outside are painted
+// bright, the cave's dark, so a corner is open where every channel of its
+// paint reads 120 or more. (The paint alone was the rule to Oct 15 2026,
+// and some cave walls are painted bright: snow lay on them.)
 static u8 open_air(u32 at) {
+    const volatile s16* v = (const volatile s16*) at;
     volatile u8* c = (volatile u8*) (at + 12);
+    s32 b;
 
     if (night->sky != NULL) {
         return 1;
     }
-    if (glint_model == NIGHT_TUNNEL_BLOCK0 && (f32) ((volatile s16*) at)[2] < night->roof_z) {
-        return 1;
+    for (b = 0; b < TUNNEL_ROOF_BLOCKS; b++) {
+        const TunnelRoof* roof = &tunnel_roofs[b];
+
+        if (at >= roof->vtx_lo && at < roof->vtx_hi) {
+            s32 cx, cz;
+            u32 top;
+
+            if (v[0] < roof->x0 || v[2] < roof->z0) {
+                return 1;
+            }
+            cx = ((s32) v[0] - roof->x0) / TUNNEL_ROOF_CELL;
+            cz = ((s32) v[2] - roof->z0) / TUNNEL_ROOF_CELL;
+            if (cx >= roof->w || cz >= roof->h) {
+                return 1;
+            }
+            top = roof->cells[cz * roof->w + cx];
+            return top == 0 || (s32) v[1] > (s32) top * 16 + 16;
+        }
     }
     return c[0] >= 120 && c[1] >= 120 && c[2] >= 120;
 }
@@ -707,7 +752,8 @@ static void glint_face_set(u32 slot, s32 steep, s32 toward, u32 snow) {
     u32 copy = ((o >> 12) & 0x3FFF) + (slot - (o & 63));
 
     if (copy < GLINT_VTX && glint_face[copy] == 0) {
-        glint_face[copy] = (u16) (0x8000u | (steep ? 0x4000u : 0u) | (flowing ? 0x2000u : 0u) | ((u32) toward & 0x1FFu));
+        glint_face[copy] = (u16) (0x8000u | (steep ? 0x4000u : 0u) | (flowing ? 0x2000u : 0u) | (cave_face ? 0x1000u : 0u)
+                                  | ((u32) toward & 0x1FFu));
         glint_snow[copy] = (u8) (snow > 255 ? 255 : snow);
         glint_world_y[copy] = (s16) (((volatile s16*) slots[slot])[1] + walk_node_y);
     }
@@ -726,6 +772,7 @@ static void light_corners(u32 word) {
         u32 snow = 0;
 
         sky_face = (night->sky == NULL && tex_addr != 0 && (tex_addr == night->pics[0] || tex_addr == night->pics[1]));
+        cave_face = (night->sky == NULL && !sky_face && slots[a] != 0 && !open_air(slots[a]));
         if (!flowing && slots[a] != 0 && slots[b] != 0 && slots[c] != 0) {
             if (snow_cover && !sky_face && open_air(slots[a])) {
                 if (tex_addr != 0) {
@@ -756,6 +803,7 @@ static void light_corners(u32 word) {
         light_vertex(slots[b], steep, toward, snow);
         light_vertex(slots[c], steep, toward, snow);
         sky_face = 0;
+        cave_face = 0;
     }
 }
 
@@ -1088,6 +1136,7 @@ static void moon_glint(void);
 static void embers(void);
 static void cycle_tick(void);
 static void status_tick(void);
+static void roof_tick(void);
 static u32 weather_live(const Night* by);
 static void weather_flags_set(u32 code);
 static void weather_shares_apply(s32 say);
@@ -1167,8 +1216,10 @@ static void set_light(const Night* by) {
         s32 day_a = (day_ambient[i] != 0 || day_diffuse[i] != 0) ? day_ambient[i] : DAY_AMBIENT;
         s32 day_d = (day_ambient[i] != 0 || day_diffuse[i] != 0) ? day_diffuse[i] : DAY_DIFFUSE;
         s32 share = (s32) (nightness * 256.0f);
-        s32 ambient = (by != NULL) ? day_a + (((s32) scene_ambient[i] - day_a) * share) / 256 : day_a;
-        s32 diffuse = (by != NULL) ? day_d + (((s32) scene_diffuse[i] - day_d) * share) / 256 : day_d;
+        s32 amb = scene_ambient[i] + (s32) ((f32) ((s32) cave_palette[9][i] - scene_ambient[i]) * cave_now);     // in the cave the hour's own
+        s32 dif = scene_diffuse[i] + (s32) ((f32) ((s32) cave_palette[10][i] - scene_diffuse[i]) * cave_now);
+        s32 ambient = (by != NULL) ? day_a + ((amb - day_a) * share) / 256 : day_a;
+        s32 diffuse = (by != NULL) ? day_d + ((dif - day_d) * share) / 256 : day_d;
 
         light[i] = light[4 + i] = (u8) ambient;
         light[8 + i] = light[12 + i] = (u8) diffuse;
@@ -2836,6 +2887,7 @@ RECOMP_HOOK("omDrawAll") void night_cameras_begin(void) {
     fx_lit_n = 0;
     status_tick();
     cycle_tick();
+    roof_tick();
     roof_outside = 0;
     roof_block0 = 0;
     if (night != NULL && snow_cover && !snow_relit && flow_y_n > 0 && !scoring && ticks_of(night) > 120) {
@@ -3275,19 +3327,19 @@ static void weather_palettes_keep(const Night* by) {
     u8 r = raining, s = storming, n = snowing, a = ashing;
     s32 pass;
 
-    for (pass = 0; pass < 2; pass++) {
-        weather_flags_set(pass == 0 ? wx_from : wx_to);
+    for (pass = 0; pass < 3; pass++) {
+        weather_flags_set(pass == 0 ? wx_from : pass == 1 ? wx_to : WX_CLEAR);     // the third: a clear sky, for the cave
         sunset = 1;
         dawn = 0;
         choose_palette(by);
-        pal_keep(pass == 0 ? pal_a : pal2_a, dir_a);
+        pal_keep(pass == 0 ? pal_a : pass == 1 ? pal2_a : palc_a, dir_a);
         sunset = 0;
         choose_palette(by);
-        pal_keep(pass == 0 ? pal_b : pal2_b, dir_b);
+        pal_keep(pass == 0 ? pal_b : pass == 1 ? pal2_b : palc_b, dir_b);
         sunset = 1;
         dawn = 1;
         choose_palette(by);
-        pal_keep(pass == 0 ? pal_d : pal2_d, dir_d);
+        pal_keep(pass == 0 ? pal_d : pass == 1 ? pal2_d : palc_d, dir_d);
     }
     sunset = was_sunset;
     dawn = was_dawn;
@@ -3334,16 +3386,19 @@ static void relight_record(void) {
             volatile u8* color = (volatile u8*) (src + 16 * v + 12);
             u32 orig = glint_orig_cn[start + v];
             u8 c[3];
-            s32 steep, flow, toward, k;
+            s32 steep, flow, cave, toward, k;
             const u8* light;
+            const u8* diff;
 
             if (!(f & 0x8000)) {
                 continue;       // never lit by a triangle: left alone
             }
             steep = (f >> 14) & 1;
             flow = (f >> 13) & 1;
+            cave = (f >> 12) & 1;
             toward = f & 0x1FF;
-            light = flow ? light_flow : light_world;
+            light = flow ? light_flow : cave ? cave_palette[0] : light_world;
+            diff = cave ? cave_palette[3] : land_diff;
             c[0] = (u8) (orig >> 24);
             c[1] = (u8) (orig >> 16);
             c[2] = (u8) (orig >> 8);
@@ -3351,7 +3406,7 @@ static void relight_record(void) {
                 snow_paint(c, toward, glint_snow[start + v], (f32) glint_world_y[start + v]);
             }
             for (k = 0; k < 3; k++) {
-                u32 lit = light[k] + (flow ? 0 : ((land_diff[k] * (u32) toward) >> 8));
+                u32 lit = light[k] + (flow ? 0 : ((diff[k] * (u32) toward) >> 8));
 
                 c[k] = (u8) part(c[k], whole(lit));
             }
@@ -3359,7 +3414,7 @@ static void relight_record(void) {
                 c[0] = (u8) part(c[0], steep_shade[0]);
                 c[1] = (u8) part(c[1], steep_shade[1]);
                 c[2] = (u8) part(c[2], steep_shade[2]);
-                if (snow_cover) {
+                if (snow_cover && !cave) {
                     c[0] = (u8) part(c[0], 176);
                     c[1] = (u8) part(c[1], 184);
                     c[2] = (u8) part(c[2], 212);
@@ -3505,7 +3560,8 @@ static f32 dusk_share(s32 n, f32 t) {
 }
 
 // The live colors slid between two palettes, on the dusk's curves or straight.
-static void palette_blend(const u8 pa[11][3], const f32* da, const u8 pb[11][3], const f32* db, f32 t, s32 curved) {
+static void palette_blend(const u8 pa[11][3], const f32* da, const u8 pb[11][3], const f32* db,
+                          const u8 ca[11][3], const u8 cb[11][3], f32 t, s32 curved) {
     f32 len;
     s32 n, k;
 
@@ -3514,6 +3570,7 @@ static void palette_blend(const u8 pa[11][3], const f32* da, const u8 pb[11][3],
 
         for (k = 0; k < 3; k++) {
             live_palette[n][k] = (u8) ((f32) pa[n][k] + ((f32) pb[n][k] - (f32) pa[n][k]) * share);
+            cave_palette[n][k] = (u8) ((f32) ca[n][k] + ((f32) cb[n][k] - (f32) ca[n][k]) * share);
         }
     }
     for (k = 0; k < 3; k++) {
@@ -3540,10 +3597,68 @@ static void lights_toward_day(void) {
     for (n = 0; n < 3; n++) {
         for (k = 0; k < 3; k++) {
             live_palette[n][k] = (u8) (255 + (((s32) live_palette[n][k] - 255) * share) / 256);
+            cave_palette[n][k] = (u8) (255 + (((s32) cave_palette[n][k] - 255) * share) / 256);
         }
     }
     for (k = 0; k < 3; k++) {
         land_diff[k] = (u8) (((s32) land_diff[k] * share) / 256);
+        cave_palette[3][k] = (u8) (((s32) cave_palette[3][k] * share) / 256);
+    }
+}
+
+// The fog and the background in force: the day's, or under weather the
+// overcast's, so the far land and the sky's lid meet the flat sky; in a
+// cave the fog is the hour's own with no weather in it, while the
+// background stays the weather's sky, seen through the mouths.
+static void fog_apply(void) {
+    WorldSetup* setup = (WorldSetup*) night->setup;
+    s32 share = (s32) (nightness * 256.0f);
+    // The weather draws the fog nearer (fog_near, by its drop); in the cave the
+    // hour's own distance stands.
+    s32 near = fog_near + (s32) ((f32) ((s32) night->fog_min - (s32) fog_near) * cave_now);
+    s32 fmin = day_fog_min + ((near - day_fog_min) * share) / 256;
+    s32 fmax = day_fog_max + (((s32) fog_far - day_fog_max) * share) / 256;
+    u8 fog[3], bg[3];
+    u8 base[3];
+    s32 k;
+
+    overcast_base(base);
+    for (k = 0; k < 3; k++) {
+        s32 dfog = day_fog[k] + (s32) ((f32) ((s32) base[k] - day_fog[k]) * overcast_share);
+        s32 dbg = day_bg[k] + (s32) ((f32) ((s32) base[k] - day_bg[k]) * overcast_share);
+        s32 wfog = dfog + (((s32) sky_horizon[k] - dfog) * share) / 256;
+        s32 chor = (s32) (((u32) cave_palette[4][k] * (((u32) cave_palette[6][k] + cave_palette[7][k]) / 2)) / 255);
+        s32 cfog = day_fog[k] + ((chor - day_fog[k]) * share) / 256;
+
+        fog[k] = (u8) (wfog + (s32) ((f32) (cfog - wfog) * cave_now));
+        bg[k] = (u8) (dbg + (((s32) sky_top[k] - dbg) * share) / 256);
+    }
+    setFogColor(fog[0], fog[1], fog[2]);
+    setFogDistance((u16) fmin, (u16) fmax);     // the game reads the record's distances at the load alone
+    setup->fogDistanceMin = (u16) fmin;
+    setup->fogDistanceMax = (u16) fmax;
+    setup->fogR = fog[0];
+    setup->fogG = fog[1];
+    setup->fogB = fog[2];
+    setup->backgroundR = bg[0];
+    setup->backgroundG = bg[1];
+    setup->backgroundB = bg[2];
+}
+
+// A roofed course, each frame: how far the camera is in the cave's own
+// light, and the scene light and the fog set again as that changes.
+static void roof_tick(void) {
+    f32 f;
+
+    if (night == NULL || night->sky != NULL || !on_the_ride || scoring) {
+        return;
+    }
+    f = roof_past / NIGHT_TUNNEL_CAVE_Z;
+    f = f < 0.0f ? 0.0f : f > 1.0f ? 1.0f : f;
+    if (f != cave_now) {
+        cave_now = f;
+        set_light(night);
+        fog_apply();
     }
 }
 
@@ -3560,33 +3675,7 @@ static void scene_apply(void) {
     }
     lights_toward_day();
     set_light(night);
-    {
-        u8 fog[3], bg[3];
-        s32 fmin = day_fog_min + (((s32) fog_near - day_fog_min) * share) / 256;
-        s32 fmax = day_fog_max + (((s32) fog_far - day_fog_max) * share) / 256;
-
-        u8 base[3];
-
-        overcast_base(base);
-        for (k = 0; k < 3; k++) {
-            // The day end: the cartridge's, or under weather the overcast's,
-            // so the far land and the sky's lid meet the flat sky.
-            s32 dfog = day_fog[k] + (s32) ((f32) ((s32) base[k] - day_fog[k]) * overcast_share);
-            s32 dbg = day_bg[k] + (s32) ((f32) ((s32) base[k] - day_bg[k]) * overcast_share);
-
-            fog[k] = (u8) (dfog + (((s32) sky_horizon[k] - dfog) * share) / 256);
-            bg[k] = (u8) (dbg + (((s32) sky_top[k] - dbg) * share) / 256);
-        }
-        setFogColor(fog[0], fog[1], fog[2]);
-        setup->fogDistanceMin = (u16) fmin;
-        setup->fogDistanceMax = (u16) fmax;
-        setup->fogR = fog[0];
-        setup->fogG = fog[1];
-        setup->fogB = fog[2];
-        setup->backgroundR = bg[0];
-        setup->backgroundG = bg[1];
-        setup->backgroundB = bg[2];
-    }
+    fog_apply();
     for (i = 0; i < 2; i++) {
         if (night->pics[i] != 0) {
             sky_paint(night->pics[i], sky_mask_pic[i], i);
@@ -3607,7 +3696,7 @@ static void moment_apply(f32 m) {
     wx_mix();
     if (m >= m_night0 || m < m_dawn0) {
         // Night.
-        palette_blend(mix_b, dir_b, mix_b, dir_b, 0.0f, 0);
+        palette_blend(mix_b, dir_b, mix_b, dir_b, palc_b, palc_b, 0.0f, 0);
         nightness = 1.0f;
         sunset = 0;
         dawn = 0;
@@ -3623,7 +3712,7 @@ static void moment_apply(f32 m) {
         // Night to dawn: the stars and the moon go, the sun comes up pink.
         f32 w = (m - m_dawn0) / (m_dawn1 - m_dawn0);
 
-        palette_blend(mix_b, dir_b, mix_d, dir_d, w, 0);
+        palette_blend(mix_b, dir_b, mix_d, dir_d, palc_b, palc_d, w, 0);
         nightness = 1.0f;
         sunset = (w > 0.5f);
         dawn = 1;
@@ -3639,7 +3728,7 @@ static void moment_apply(f32 m) {
         // Dawn to day: the pink lifts off the cartridge's own morning.
         f32 w = (m - m_dawn1) / (m_day0 - m_dawn1);
 
-        palette_blend(mix_d, dir_d, mix_d, dir_d, 0.0f, 0);
+        palette_blend(mix_d, dir_d, mix_d, dir_d, palc_d, palc_d, 0.0f, 0);
         nightness = 1.0f - ease(w);
         sunset = 1;
         dawn = 1;
@@ -3651,7 +3740,7 @@ static void moment_apply(f32 m) {
         spare_point(w < 0.999f ? night->dawn_list : NULL);
     } else if (m < m_day1) {
         // Day: the cartridge, exactly.
-        palette_blend(mix_a, dir_a, mix_a, dir_a, 0.0f, 0);
+        palette_blend(mix_a, dir_a, mix_a, dir_a, palc_a, palc_a, 0.0f, 0);
         nightness = 0.0f;
         sunset = 1;
         dawn = 0;
@@ -3665,7 +3754,7 @@ static void moment_apply(f32 m) {
         // Day to sunset: the sky warms, the sun comes down to its evening place.
         f32 w = (m - m_day1) / (m_sun1 - m_day1);
 
-        palette_blend(mix_a, dir_a, mix_a, dir_a, 0.0f, 0);
+        palette_blend(mix_a, dir_a, mix_a, dir_a, palc_a, palc_a, 0.0f, 0);
         nightness = ease(w);
         sunset = 1;
         dawn = 0;
@@ -3682,7 +3771,7 @@ static void moment_apply(f32 m) {
         f32 sun_alpha = 1.0f - (t - 0.35f) / 0.3f;
         f32 sink = (t < 0.6f) ? t / 0.6f : 1.0f;
 
-        palette_blend(mix_a, dir_a, mix_b, dir_b, t, 1);
+        palette_blend(mix_a, dir_a, mix_b, dir_b, palc_a, palc_b, t, 1);
         nightness = 1.0f;
         sunset = (t < 0.6f);
         dawn = 0;
@@ -4412,6 +4501,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         snow_relit = 0;
         roof_outside = 0;
         roof_block0 = 0;
+        cave_now = 0.0f;
         // The fine switches are Custom's; Simple takes their defaults.
         fx_lit = simple_setup() || (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
         glows_on = simple_setup() || (recomp_get_config_u32("water_glow") == 0);

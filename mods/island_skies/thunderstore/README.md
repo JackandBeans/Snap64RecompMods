@@ -63,8 +63,10 @@ its details, then A again for its options. The first row is **Setup**:
   its painted sky, which takes the weather and the hour as the other
   courses' skies do: it is a thing of the world there, hidden by the rock
   once the cart is under the roof and seen through the mouth looking
-  back, and under the roof nothing falls. Day is the cartridge's own day,
-  and the weather chosen falls on it as it does under Live.
+  back. Under the roof nothing falls, and the cave keeps the hour's own
+  light and fog: the weather's stay with the open air. Day is the
+  cartridge's own day, and the weather chosen falls on it as it does
+  under Live.
 - **Live** is your clock and the island's own weather, with nothing else
   to set.
 - **Custom** opens every row: each course's hour and weather, and the fine
