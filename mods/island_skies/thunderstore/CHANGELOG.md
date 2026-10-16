@@ -30,7 +30,8 @@
   mouth, where the roof begins (found from the block's own triangles:
   z 1380 of the first block). The rock hides it once the cart is under
   the roof, the mouth shows it looking back, and nothing falls under the
-  roof; the rain's voice and the storm's thunder go with the open sky.
+  roof; the rain's voice recedes with the mouth over the first stretch
+  under the roof, and the storm's thunder goes with the open sky.
   Snow lies on that stretch's rock, the painted sky over it goes overcast
   under weather, and the Custom row Tunnel Weather is new. Shaped on
   JackandBeans's rides, Oct 15 2026: rain seen through the openings, none
