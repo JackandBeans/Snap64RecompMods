@@ -271,49 +271,68 @@ RAIN_NEAR, RAIN_FAR = 220.0, 1000.0     # how near and how far from the camera t
 BOLTS = 8               # lightning shapes to choose from
 BOLT_DIST = 1400.0      # how far off a bolt stands (it is drawn with the sky, behind the land)
 RAIN_SLANT = (0.07, 0.03)               # the wind: how far a drop drifts for each unit it falls
+VOLUME_HALF = (1000.0, 2090.0)          # the Tunnel's volume of weather over its open-air slope: half its width, half its length
+
+
+def spots(rng, count, ring, box):
+    """Where a sheet's drops stand, seen from above: in a ring around the camera (near, far), or
+    in a box (half width, half length) when the sheet is a volume of the world."""
+    out = []
+    for i in range(count):
+        if box is None:
+            a = rng.uniform(0, 2 * math.pi)
+            r = math.sqrt(rng.uniform(ring[0] ** 2, ring[1] ** 2))
+            out.append((r * math.cos(a), r * math.sin(a)))
+        else:
+            out.append((rng.uniform(-box[0], box[0]), rng.uniform(-box[1], box[1])))
+    return out
+
+
+def box_count(ring_count, ring, box):
+    """How many drops a box takes to be as dense as the ring."""
+    return int(round(ring_count * (4.0 * box[0] * box[1]) / (math.pi * (ring[1] ** 2 - ring[0] ** 2))))
 
 
 def make_rain(w, h):
     """The rain: sheets of short soft streaks around the camera, as plain geometry. Each drop is two
     crossed upright quads (so it shows from any side) drawn with the soft dot, leaning back along
-    its fall. The mod's code moves each sheet down by a matrix; nothing here changes."""
+    its fall. The mod's code moves each sheet down by a matrix; nothing here changes. A second set,
+    the volume, holds the same sheets as a box the size of the Tunnel's open-air slope."""
     rng = random.Random(77)
-    speeds = []
-    for layer in range(RAIN_LAYERS):
-        speed = 18 + (layer * 3) % 10              # units a tick (a sixtieth of a second): 18..27, no two sheets alike
-        speeds.append(speed)
-        verts = []
-        order = list(range(RAIN_DROPS))
-        rng.shuffle(order)
-        for i in range(RAIN_DROPS):
-            a = rng.uniform(0, 2 * math.pi)
-            r = math.sqrt(rng.uniform(RAIN_NEAR ** 2, RAIN_FAR ** 2))
-            x, z = r * math.cos(a), r * math.sin(a)
-            y = (order[i] + rng.uniform(0.1, 0.9)) * RAIN_HEIGHT / RAIN_DROPS
-            length = rng.uniform(40.0, 66.0)
-            half = rng.uniform(1.2, 1.7)
-            tone = rng.uniform(0.86, 1.0)
-            col = (int(170 * tone), int(192 * tone), int(226 * tone))
-            top = (x - RAIN_SLANT[0] * length, y + length, z - RAIN_SLANT[1] * length)
-            for ax, az in ((1.0, 0.0), (0.0, 1.0)):
-                for (px, py, pz), sgn, (s, t) in (((x, y, z), -1, (0, 512)), ((x, y, z), 1, (512, 512)),
-                                                   (top, 1, (512, 0)), (top, -1, (0, 0))):
-                    verts.append('    V(%d, %d, %d, %d, %d, %d, %d, %d),' % (
-                        int(round(px + sgn * half * ax)), int(round(py)), int(round(pz + sgn * half * az)), s, t, col[0], col[1], col[2]))
-        w('static Vtx night_rain_vtx%d[] = {' % layer)
-        for v in verts:
-            w(v)
-        w('};')
-        w('static Gfx night_rain_sheet%d[] = {' % layer)
-        for first in range(0, len(verts), 32):
-            n = min(32, len(verts) - first)
-            w('    gsSPVertex(&night_rain_vtx%d[%d], %d, 0),' % (layer, first, n))
-            for o in range(0, n, 4):
-                w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (o, o + 1, o + 2, o, o + 2, o + 3))
-        w('    gsSPEndDisplayList(),')
-        w('};')
-        w('')
+    speeds = [18 + (layer * 3) % 10 for layer in range(RAIN_LAYERS)]     # units a tick (a sixtieth of a second): 18..27, no two sheets alike
+    for name, box in (('sheet', None), ('volume', VOLUME_HALF)):
+        drops = RAIN_DROPS if box is None else box_count(RAIN_DROPS, (RAIN_NEAR, RAIN_FAR), box)
+        for layer in range(RAIN_LAYERS):
+            verts = []
+            order = list(range(drops))
+            rng.shuffle(order)
+            for i, (x, z) in enumerate(spots(rng, drops, (RAIN_NEAR, RAIN_FAR), box)):
+                y = (order[i] + rng.uniform(0.1, 0.9)) * RAIN_HEIGHT / drops
+                length = rng.uniform(40.0, 66.0)
+                half = rng.uniform(1.2, 1.7)
+                tone = rng.uniform(0.86, 1.0)
+                col = (int(170 * tone), int(192 * tone), int(226 * tone))
+                top = (x - RAIN_SLANT[0] * length, y + length, z - RAIN_SLANT[1] * length)
+                for ax, az in ((1.0, 0.0), (0.0, 1.0)):
+                    for (px, py, pz), sgn, (s, t) in (((x, y, z), -1, (0, 512)), ((x, y, z), 1, (512, 512)),
+                                                       (top, 1, (512, 0)), (top, -1, (0, 0))):
+                        verts.append('    V(%d, %d, %d, %d, %d, %d, %d, %d),' % (
+                            int(round(px + sgn * half * ax)), int(round(py)), int(round(pz + sgn * half * az)), s, t, col[0], col[1], col[2]))
+            w('static Vtx night_rain_%s_vtx%d[] = {' % (name, layer))
+            for v in verts:
+                w(v)
+            w('};')
+            w('static Gfx night_rain_%s%d[] = {' % (name, layer))
+            for first in range(0, len(verts), 32):
+                n = min(32, len(verts) - first)
+                w('    gsSPVertex(&night_rain_%s_vtx%d[%d], %d, 0),' % (name, layer, first, n))
+                for o in range(0, n, 4):
+                    w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (o, o + 1, o + 2, o, o + 2, o + 3))
+            w('    gsSPEndDisplayList(),')
+            w('};')
+            w('')
     w('Gfx* const night_rain_sheets[] = { %s };' % ', '.join('night_rain_sheet%d' % i for i in range(RAIN_LAYERS)))
+    w('Gfx* const night_rain_volume[] = { %s };' % ', '.join('night_rain_volume%d' % i for i in range(RAIN_LAYERS)))
     w('const u8 night_rain_speed[] = { %s };' % ', '.join(str(s) for s in speeds))
     w('')
     w('// The rain is drawn after the solid world, among the see-through things: tested against the')
@@ -344,6 +363,9 @@ def make_rain(w, h):
     h.append('#define NIGHT_RAIN_SLANT_X %.3ff' % RAIN_SLANT[0])
     h.append('#define NIGHT_RAIN_SLANT_Z %.3ff' % RAIN_SLANT[1])
     h.append('extern Gfx* const night_rain_sheets[];')
+    h.append('extern Gfx* const night_rain_volume[];')
+    h.append('#define NIGHT_VOLUME_HALF_X %d' % int(VOLUME_HALF[0]))
+    h.append('#define NIGHT_VOLUME_HALF_Z %d' % int(VOLUME_HALF[1]))
     h.append('extern const u8 night_rain_speed[];')
     h.append('extern Gfx night_rain_begin[];')
     h.append('extern Gfx night_rain_end[];')
@@ -435,40 +457,40 @@ def make_glow(w, h, built):
 
 def make_snow(w, h):
     """Snow: sheets of soft flakes, made and moved as the rain is, but slow, and each sheet swaying
-    from side to side as it falls. A flake is two crossed upright quads of the soft dot."""
+    from side to side as it falls. A flake is two crossed upright quads of the soft dot. The volume
+    set is the box of the Tunnel's slope, as the rain's."""
     rng = random.Random(1225)
-    speeds = []
-    for layer in range(SNOW_LAYERS):
-        speeds.append(15 + (layer * 5) % 12)        # eighths of a unit a tick: about 1.1 to 2 m a second
-        verts = []
-        order = list(range(SNOW_FLAKES))
-        rng.shuffle(order)
-        for i in range(SNOW_FLAKES):
-            a = rng.uniform(0, 2 * math.pi)
-            r = math.sqrt(rng.uniform(160.0 ** 2, 900.0 ** 2))
-            x, z = r * math.cos(a), r * math.sin(a)
-            y = (order[i] + rng.uniform(0.1, 0.9)) * SNOW_HEIGHT / SNOW_FLAKES
-            half = rng.uniform(3.0, 5.6)
-            tone = rng.uniform(0.88, 1.0)
-            col = (int(236 * tone), int(242 * tone), int(255 * tone))
-            for ax, az in ((1.0, 0.0), (0.0, 1.0)):
-                for sgn, dy, (s, t) in ((-1, -1, (0, 512)), (1, -1, (512, 512)), (1, 1, (512, 0)), (-1, 1, (0, 0))):
-                    verts.append('    V(%d, %d, %d, %d, %d, %d, %d, %d),' % (
-                        int(round(x + sgn * half * ax)), int(round(y + dy * half)), int(round(z + sgn * half * az)), s, t, col[0], col[1], col[2]))
-        w('static Vtx night_snow_vtx%d[] = {' % layer)
-        for v in verts:
-            w(v)
-        w('};')
-        w('static Gfx night_snow_sheet%d[] = {' % layer)
-        for first in range(0, len(verts), 32):
-            n = min(32, len(verts) - first)
-            w('    gsSPVertex(&night_snow_vtx%d[%d], %d, 0),' % (layer, first, n))
-            for o in range(0, n, 4):
-                w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (o, o + 1, o + 2, o, o + 2, o + 3))
-        w('    gsSPEndDisplayList(),')
-        w('};')
-        w('')
+    speeds = [15 + (layer * 5) % 12 for layer in range(SNOW_LAYERS)]     # eighths of a unit a tick: about 1.1 to 2 m a second
+    for name, box in (('sheet', None), ('volume', VOLUME_HALF)):
+        flakes = SNOW_FLAKES if box is None else box_count(SNOW_FLAKES, (160.0, 900.0), box)
+        for layer in range(SNOW_LAYERS):
+            verts = []
+            order = list(range(flakes))
+            rng.shuffle(order)
+            for i, (x, z) in enumerate(spots(rng, flakes, (160.0, 900.0), box)):
+                y = (order[i] + rng.uniform(0.1, 0.9)) * SNOW_HEIGHT / flakes
+                half = rng.uniform(3.0, 5.6)
+                tone = rng.uniform(0.88, 1.0)
+                col = (int(236 * tone), int(242 * tone), int(255 * tone))
+                for ax, az in ((1.0, 0.0), (0.0, 1.0)):
+                    for sgn, dy, (s, t) in ((-1, -1, (0, 512)), (1, -1, (512, 512)), (1, 1, (512, 0)), (-1, 1, (0, 0))):
+                        verts.append('    V(%d, %d, %d, %d, %d, %d, %d, %d),' % (
+                            int(round(x + sgn * half * ax)), int(round(y + dy * half)), int(round(z + sgn * half * az)), s, t, col[0], col[1], col[2]))
+            w('static Vtx night_snow_%s_vtx%d[] = {' % (name, layer))
+            for v in verts:
+                w(v)
+            w('};')
+            w('static Gfx night_snow_%s%d[] = {' % (name, layer))
+            for first in range(0, len(verts), 32):
+                n = min(32, len(verts) - first)
+                w('    gsSPVertex(&night_snow_%s_vtx%d[%d], %d, 0),' % (name, layer, first, n))
+                for o in range(0, n, 4):
+                    w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (o, o + 1, o + 2, o, o + 2, o + 3))
+            w('    gsSPEndDisplayList(),')
+            w('};')
+            w('')
     w('Gfx* const night_snow_sheets[] = { %s };' % ', '.join('night_snow_sheet%d' % i for i in range(SNOW_LAYERS)))
+    w('Gfx* const night_snow_volume[] = { %s };' % ', '.join('night_snow_volume%d' % i for i in range(SNOW_LAYERS)))
     w('const u8 night_snow_speed[] = { %s };' % ', '.join(str(s) for s in speeds))
     w('// The flakes are brighter and more solid than the rain; the other states are those of the rain.')
     w('Gfx night_snow_alpha[] = {')
@@ -481,6 +503,7 @@ def make_snow(w, h):
     h.append('#define NIGHT_SNOW_SHEETS %d' % SNOW_LAYERS)
     h.append('#define NIGHT_SNOW_HEIGHT %d' % SNOW_HEIGHT)
     h.append('extern Gfx* const night_snow_sheets[];')
+    h.append('extern Gfx* const night_snow_volume[];')
     h.append('extern const u8 night_snow_speed[];')
     h.append('extern Gfx night_snow_alpha[];')
 

@@ -32,10 +32,13 @@
   the roof, the mouth shows it looking back, and nothing falls under the
   roof; the rain's voice recedes with the mouth over the first stretch
   under the roof, and the storm's thunder goes with the open sky.
-  Snow lies on that stretch's rock, the painted sky over it goes overcast
-  under weather, and the Custom row Tunnel Weather is new. Shaped on
-  JackandBeans's rides, Oct 15 2026: rain seen through the openings, none
-  under the roof. The weather is drawn into
+  Snow lies on the whole stretch, the track with the rest, the painted
+  sky over it takes the weather and the hour as one, as the other
+  courses' skies do (it stood in panels of three tints under snow), and
+  the Custom row Tunnel Weather is new. Shaped on JackandBeans's rides
+  and pictures, Oct 15 2026: rain seen through the openings, none under
+  the roof, the snow still falling at the mouth looking back. The
+  weather is drawn into
   the game's main list under the counter and the pointer: the
   see-through list the Tunnel's sky uses is 3072 bytes by the level's
   setup, and the rain's sheets overran it at Electrode's explosion, a

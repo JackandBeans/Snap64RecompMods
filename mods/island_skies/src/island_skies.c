@@ -124,12 +124,12 @@ typedef struct Night {
 // the cave's mouth, where a roof first stands over the cart (z 1380 of the
 // block's own frame, from the block's triangles: every face over the cart's
 // path that is not a wall, Oct 15 2026; the roof runs on into the next
-// block, which begins at z 1880). The weather is two clouds of sheets end
-// to end over that stretch, 2400 wide, from below the lowest ground, drawn
-// in the first block and the next.
+// block, which begins at z 1880). The weather is night_data's volume set:
+// a box of sheets NIGHT_VOLUME_HALF_X by NIGHT_VOLUME_HALF_Z each way, as
+// dense as the ring around the camera, ending at the mouth, drawn in the
+// first block and the next.
 #define NIGHT_TUNNEL_ROOF_Z (1380.0f)
-#define NIGHT_TUNNEL_OPEN_Z0 (-2000.0f)
-#define NIGHT_TUNNEL_OPEN_X (1200.0f)
+#define NIGHT_TUNNEL_BLOCK0 0x8011E7D0u     // the first block's model (tunnel_block0_gfx_data): the slope, the mouth, the far hills
 #define NIGHT_TUNNEL_OPEN_Y (400.0f)
 #define NIGHT_TUNNEL_VOICE_Z (900.0f)    // the rain's voice fades to nothing this far under the roof
 
@@ -231,7 +231,6 @@ static f32 roof_past;            // how far the camera is under the roof, in the
 static u8 roof_outside;          // this frame: the camera is under the open sky, before the roof
 static GObj* roof_cam;           // the camera that drew the world this frame, whose matrices the weather takes
 static u8 roof_blink;            // the main camera's blink frame (the shutter's black): nothing is drawn on it
-static f32 weather_scale[2] = { 1.0f, 1.0f };   // what place() scales a sheet by across and along, for the volume
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -253,11 +252,9 @@ static u8 cloud_top_fade;                // how far the clouds thin toward the d
 static u8 sky_mask[SKY_TEXELS];          // the picture's luminance, then its softened cloud mask
 static u8 sky_blur[SKY_TEXELS];
 static Mtx rain_mtx[2][NIGHT_RAIN_SHEETS * 2];   // each sheet's two matrices, this frame's set and the last's
-static Mtx rain_mtx2[2][NIGHT_RAIN_SHEETS * 2];  // the same for a second cloud drawn in the same frame
-static Mtx (*rain_set)[NIGHT_RAIN_SHEETS * 2] = rain_mtx;   // the sets the next sheets take
-static u32 rain_group;           // what the next sheets' group names are offset by (a second cloud's own)
 static u8 rain_turn;             // which of the two sets this frame writes
-static u8 rain_same;             // this call takes the set the last one took (a second cloud in the same frame)
+static Gfx* const* rain_sheets_now = night_rain_sheets;   // the sheets the next rain takes: the ring's, or the Tunnel's volume
+static Gfx* const* snow_sheets_now = night_snow_sheets;
 static Mtx glow_mtx[2][1 + NIGHT_FIREFLY_GROUPS];   // the moon path's and the fireflies' matrices, two sets
 static u8 glow_turn;
 static f32 flow_y_sum;           // the water's height: the mean, the lowest and the highest of the vertices that flow
@@ -434,6 +431,13 @@ static void roof_weather(void);
 #define SNOW_G 240
 #define SNOW_B 252
 
+// The Tunnel's painted sky: the faces that show the sky's pictures. Under
+// weather their corners go white as the sky drums' do, so the overcast
+// picture alone colors them, and toward the night's horizon tint as the
+// hour darkens; no snow lies on them and none is steep. (JackandBeans's
+// pictures, Oct 15 2026: the sky in panels of three tints under snow.)
+static u8 sky_face;
+
 static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
     if (at != 0 && mark(tinted, at)) {
         volatile u8* color = (volatile u8*) (at + 12);
@@ -470,6 +474,15 @@ static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
                 u32 lit = light[k] + (flowing ? 0 : ((land_diff[k] * (u32) toward) >> 8));
 
                 color[k] = (u8) part(color[k], whole(lit));
+            }
+        }
+        if (sky_face && overcast_share > 0.0f) {
+            s32 k;
+
+            for (k = 0; k < 3; k++) {
+                s32 flat = 255 + (s32) ((f32) ((s32) tint_lo[k] - 255) * nightness);
+
+                color[k] = (u8) ((s32) color[k] + (s32) ((f32) (flat - (s32) color[k]) * overcast_share));
             }
         }
         if (steep) {
@@ -646,14 +659,21 @@ static u32 snow_share_face(u32 a, u32 b, u32 c) {
     return (u32) (share * 256.0f);
 }
 
-// On a roofed course (the Tunnel), the open air is told from the rock by
-// the painting: the sand and the hills outside are painted bright, the
-// cave's walls and floor dark, so snow lies and the pictures lift only
-// where every channel of a corner's paint reads 120 or more.
+// On a roofed course (the Tunnel), the open air is told by place on the
+// first block (everything before the roof, the track with the rest) and
+// elsewhere from the rock by the painting: the hills outside are painted
+// bright, the cave's walls and floor dark, so snow lies and the pictures
+// lift where every channel of a corner's paint reads 120 or more.
 static u8 open_air(u32 at) {
     volatile u8* c = (volatile u8*) (at + 12);
 
-    return night->sky != NULL || (c[0] >= 120 && c[1] >= 120 && c[2] >= 120);
+    if (night->sky != NULL) {
+        return 1;
+    }
+    if (glint_model == NIGHT_TUNNEL_BLOCK0 && (f32) ((volatile s16*) at)[2] < night->roof_z) {
+        return 1;
+    }
+    return c[0] >= 120 && c[1] >= 120 && c[2] >= 120;
 }
 
 // How much a face faces the light (the sun, or the moon), 0 to 256: the
@@ -705,8 +725,9 @@ static void light_corners(u32 word) {
         s32 toward = 0;
         u32 snow = 0;
 
+        sky_face = (night->sky == NULL && tex_addr != 0 && (tex_addr == night->pics[0] || tex_addr == night->pics[1]));
         if (!flowing && slots[a] != 0 && slots[b] != 0 && slots[c] != 0) {
-            if (snow_cover && open_air(slots[a])) {
+            if (snow_cover && !sky_face && open_air(slots[a])) {
                 if (tex_addr != 0) {
                     snow_picture();
                 }
@@ -734,6 +755,7 @@ static void light_corners(u32 word) {
         light_vertex(slots[a], steep, toward, snow);
         light_vertex(slots[b], steep, toward, snow);
         light_vertex(slots[c], steep, toward, snow);
+        sky_face = 0;
     }
 }
 
@@ -1542,14 +1564,12 @@ static void command(Gfx** list, u32 w0, u32 w1) {
     cmd->words.w1 = w1;
 }
 
-// A matrix that moves a thing to a place, scaled across and along by
-// weather_scale: the diagonal, with the place in its last row. The record
-// holds sixteen whole parts, then their sixteen fractions.
+// A matrix that moves a thing to a place: ones on the diagonal, with the
+// place in its last row. The record holds sixteen whole parts, then their
+// sixteen fractions.
 static void place(Mtx* mtx, f32 x, f32 y, f32 z) {
     volatile u16* half = (volatile u16*) mtx;
     s32 at[3];
-    s32 sx = (s32) (weather_scale[0] * 65536.0f);
-    s32 sz = (s32) (weather_scale[1] * 65536.0f);
     s32 i;
 
     at[0] = (s32) (x * 65536.0f);
@@ -1558,11 +1578,7 @@ static void place(Mtx* mtx, f32 x, f32 y, f32 z) {
     for (i = 0; i < 32; i++) {
         half[i] = 0;
     }
-    half[0] = (u16) (sx >> 16);
-    half[16] = (u16) (sx & 0xFFFF);
-    half[5] = half[15] = 1;
-    half[10] = (u16) (sz >> 16);
-    half[26] = (u16) (sz & 0xFFFF);
+    half[0] = half[5] = half[10] = half[15] = 1;
     for (i = 0; i < 3; i++) {
         half[12 + i] = (u16) (at[i] >> 16);
         half[28 + i] = (u16) (at[i] & 0xFFFF);
@@ -1587,8 +1603,8 @@ static void rain_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     if (*list == NULL) {
         return;
     }
-    rain_turn ^= !rain_same;
-    set = rain_set[rain_turn];
+    rain_turn ^= 1;
+    set = rain_mtx[rain_turn];
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
     gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (132.0f * rain_share));     // the rain's own alpha, as far as it has come
@@ -1609,10 +1625,10 @@ static void rain_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
                   ey - (f32) (NIGHT_RAIN_HEIGHT / 2) - (f32) below,
                   ez + NIGHT_RAIN_SLANT_Z * (f32) below + gust * 0.4f);
             // The group: this id, pushed; place, turn, perspective and vertices followed between ticks.
-            command(list, (0x64u << 24) | 0x00000Cu, (0x52410000u + rain_group) | (sheet << 8) | (which & 0xFF));
+            command(list, (0x64u << 24) | 0x00000Cu, 0x52410000u | (sheet << 8) | (which & 0xFF));
             command(list, 0x00002829u, 0);
             gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-            gSPDisplayList((*list)++, night_rain_sheets[sheet]);
+            gSPDisplayList((*list)++, rain_sheets_now[sheet]);
             gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
             command(list, (0x64u << 24) | 0x00000Du, 1);
         }
@@ -1634,8 +1650,8 @@ static void snow_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     if (*list == NULL) {
         return;
     }
-    rain_turn ^= !rain_same;
-    set = rain_set[rain_turn];
+    rain_turn ^= 1;
+    set = rain_mtx[rain_turn];
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
     gSPDisplayList((*list)++, night_snow_alpha);
@@ -1659,10 +1675,10 @@ static void snow_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
             Mtx* mtx = &set[sheet * 2 + copy];
 
             place(mtx, ex + sway, ey - (f32) (NIGHT_SNOW_HEIGHT / 2) - (f32) below, ez + sway_across);
-            command(list, (0x64u << 24) | 0x00000Cu, (0x534E0000u + rain_group) | (sheet << 8) | (which & 0xFF));
+            command(list, (0x64u << 24) | 0x00000Cu, 0x534E0000u | (sheet << 8) | (which & 0xFF));
             command(list, 0x00002829u, 0);
             gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-            gSPDisplayList((*list)++, night_snow_sheets[sheet]);
+            gSPDisplayList((*list)++, snow_sheets_now[sheet]);
             gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
             command(list, (0x64u << 24) | 0x00000Du, 1);
         }
@@ -2926,32 +2942,21 @@ static void roof_weather(void) {
                             G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
                             | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                             G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
-            // The volume: the sheets' own cloud is 2000 across and 2000 along;
-            // two of them end to end, the far one from the slope's start, the
-            // near one ending at the mouth, each 2400 wide, in the current
-            // block's frame.
-            f32 half = (night->roof_z - NIGHT_TUNNEL_OPEN_Z0) * 0.25f;     // half of one cloud's length, the two tiling the stretch
+            // The volume: night_data's box of sheets, the slope's width and
+            // length, ending at the mouth, in the current block's frame.
             f32 cx = roof_shift[0];
             f32 cy = NIGHT_TUNNEL_OPEN_Y + roof_shift[1];
-            f32 far_z = NIGHT_TUNNEL_OPEN_Z0 + half + roof_shift[2];
-            f32 near_z = night->roof_z - half + roof_shift[2];
+            f32 cz = night->roof_z - (f32) NIGHT_VOLUME_HALF_Z + roof_shift[2];
 
-            weather_scale[0] = NIGHT_TUNNEL_OPEN_X / 1000.0f;
-            weather_scale[1] = half / 1000.0f;
             if (storming && roof_outside) {
                 strike_at(t);
                 storm_light();
                 thunder(t);
             }
             if (rain_share > 0.0f) {
-                rain_set = rain_mtx;
-                rain_group = 0;
-                rain_at(list, cx, cy, far_z);
-                rain_set = rain_mtx2;
-                rain_group = 0x00010000u;
-                rain_same = 1;
-                rain_at(list, cx, cy, near_z);
-                rain_same = 0;
+                rain_sheets_now = night_rain_volume;
+                rain_at(list, cx, cy, cz);
+                rain_sheets_now = night_rain_sheets;
                 // The voice recedes with the mouth: full under the open sky,
                 // gone this far under the roof.
                 rain_voice = 1.0f - roof_past / NIGHT_TUNNEL_VOICE_Z;
@@ -2962,18 +2967,10 @@ static void roof_weather(void) {
                 }
                 rain_voice = 1.0f;
             } else if (snow_share > 0.0f) {
-                rain_set = rain_mtx;
-                rain_group = 0;
-                snow_at(list, cx, cy, far_z);
-                rain_set = rain_mtx2;
-                rain_group = 0x00010000u;
-                rain_same = 1;
-                snow_at(list, cx, cy, near_z);
-                rain_same = 0;
+                snow_sheets_now = night_snow_volume;
+                snow_at(list, cx, cy, cz);
+                snow_sheets_now = night_snow_sheets;
             }
-            rain_set = rain_mtx;
-            rain_group = 0;
-            weather_scale[0] = weather_scale[1] = 1.0f;
             if (rain_share <= 0.0f) {
                 rain_quiet();
             }

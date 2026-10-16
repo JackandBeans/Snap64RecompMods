@@ -30,6 +30,9 @@ extern const u8 night_band_dawn_color[NIGHT_BAND_ROWS][3];
 #define NIGHT_RAIN_SLANT_X 0.070f
 #define NIGHT_RAIN_SLANT_Z 0.030f
 extern Gfx* const night_rain_sheets[];
+extern Gfx* const night_rain_volume[];
+#define NIGHT_VOLUME_HALF_X 1000
+#define NIGHT_VOLUME_HALF_Z 2090
 extern const u8 night_rain_speed[];
 extern Gfx night_rain_begin[];
 extern Gfx night_rain_end[];
@@ -46,6 +49,7 @@ extern Gfx* const night_bolt_cores[];
 #define NIGHT_SNOW_SHEETS 6
 #define NIGHT_SNOW_HEIGHT 1000
 extern Gfx* const night_snow_sheets[];
+extern Gfx* const night_snow_volume[];
 extern const u8 night_snow_speed[];
 extern Gfx night_snow_alpha[];
 
