@@ -116,16 +116,20 @@ typedef struct Night {
     Gfx* dawn_list;         // the dawn's sun, for the sky at dawn
     Vtx* band;              // the glow band at the horizon toward the sunset's sun (night_data.h)
     Vtx* dawn_band;         // and toward the dawn's
-    f32 roof_z;             // a roofed course: its doorway for the weather, the camera's z in the first block
+    f32 roof_z;             // a roofed course: where its roof begins over the cart, z in the first block
 } Night;
 
 #define NIGHT_TUNNEL_SETUP 0x8011E6CCu  // tunnel_WorldSetup: no sky box; a flat sky color where it opens
-// The Tunnel's doorway: where the open air ends for the weather, 24 seconds
-// into the ride by JackandBeans's timing (Oct 15 2026): z 1725 of the first
-// block (the game moves its origin at each block: world/block.c; the first
-// block ends two seconds later). The arch at z -690 and the cave past it
-// are open to the sky behind, so the weather falls through them.
-#define NIGHT_TUNNEL_ROOF_Z (1725.0f)
+// The Tunnel's open air: the first block's floor from the course's far end to
+// the cave's mouth, where a roof first stands over the cart (z 1380 of the
+// block's own frame, from the block's triangles: every face over the cart's
+// path that is not a wall, Oct 15 2026; the roof runs on into the next
+// block, which begins at z 1880). The weather is one volume over that
+// stretch, 2400 wide, from below the lowest ground.
+#define NIGHT_TUNNEL_ROOF_Z (1380.0f)
+#define NIGHT_TUNNEL_OPEN_Z0 (-2000.0f)
+#define NIGHT_TUNNEL_OPEN_X (1200.0f)
+#define NIGHT_TUNNEL_OPEN_Y (400.0f)
 
 static const Night nights[] = {
     {   // The Beach: a clear night, a full moon over the sea.
@@ -214,23 +218,16 @@ static u8 snow_cover;                 // snow lies on the land: it was snowing a
 static u8 snow_relit;                 // the record lit again once the water's height is known (the surf line)
 // A roofed course (the Tunnel, with no sky list of its own) has an open-air
 // start under a painted sky, which is drawn every frame, inside too. Its
-// weather is a thing of the open air, not of the cart: while the camera is
-// outside it falls around the camera; once the camera passes the doorway
-// (the record's roof_z, in the first block's own frame) it keeps falling
-// where the camera last was outside, so it thins as the cart rides in and
-// still shows in the doorway behind, and it is drawn no more once the
-// doorway is far (JackandBeans, Oct 15 2026).
-static u8 roof_outside;          // this frame: the camera is in the open air (noted at a world model's drawing)
-static u8 roof_near;             // this frame: under the roof, the open air's last spot still near
+// weather is a thing of the world, not of the cart: one volume of it stands
+// over the open stretch of the first block, drawn whenever that block is
+// current; the rock hides it where the cart is under the roof, and the
+// mouth shows it from inside (JackandBeans, Oct 15 2026: rain seen through
+// the openings, none under the roof).
+static u8 roof_block0;           // this frame: the first block is current (noted at a world model's drawing)
+static u8 roof_outside;          // this frame: the camera is under the open sky, before the roof
 static GObj* roof_cam;           // the camera that drew the world this frame, whose matrices the weather takes
-static f32 roof_center[3];       // where the weather falls: the camera while outside, then its last spot outside
-static s32 roof_block;           // the block that spot was noted in (the game moves its origin at each block)
-static f32 roof_fade;            // how much of the weather is drawn: whole outside, thinning past the doorway
 static u8 roof_blink;            // the main camera's blink frame (the shutter's black): nothing is drawn on it
-static f32 weather_fade = 1.0f;  // what the sheets' alpha is scaled by as they are drawn
-#define NIGHT_ROOF_WHOLE 0.0f    // past the doorway the weather thins at once...
-#define NIGHT_ROOF_FAR 250.0f    // ...and is gone by here, about three seconds in
-#define NIGHT_ROOF_RAIN_LEAD 920.0f  // rain and storms thin from this far before the doorway: about seven seconds of riding (JackandBeans's rides: the snow's timing right, the rain's late)
+static f32 weather_scale[2] = { 1.0f, 1.0f };   // what place() scales a sheet by across and along, for the volume
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -973,13 +970,13 @@ static void model_enters(GObj* obj, s32 kind) {
     if (first == NULL || unit_of((u32) first->payload.any) < 0) {
         return;
     }
-    // A roofed course's open-air start (roof_center): where the camera is
-    // against the doorway, noted at the first world model's drawing with the
-    // camera drawing it; the weather is drawn as the UI camera begins
-    // (night_ui_begins). First found by JackandBeans's picture, Oct 11 2026:
-    // rain in the tunnel, and a hang where it met Electrode's explosion in
-    // the same list.
-    if (night->sky == NULL && on_the_ride && !scoring && !roof_outside && !roof_near
+    // A roofed course's open-air start: whether the first block is current,
+    // and whether the camera is still under the open sky, noted at the first
+    // world model's drawing with the camera drawing it; the weather is drawn
+    // as the UI camera begins (night_ui_begins). First found by JackandBeans's
+    // picture, Oct 11 2026: rain in the tunnel, and a hang where it met
+    // Electrode's explosion in the same list.
+    if (night->sky == NULL && on_the_ride && !scoring && !roof_block0
         && (u32) first->payload.any >= night->world_lo && (u32) first->payload.any < night->world_hi) {
         GObj* cam = *(GObj* volatile*) 0x8004AC48u;
 
@@ -987,24 +984,10 @@ static void model_enters(GObj* obj, s32 kind) {
             volatile f32* eye = (volatile f32*) ((u32) cam->data.cam + 0x3C);
             u32 block = *(volatile u32*) 0x800E6AD0u;          // CurrentWorldBlock (world/block.c); its index first
             s32 index = (block != 0) ? *(volatile s32*) block : 0;
-            f32 lip = eye[2] - night->roof_z;                   // how far the camera is past the entrance
-            f32 past = lip + ((rain_share > 0.0f) ? NIGHT_ROOF_RAIN_LEAD : 0.0f);   // past the weather's own doorway
 
             roof_cam = cam;
-            if (index == 0 && past < 0.0f) {
-                roof_outside = 1;
-                roof_fade = 1.0f;
-                roof_center[0] = eye[0];
-                roof_center[1] = eye[1];
-                roof_center[2] = eye[2];
-                roof_block = 0;
-            } else if (index == 0 && roof_block == 0 && past < NIGHT_ROOF_FAR) {
-                // Under the roof with the doorway still near: the weather stays
-                // where the camera last was outside, thinning from the doorway on.
-                roof_near = 1;
-                roof_fade = (past < NIGHT_ROOF_WHOLE) ? 1.0f
-                          : 1.0f - (past - NIGHT_ROOF_WHOLE) / (NIGHT_ROOF_FAR - NIGHT_ROOF_WHOLE);
-            }
+            roof_block0 = (index == 0);
+            roof_outside = roof_block0 && (eye[2] < night->roof_z);
         }
     }
     drawing_water = (water_model != 0 && (u32) first->payload.any == water_model);
@@ -1537,12 +1520,14 @@ static void command(Gfx** list, u32 w0, u32 w1) {
     cmd->words.w1 = w1;
 }
 
-// A matrix that only moves a thing to a place: the identity, with the place
-// in its last row. The record holds sixteen whole parts, then their sixteen
-// fractions.
+// A matrix that moves a thing to a place, scaled across and along by
+// weather_scale: the diagonal, with the place in its last row. The record
+// holds sixteen whole parts, then their sixteen fractions.
 static void place(Mtx* mtx, f32 x, f32 y, f32 z) {
     volatile u16* half = (volatile u16*) mtx;
     s32 at[3];
+    s32 sx = (s32) (weather_scale[0] * 65536.0f);
+    s32 sz = (s32) (weather_scale[1] * 65536.0f);
     s32 i;
 
     at[0] = (s32) (x * 65536.0f);
@@ -1551,7 +1536,11 @@ static void place(Mtx* mtx, f32 x, f32 y, f32 z) {
     for (i = 0; i < 32; i++) {
         half[i] = 0;
     }
-    half[0] = half[5] = half[10] = half[15] = 1;
+    half[0] = (u16) (sx >> 16);
+    half[16] = (u16) (sx & 0xFFFF);
+    half[5] = half[15] = 1;
+    half[10] = (u16) (sz >> 16);
+    half[26] = (u16) (sz & 0xFFFF);
     for (i = 0; i < 3; i++) {
         half[12 + i] = (u16) (at[i] >> 16);
         half[28 + i] = (u16) (at[i] & 0xFFFF);
@@ -1580,7 +1569,7 @@ static void rain_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     set = rain_mtx[rain_turn];
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
-    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (132.0f * rain_share * weather_fade));     // the rain's own alpha, as far as it has come
+    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (132.0f * rain_share));     // the rain's own alpha, as far as it has come
     // The wind: the sheets drift sideways on two slow waves, a gust every six
     // seconds or so with a quicker shiver on it, each sheet a little apart.
     for (sheet = 0; sheet < NIGHT_RAIN_SHEETS; sheet++) {
@@ -1628,7 +1617,7 @@ static void snow_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
     gSPDisplayList((*list)++, night_snow_alpha);
-    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (215.0f * snow_share * weather_fade));     // the snow's own alpha, as far as it has come
+    gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (215.0f * snow_share));     // the snow's own alpha, as far as it has come
     if (ash) {
         // Ash: the flakes take the primitive's gray (the snow's material colors
         // them from their corners alone, which are white), a little see-through.
@@ -2808,7 +2797,7 @@ RECOMP_HOOK("omDrawAll") void night_cameras_begin(void) {
     status_tick();
     cycle_tick();
     roof_outside = 0;
-    roof_near = 0;
+    roof_block0 = 0;
     if (night != NULL && snow_cover && !snow_relit && flow_y_n > 0 && !scoring && ticks_of(night) > 120) {
         // The water's height is known now: the record lit again once, so
         // the surf line's sand is bare where it was lit before any water was.
@@ -2857,9 +2846,10 @@ RECOMP_HOOK_RETURN("omDrawAll") void night_cameras_end(void) {
 // Oct 11 2026). In the scene camera's viewport and the border the game cuts
 // its picture to (the intro's black bars), under that camera's projection
 // and view by the game's own sub-list for them (ren_D_8004B248 + 1, with the
-// perspective normalization). Placed at the open air's spot (roof_center),
-// with the storm's strikes, thunder and the rain's voice while it is whole.
-// A blink frame (the shutter's black) is left black.
+// perspective normalization). One volume over the first block's open
+// stretch, the storm's strikes, thunder and the rain's voice while the
+// camera is under the open sky. A blink frame (the shutter's black) is left
+// black.
 RECOMP_HOOK("mainCameraRender") void night_scene_begins(GObj* obj) {
     roof_blink = (*(volatile s32*) 0x80382DA0u > 0);       // MainCameraBlinkTimeout (app_level/player.c)
 }
@@ -2871,10 +2861,10 @@ RECOMP_HOOK("renSpriteCameraRender") void night_ui_begins(GObj* ui) {
 static void roof_weather(void) {
     GObj* cam = roof_cam;
 
-    if (night == NULL || night->sky != NULL || !(roof_outside || roof_near) || roof_blink || cam == NULL
+    if (night == NULL || night->sky != NULL || !roof_block0 || roof_blink || cam == NULL
         || cam->data.cam == NULL || !on_the_ride || scoring) {
         if (night != NULL && night->sky == NULL) {
-            rain_quiet();           // under the roof, past the doorway, the rain is not heard
+            rain_quiet();           // past the first block the rain is not heard
         }
         return;
     }
@@ -2898,7 +2888,7 @@ static void roof_weather(void) {
         if (y1 > 240) {
             y1 = 240;
         }
-        if (matrices != 0 && *list != NULL && x1 > x0 && y1 > y0 && roof_fade > 0.0f) {
+        if (matrices != 0 && *list != NULL && x1 > x0 && y1 > y0) {
             gDPPipeSync((*list)++);
             gSPViewport((*list)++, oc + 0x08);
             gDPSetScissor((*list)++, G_SC_NON_INTERLACE, x0, y0, x1, y1);
@@ -2912,25 +2902,26 @@ static void roof_weather(void) {
                             G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
                             | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                             G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
-            weather_fade = roof_fade;
-            if ((roof_outside || roof_near) && roof_fade > 0.0f) {
-                if (storming && roof_fade >= 0.5f) {
-                    strike_at(t);
-                    storm_light();
-                    thunder(t);
-                }
-                if (rain_share > 0.0f) {
-                    rain_at(list, roof_center[0], roof_center[1], roof_center[2]);
-                    if (roof_fade >= 0.5f) {
-                        rain_sound();
-                    } else {
-                        rain_quiet();
-                    }
-                } else if (snow_share > 0.0f) {
-                    snow_at(list, roof_center[0], roof_center[1], roof_center[2]);
-                }
+            // The volume: the sheets' own cloud is 2000 across and 2000 along,
+            // stretched to the open stretch and set over its middle.
+            weather_scale[0] = NIGHT_TUNNEL_OPEN_X / 1000.0f;
+            weather_scale[1] = (night->roof_z - NIGHT_TUNNEL_OPEN_Z0) / 2000.0f;
+            if (storming && roof_outside) {
+                strike_at(t);
+                storm_light();
+                thunder(t);
             }
-            weather_fade = 1.0f;
+            if (rain_share > 0.0f) {
+                rain_at(list, 0.0f, NIGHT_TUNNEL_OPEN_Y, (NIGHT_TUNNEL_OPEN_Z0 + night->roof_z) * 0.5f);
+                if (roof_outside) {
+                    rain_sound();
+                } else {
+                    rain_quiet();           // under the roof the rain is not heard
+                }
+            } else if (snow_share > 0.0f) {
+                snow_at(list, 0.0f, NIGHT_TUNNEL_OPEN_Y, (NIGHT_TUNNEL_OPEN_Z0 + night->roof_z) * 0.5f);
+            }
+            weather_scale[0] = weather_scale[1] = 1.0f;
             if (rain_share <= 0.0f) {
                 rain_quiet();
             }
@@ -4371,9 +4362,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         snow_cover = (wx_from == WX_SNOW) || (wx_to == WX_SNOW && wx_share >= 0.5f);    // on a roofed course, only in the open air (open_air)
         snow_relit = 0;
         roof_outside = 0;
-        roof_near = 0;
-        roof_block = -1;
-        roof_fade = 0.0f;
+        roof_block0 = 0;
         // The fine switches are Custom's; Simple takes their defaults.
         fx_lit = simple_setup() || (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice
         glows_on = simple_setup() || (recomp_get_config_u32("water_glow") == 0);

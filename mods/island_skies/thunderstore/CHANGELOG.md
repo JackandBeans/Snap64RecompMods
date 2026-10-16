@@ -26,14 +26,15 @@
   once, when the water's height is first known. On the Volcano snow is a
   dusting only, the ground warm, with the rock showing through.
 - The Tunnel's open-air start takes the weather: rain, a storm or snow
-  falls from the slope through the arch and the cave to the doorway,
-  twenty-four seconds into the ride, where it stays behind and thins as
-  the cart goes under the roof, so it still shows in the doorway when
-  you look back; rain begins to thin a little before the doorway, snow
-  at it; nothing falls under the roof. Snow lies on that stretch's rock,
-  the painted sky over it goes overcast under weather, and the Custom row
-  Tunnel Weather is new. Timed by JackandBeans on his rides, Oct 15 2026.
-  The weather is drawn into
+  stands as one volume of the world over the slope up to the cave's
+  mouth, where the roof begins (found from the block's own triangles:
+  z 1380 of the first block). The rock hides it once the cart is under
+  the roof, the mouth shows it looking back, and nothing falls under the
+  roof; the rain's voice and the storm's thunder go with the open sky.
+  Snow lies on that stretch's rock, the painted sky over it goes overcast
+  under weather, and the Custom row Tunnel Weather is new. Shaped on
+  JackandBeans's rides, Oct 15 2026: rain seen through the openings, none
+  under the roof. The weather is drawn into
   the game's main list under the counter and the pointer: the
   see-through list the Tunnel's sky uses is 3072 bytes by the level's
   setup, and the rain's sheets overran it at Electrode's explosion, a

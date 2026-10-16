@@ -59,11 +59,11 @@ its details, then A again for its options. The first row is **Setup**:
   line left wet and bare, and dusts the Volcano's warm rock without
   settling deep. Snow lies by the slope: flat ground white, rock faces
   their own rock, a snow line between. The Tunnel's open-air start, the
-  slope and the cave down to its doorway, takes the weather like any
-  course, under its painted sky gone overcast: rain thins a little before
-  the doorway, snow at it, and under the roof nothing falls. Day is the
-  cartridge's own day, and the weather chosen falls on it as it does
-  under Live.
+  slope up to the cave's mouth, takes the weather like any course, under
+  its painted sky gone overcast: it is a thing of the world there, hidden
+  by the rock once the cart is under the roof and seen through the mouth
+  looking back, and under the roof nothing falls. Day is the cartridge's
+  own day, and the weather chosen falls on it as it does under Live.
 - **Live** is your clock and the island's own weather, with nothing else
   to set.
 - **Custom** opens every row: each course's hour and weather, and the fine
@@ -124,7 +124,7 @@ to full and back, and south of the equator its lit side is the other one.
 - **Beach Weather, River Weather, Valley Weather, Volcano Weather, Tunnel
   Weather**: each course's own sky, clear, rain, a storm or snow; the
   Volcano can have ash as well; the Tunnel's falls over its open-air
-  start, down to its doorway.
+  start, up to the cave's mouth.
 - **Effects at Night**: splashes, dust and mist take the night's light, or
   keep their day colors.
 - **Water Glow**: the moon's glint on the water and the River's fireflies.
