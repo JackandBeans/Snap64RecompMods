@@ -1,6 +1,6 @@
 [manifest]
 id = "snap64_island_skies"
-version = "1.1.0"
+version = "1.1.1"
 display_name = "Island Skies"
 description = """
 The island's sky at any hour and in any weather: night, sunset, dawn, a \
@@ -131,7 +131,7 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "tunnel"
 name = "Tunnel"
-description = "The Tunnel's hour: its light, the color at its mouths, and the painted sky over its start."
+description = "The Tunnel's hour: its light, the color at its mouths, and the sky over its open ends, stars and moon at night."
 type = "Enum"
 options = [ "Night", "Sunset", "Dawn", "Dusk", "Day", "Your clock" ]
 default = "Night"

@@ -171,16 +171,22 @@ static const Night nights[] = {
         0x800FFF90u, 0x80116A70u, { 84, 112, 190 }, { 104, 136, 220 }, { 46, 72, 126 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 12, 16, 44 }, 992, 1000,
         night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn, night_valley_band, night_valley_dawn_band, 0.0f },
-    {   // The Tunnel: no sky list of its own (no stars, no moon), but an open-air start
-        // under two painted 64x32 pictures, which take the hour and the weather as the
-        // other courses' sky pictures do; the weather falls there until the mouth
-        // (roof_z), and inside only the mouths' color and the light carry it. Found
-        // by the texture log, Oct 11 2026: 801565B8 and 80101FB8, RGBA16.
+    {   // The Tunnel: no sky drum, but an open-air start and end under two painted
+        // 64x32 pictures, which take the hour and the weather as the other courses'
+        // sky pictures do; the weather falls there until the mouth (roof_z), and
+        // inside only the mouths' color and the light carry it. Its stars, moon and
+        // suns are the generator's as every course's, drawn around the eye after
+        // the land (roof_weather), there being no drum to hang them on. The
+        // pictures were found by the texture log, Oct 11 2026 (801565B8 and
+        // 80101FB8, RGBA16); the block lists (Oct 17) load 801565B8 for the sky
+        // of both ends and, at the far end, a second painted box of pale clouds,
+        // 801575C0, which keeps the game's own corner colors (the purple end) and
+        // takes the stars (roof_sky_depth); 80101FB8 is in no block list.
         NIGHT_TUNNEL_SETUP, "tunnel", "tunnel_weather", 0, { 0x801565B8u, 0x80101FB8u }, { 0, 0 },
         { 0, 0 }, { 0, 0 }, 0, 0,
         0x8011CB50u, 0x8018BC30u, { 118, 130, 178 }, { 126, 140, 196 }, { 100, 120, 170 },
         { 196, 200, 212 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 996, 1000,
-        NULL, NULL, 0, { 0, 127, 0 }, 0, 0, NULL, { 0, 13, -127 }, NULL, { 0, 13, 127 }, NULL, NULL, NULL, NIGHT_TUNNEL_ROOF_Z },
+        night_tunnel_sky, night_tunnel_twinkle, NIGHT_TUNNEL_TWINKLES, NIGHT_TUNNEL_KEY, 0, 0, NULL, NIGHT_TUNNEL_SUN, night_tunnel_sun, NIGHT_TUNNEL_DAWN, night_tunnel_dawn, night_tunnel_band, night_tunnel_dawn_band, NIGHT_TUNNEL_ROOF_Z },
 };
 
 extern f32 GlobalTimer;         // the world's clock: it advances by the set-up's sky speed each tick
@@ -245,6 +251,13 @@ static f32 cave_now;             // how far the camera is in the cave's own ligh
 static u8 roof_outside;          // this frame: the camera is under the open sky, before the roof
 static GObj* roof_cam;           // the camera that drew the world this frame, whose matrices the weather takes
 static u8 roof_blink;            // the main camera's blink frame (the shutter's black): nothing is drawn on it
+static Gfx* roof_sky;            // the sky list in force (the night's, the sunset's or the dawn's; spare_point)
+static Mtx roof_sky_mtx[2];      // its place around the eye, this frame's and the last's
+static u8 roof_sky_turn;
+// A roofed course (the Tunnel): its sky is painted faces of the level, not a
+// drum, so the cave is told from the open air (open_air) and its stars, moon
+// and suns are drawn after the land (roof_weather).
+#define ROOFED(by) ((by)->roof_z > 0.0f)
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
@@ -658,7 +671,7 @@ static void snow_picture(void) {
     // A roofed course: a picture the cave's faces show too (the rock's, shared
     // by the walls inside and the cliffs outside) stays as it is, or the cave
     // would brighten with the snow it never sees.
-    if (night->sky == NULL) {
+    if (ROOFED(night)) {
         u32 key = (tile_fmt == 2) ? tlut_addr : tex_addr;
         s32 i;
 
@@ -747,7 +760,7 @@ static u8 open_air(u32 at) {
     volatile u8* c = (volatile u8*) (at + 12);
     s32 b;
 
-    if (night->sky != NULL) {
+    if (!ROOFED(night)) {
         return 1;
     }
     for (b = 0; b < TUNNEL_ROOF_BLOCKS; b++) {
@@ -825,8 +838,8 @@ static void light_corners(u32 word) {
         s32 toward = 0;
         u32 snow = 0;
 
-        sky_face = (night->sky == NULL && tex_addr != 0 && (tex_addr == night->pics[0] || tex_addr == night->pics[1]));
-        cave_face = (night->sky == NULL && !sky_face && slots[a] != 0 && !open_air(slots[a]));
+        sky_face = (ROOFED(night) && tex_addr != 0 && (tex_addr == night->pics[0] || tex_addr == night->pics[1]));
+        cave_face = (ROOFED(night) && !sky_face && slots[a] != 0 && !open_air(slots[a]));
         if (!flowing && slots[a] != 0 && slots[b] != 0 && slots[c] != 0) {
             if (snow_cover && !sky_face && open_air(slots[a])) {
                 if (tex_addr != 0) {
@@ -1108,7 +1121,7 @@ static void model_enters(GObj* obj, s32 kind) {
     // as the UI camera begins (night_ui_begins). First found by JackandBeans's
     // picture, Oct 11 2026: rain in the tunnel, and a hang where it met
     // Electrode's explosion in the same list.
-    if (night->sky == NULL && on_the_ride && !scoring && !roof_volume
+    if (ROOFED(night) && on_the_ride && !scoring && !roof_volume
         && (u32) first->payload.any >= night->world_lo && (u32) first->payload.any < night->world_hi) {
         GObj* cam = *(GObj* volatile*) 0x8004AC48u;
 
@@ -2506,7 +2519,7 @@ static void night_voices(void) {
     s32 k;
 
     if (!on_the_ride || !night_sounds_on || sunset || raining || snowing || storming || scoring || night->embers
-        || night->sky == NULL) {        /* none by the lava, none under the Tunnel's roof */
+        || ROOFED(night)) {             /* none by the lava, none under the Tunnel's roof */
         return;
     }
     for (k = 0; k < CHIRP_VOICES; k++) {
@@ -3017,9 +3030,9 @@ RECOMP_HOOK("renSpriteCameraRender") void night_ui_begins(GObj* ui) {
 static void roof_weather(void) {
     GObj* cam = roof_cam;
 
-    if (night == NULL || night->sky != NULL || !roof_volume || roof_blink || cam == NULL
+    if (night == NULL || !ROOFED(night) || !roof_volume || roof_blink || cam == NULL
         || cam->data.cam == NULL || !on_the_ride || scoring) {
-        if (night != NULL && night->sky == NULL) {
+        if (night != NULL && ROOFED(night)) {
             rain_quiet();           // past the next block the rain is not heard
         }
         return;
@@ -3058,6 +3071,30 @@ static void roof_weather(void) {
                             G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
                             | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                             G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
+            // A course without a sky drum: its stars, moon and suns stand around
+            // the eye as the drums' do, drawn here after the land at the far
+            // limit's depth (roof_sky_depth), so they show over the painted sky
+            // alone and the rock and the hills hide what they should; none
+            // under the weather, as the drums' go out then. Their twinkle is
+            // roof_tick's and the moon's state moment_apply's, as everywhere.
+            // (Asked for by JackandBeans, Oct 17 2026.)
+            if (roof_sky != NULL && !raining && !snowing) {
+                const volatile f32* eye = (const volatile f32*) (oc + 0x3C);
+                Mtx* mtx;
+
+                roof_sky_turn ^= 1;
+                mtx = &roof_sky_mtx[roof_sky_turn];
+                place(mtx, eye[0], eye[1], eye[2]);
+                command(list, (0x64u << 24) | 0x00002Cu, 1);        // the lists live in the mod's memory
+                command(list, (0x64u << 24) | 0x00000Cu, 0x534B5900u);   // the group: its place followed between ticks
+                command(list, 0x00002829u, 0);
+                gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
+                gSPDisplayList((*list)++, roof_sky);
+                gDPSetDepthSource((*list)++, G_ZS_PIXEL);
+                gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
+                command(list, (0x64u << 24) | 0x00000Du, 1);
+                command(list, (0x64u << 24) | 0x00002Cu, 0);
+            }
             // The volume: night_data's box of sheets, the slope's width and
             // length, ending a little past the roof's edge, in the current
             // block's frame; at the far end the same box laid from a little
@@ -3614,6 +3651,7 @@ static void moon_state(f32 moon) {
 static void spare_point(Gfx* list) {
     volatile u32* spare = (volatile u32*) night->spare;
 
+    roof_sky = list;        // a course without a drum draws it itself (roof_weather)
     if (spare == NULL) {
         return;
     }
@@ -3736,10 +3774,44 @@ static void fog_apply(void) {
 
 // A roofed course, each frame: how far the camera is in the cave's own
 // light, and the scene light and the fog set again as that changes.
+// The painted sky's faces are drawn without writing their depth, so the
+// stars, drawn after the land at the primitive depth of the far limit
+// (night_sprites_begin_zb), pass over the sky and nowhere else, as over a
+// drum: every hill hides them, near or far. The sky material's render mode
+// is found in each block's list by the sky picture's load that follows it
+// (the decompilation: block0 draw list lines 273 and 278; block5 has a second
+// painted box, pale clouds at 801575C0, under the same mode 24 commands before
+// its sky load, and takes the stars too, being a sky). Found
+// by the Night panorama's ridge frame, Oct 17 2026: stars over hills that
+// stood farther than the sprites.
+static void roof_sky_depth(const Night* by) {
+    const u32 opa = G_RM_AA_ZB_OPA_SURF | G_RM_AA_ZB_OPA_SURF2;
+    volatile u32* w = (volatile u32*) by->world_lo;
+    volatile u32* end = (volatile u32*) by->world_hi;
+    s32 loads = 0, modes = 0;
+
+    for (; w + 1 < end; w += 2) {
+        s32 k;
+
+        if (w[0] != 0xFD100000u || (w[1] != by->pics[0] && w[1] != by->pics[1])) {
+            continue;       // not gsDPSetTextureImage(RGBA, 16b, 1, a sky picture)
+        }
+        loads++;
+        for (k = 2; k <= 64 && (u32) (w - k) >= by->world_lo; k += 2) {
+            if (w[-k] == 0xE200001Cu && (w[1 - k] == opa || w[1 - k] == (opa & ~(u32) Z_UPD))) {
+                w[1 - k] = opa & ~(u32) Z_UPD;      // gsDPSetRenderMode, without Z_UPD
+                modes++;
+                break;
+            }
+        }
+    }
+    recomp_printf("[island skies] the painted sky: %d picture loads, %d render modes without depth\n", loads, modes);
+}
+
 static void roof_tick(void) {
     f32 f;
 
-    if (night == NULL || night->sky != NULL || !on_the_ride || scoring) {
+    if (night == NULL || !ROOFED(night) || !on_the_ride || scoring) {
         return;
     }
     f = roof_past / NIGHT_TUNNEL_CAVE_Z;
@@ -3748,6 +3820,9 @@ static void roof_tick(void) {
         cave_now = f;
         set_light(night);
         fog_apply();
+    }
+    if (night->twinkle != NULL) {
+        twinkle(night);         // the drum's hook (night_sky_begins) never runs here
     }
 }
 
@@ -4571,6 +4646,9 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     if (by == NULL) {
         set_light(NULL);
         return;
+    }
+    if (ROOFED(by)) {
+        roof_sky_depth(by);
     }
     // The lights and the sky in force. A rainy night is overcast and a little
     // darker; nothing of it shows a star or the moon.

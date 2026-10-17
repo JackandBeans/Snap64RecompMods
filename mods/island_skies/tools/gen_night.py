@@ -37,6 +37,14 @@ COURSES = {
                     moon=None, stars=(170, 60, 3), seed=2003),
     'valley': dict(setup=0x80100720, segs=[(0x800FFF90, 0x80186B10, 0x003F63D0)], r_lo=14, r_hi=26,
                    moon=(0, 359, 10.0, 18.0), stars=(760, 280, 10), seed=2005),
+    # The Tunnel has no sky drum: its sky is painted faces of the level, and the land's own skyline
+    # stands for the clouds. Its sprites stand around the camera as the others do, drawn after the
+    # land under the depth test (zb), so the rock hides what it should. The moon is to the right
+    # of the open-air start (azimuth 160: -x leaning +z, the cart riding toward +z), where the
+    # skyline is lowest (7 degrees at the start, 10 at the middle, measured from the block
+    # meshes), and the suns sit a little higher than the sea courses', over that ridge.
+    'tunnel': dict(setup=0x8011E6CC, segs=[], r_lo=14, r_hi=23, drum=False, zb=True, sun_el=11.0,
+                   moon=(160, 160, 16.0, 16.0), stars=(700, 260, 9), seed=2007),
 }
 DIST = 1400.0           # how far the sprites stand from the camera, inside every box
 # The glow band at the horizon toward the sunset's (or the dawn's) sun: columns of azimuth
@@ -612,7 +620,10 @@ def make_storm(w, h):
 
 def build_course(name, cfg, rom_path, show_hist):
     rom = Rom(rom_path, cfg['segs'] + list(COMMON.values()))
-    sky = read_sky(rom, cfg['setup'])
+    if cfg.get('drum', True):
+        sky = read_sky(rom, cfg['setup'])
+    else:
+        sky = dict(list=0, tris=[], pics=[], arrays=[], spare=None)     # no drum: open sky everywhere
     clouds = {}
     for pic in sky['pics']:
         raw = rom.data(pic, 64 * 32 * 2)
@@ -626,6 +637,8 @@ def build_course(name, cfg, rom_path, show_hist):
             print('      open sky (weight < 0.12): %d%% of texels' % (100 * sum(1 for c in clouds[pic] if c < 0.12) // len(reds)))
 
     def cloud_at(d, reach):
+        if not sky['tris']:
+            return 0.0
         h = hit(sky['tris'], d)
         if h is None:
             return 1.0
@@ -780,6 +793,19 @@ def main():
     w('    gsSPClearGeometryMode(G_CULL_BACK),')
     w('    gsSPEndDisplayList(),')
     w('};')
+    w('// The same for a sky drawn after the land, as the Tunnel\'s is: under the depth test at the')
+    w('// primitive depth of the far limit, so the sprites pass only where the painted sky is (its')
+    w('// faces write no depth; the mod sees to that) and every hill hides them, near or far.')
+    w('static Gfx night_sprites_begin_zb[] = {')
+    w('    gsDPPipeSync(),')
+    w('    gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),')
+    w('    gsDPSetCombineLERP(0, 0, 0, SHADE, TEXEL0, 0, PRIMITIVE, 0, 0, 0, 0, SHADE, TEXEL0, 0, PRIMITIVE, 0),')
+    w('    gsDPSetRenderMode(G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2),')
+    w('    gsDPSetDepthSource(G_ZS_PRIM),')
+    w('    gsDPSetPrimDepth(0x7FFF, 0),')
+    w('    gsSPGeometryMode(G_LIGHTING | G_CULL_BACK | G_FOG | G_TEXTURE_GEN, G_ZBUFFER | G_SHADE),')
+    w('    gsSPEndDisplayList(),')
+    w('};')
     w('static Gfx night_use_dot[] = {')
     w('    gsDPLoadTextureBlock(night_dot_pic, G_IM_FMT_I, G_IM_SIZ_8b, 16, 16, 0, G_TX_CLAMP, G_TX_CLAMP, 4, 4, G_TX_NOLOD, G_TX_NOLOD),')
     w('    gsSPEndDisplayList(),')
@@ -801,6 +827,16 @@ def main():
     w('    gsDPSetCombineLERP(0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE),')
     w('    gsDPSetRenderMode(G_RM_XLU_SURF, G_RM_XLU_SURF2),')
     w('    gsSPClearGeometryMode(G_CULL_BACK | G_CULL_FRONT),')
+    w('    gsSPEndDisplayList(),')
+    w('};')
+    w('static Gfx night_band_begin_zb[] = {')
+    w('    gsDPPipeSync(),')
+    w('    gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF),')
+    w('    gsDPSetCombineLERP(0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE),')
+    w('    gsDPSetRenderMode(G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2),')
+    w('    gsDPSetDepthSource(G_ZS_PRIM),')
+    w('    gsDPSetPrimDepth(0x7FFF, 0),')
+    w('    gsSPGeometryMode(G_LIGHTING | G_CULL_BACK | G_CULL_FRONT | G_FOG | G_TEXTURE_GEN, G_ZBUFFER | G_SHADE),')
     w('    gsSPEndDisplayList(),')
     w('};')
     w('// The band\'s weights, by column (azimuth from the sun) and by row (elevation), and the')
@@ -866,6 +902,8 @@ def main():
     for name, b in built.items():
         cfg = COURSES[name]
         rng = b['rng']
+        sprites_begin = 'night_sprites_begin_zb' if cfg.get('zb') else 'night_sprites_begin'
+        band_begin = 'night_band_begin_zb' if cfg.get('zb') else 'night_band_begin'
         verts = []
         groups = []         # (first quad, quad count, kind)
         first = 0
@@ -905,13 +943,13 @@ def main():
         # is), a wide warm haze and a disc.
         sun_first = moon_first + (2 if b['moon'] else 0)
         sun_az = math.degrees(math.atan2(b['moon'][2], b['moon'][0])) if b['moon'] else 200.0
-        sun_dir = direction(sun_az, 6.0)
+        sun_dir = direction(sun_az, cfg.get('sun_el', 6.0))
         b['sun'] = sun_dir
         verts += quad(sun_dir, MOON_HALF * 9.0, 16, (255, 150, 70))      # the haze around it
         verts += quad(sun_dir, MOON_HALF * 2.2, 16, (255, 236, 200))     # the disc
         # The dawn's sun, across the sky from the sunset's: a cooler haze and a paler disc.
         dawn_first = sun_first + 2
-        dawn_dir = direction(sun_az + 180.0, 6.0)
+        dawn_dir = direction(sun_az + 180.0, cfg.get('sun_el', 6.0))
         b['dawn'] = dawn_dir
         verts += quad(dawn_dir, MOON_HALF * 9.0, 16, (255, 190, 150))
         verts += quad(dawn_dir, MOON_HALF * 2.2, 16, (255, 244, 230))
@@ -931,7 +969,7 @@ def main():
                     w('    VA(%d, %d, %d, %d, %d, %d, %d),' % (p + colors[ri] + (a,)))
             w('};')
             w('static Gfx night_%s_%s_list[] = {' % (name, label))
-            w('    gsSPDisplayList(night_band_begin),')
+            w('    gsSPDisplayList(%s),' % band_begin)
             rows = len(BAND_EL)
             for ci in range(len(BAND_AZ) - 1):
                 w('    gsSPVertex(&night_%s_%s[%d], %d, 0),' % (name, label, ci * rows, 2 * rows))
@@ -963,7 +1001,7 @@ def main():
                 q += n
 
         w('Gfx night_%s_sky[] = {' % name)
-        w('    gsSPDisplayList(night_sprites_begin),')
+        w('    gsSPDisplayList(%s),' % sprites_begin)
         w('    gsSPDisplayList(night_use_dot),')
         tw = 0
         glint_on = False
@@ -992,7 +1030,7 @@ def main():
         w('// The sun, attached to the sky at sunset in place of the stars.')
         w('Gfx night_%s_sun[] = {' % name)
         w('    gsSPDisplayList(night_%s_band_list),' % name)
-        w('    gsSPDisplayList(night_sprites_begin),')
+        w('    gsSPDisplayList(%s),' % sprites_begin)
         w('    gsSPDisplayList(night_use_dot),')
         w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 112),')
         draw(sun_first, 1)
@@ -1004,7 +1042,7 @@ def main():
         w('// The dawn\'s sun, attached to the sky at dawn.')
         w('Gfx night_%s_dawn[] = {' % name)
         w('    gsSPDisplayList(night_%s_dawn_band_list),' % name)
-        w('    gsSPDisplayList(night_sprites_begin),')
+        w('    gsSPDisplayList(%s),' % sprites_begin)
         w('    gsSPDisplayList(night_use_dot),')
         w('    gsDPSetPrimColor(0, 0, 255, 255, 255, 100),')
         draw(dawn_first, 1)
@@ -1021,7 +1059,7 @@ def main():
         h.append('')
         h.append('// %s' % name)
         h.append('#define NIGHT_%s_SETUP 0x%08Xu' % (up, cfg['setup']))
-        h.append('#define NIGHT_%s_SPARE 0x%08Xu' % (up, b['sky']['spare']))
+        h.append('#define NIGHT_%s_SPARE 0x%08Xu' % (up, b['sky']['spare'] or 0))
         # The key light's direction: toward the moon, or straight up where there is none.
         key = b['moon'] if b['moon'] else (0.0, 1.0, 0.0)
         h.append('#define NIGHT_%s_KEY { %d, %d, %d }' % (up, int(round(key[0] * 127)), int(round(key[1] * 127)), int(round(key[2] * 127))))

@@ -123,8 +123,9 @@ to full and back, and south of the equator its lit side is the other one.
 ## Custom's rows
 
 - **Beach, Tunnel, River, Volcano, Valley**: each course's own hour. The
-  Tunnel has no sky of its own, only its light, the color where it opens
-  to the air, and the painted sky over its start.
+  Tunnel's stars, moon and suns stand over its open ends, behind its
+  hills and its rock; under the roof the cave keeps its own light and
+  the color where it opens to the air.
 - **Beach Weather, River Weather, Valley Weather, Volcano Weather, Tunnel
   Weather**: each course's own sky, clear, rain, a storm or snow; the
   Volcano can have ash as well; the Tunnel's falls over its open-air

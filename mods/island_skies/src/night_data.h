@@ -144,4 +144,24 @@ extern Gfx night_valley_twinkle[][2];
 extern const u8 night_valley_rows0[32];
 extern const u8 night_valley_rows1[32];
 
+// tunnel
+#define NIGHT_TUNNEL_SETUP 0x8011E6CCu
+#define NIGHT_TUNNEL_SPARE 0x00000000u
+#define NIGHT_TUNNEL_KEY { -115, 35, 42 }
+#define NIGHT_TUNNEL_SUN { -117, 24, 43 }
+extern Gfx night_tunnel_sun[];
+extern Vtx night_tunnel_band[];
+extern Vtx night_tunnel_dawn_band[];
+#define NIGHT_TUNNEL_DAWN { 117, 24, -43 }
+extern Gfx night_tunnel_dawn[];
+#define NIGHT_TUNNEL_PICS { 0x00000000u, 0x00000000u }
+#define NIGHT_TUNNEL_ROWS { 0, 0 }
+#define NIGHT_TUNNEL_SKY_VTX { 0x00000000u, 0x00000000u }
+#define NIGHT_TUNNEL_SKY_VTX_N { 0, 0 }
+#define NIGHT_TUNNEL_R_LO 14
+#define NIGHT_TUNNEL_R_SCALE 28
+#define NIGHT_TUNNEL_TWINKLES 47
+extern Gfx night_tunnel_sky[];
+extern Gfx night_tunnel_twinkle[][2];
+
 #endif

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+- The Tunnel has the stars and the moon at night, and the sunset's and
+  the dawn's sun, over both its open ends, as every other course has;
+  1.1.0 left its painted sky bare. They stand behind the hills and the
+  rock, so the mouth and the arch take them as the cart passes. Asked
+  for by JackandBeans on Oct 17 2026.
+
 ## 1.1.0
 
 - The weather is the island's, the same on every course but the Rainbow
