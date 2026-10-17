@@ -135,6 +135,7 @@ typedef struct Night {
 #define NIGHT_TUNNEL_OPEN_Y (400.0f)
 #define NIGHT_TUNNEL_VOICE_Z (900.0f)    // the rain's voice fades to nothing this far under the roof
 #define NIGHT_TUNNEL_CAVE_Z (400.0f)     // the fog and the scene light are the hour's own this far under the roof
+#define NIGHT_TUNNEL_EAVE (200.0f)       // the weather still falls this far under the roof's edge, as under any eave
 
 static const Night nights[] = {
     {   // The Beach: a clear night, a full moon over the sea.
@@ -2995,10 +2996,11 @@ static void roof_weather(void) {
                             | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                             G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
             // The volume: night_data's box of sheets, the slope's width and
-            // length, ending at the mouth, in the current block's frame.
+            // length, ending a little past the roof's edge, in the current
+            // block's frame.
             f32 cx = roof_shift[0];
             f32 cy = NIGHT_TUNNEL_OPEN_Y + roof_shift[1];
-            f32 cz = night->roof_z - (f32) NIGHT_VOLUME_HALF_Z + roof_shift[2];
+            f32 cz = night->roof_z + NIGHT_TUNNEL_EAVE - (f32) NIGHT_VOLUME_HALF_Z + roof_shift[2];
 
             if (storming && roof_outside) {
                 strike_at(t);

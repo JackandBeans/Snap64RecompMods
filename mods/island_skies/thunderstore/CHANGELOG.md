@@ -28,7 +28,8 @@
 - The Tunnel's open-air start takes the weather: rain, a storm or snow
   stands as one volume of the world over the slope up to the cave's
   mouth, where the roof begins (found from the block's own triangles:
-  z 1380 of the first block). The rock hides it once the cart is under
+  z 1380 of the first block), and a little past its edge, as under any
+  eave, the slope's whole width. The rock hides it once the cart is under
   the roof, the mouth shows it looking back, and nothing falls under the
   roof; the rain's voice recedes with the mouth over the first stretch
   under the roof, and the storm's thunder goes with the open sky.

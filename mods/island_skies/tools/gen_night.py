@@ -271,7 +271,7 @@ RAIN_NEAR, RAIN_FAR = 220.0, 1000.0     # how near and how far from the camera t
 BOLTS = 8               # lightning shapes to choose from
 BOLT_DIST = 1400.0      # how far off a bolt stands (it is drawn with the sky, behind the land)
 RAIN_SLANT = (0.07, 0.03)               # the wind: how far a drop drifts for each unit it falls
-VOLUME_HALF = (1000.0, 2090.0)          # the Tunnel's volume of weather over its open-air slope: half its width, half its length
+VOLUME_HALF = (1400.0, 2190.0)          # the Tunnel's volume of weather over its open-air slope: half its width, half its length (NIGHT_TUNNEL_EAVE past the roof's edge)
 
 
 def spots(rng, count, ring, box):
