@@ -136,6 +136,15 @@ typedef struct Night {
 #define NIGHT_TUNNEL_VOICE_Z (900.0f)    // the rain's voice fades to nothing this far under the roof
 #define NIGHT_TUNNEL_CAVE_Z (400.0f)     // the fog and the scene light are the hour's own this far under the roof
 #define NIGHT_TUNNEL_EAVE (400.0f)       // the weather still falls this far under the roof's edge, as under any eave (the arch is high to z 1800)
+// The far end: the second tunnel's roof (600 to 980 high over the floor) ends
+// in an arch rising from 800 to 1500 that opens at x 1400 of the last block
+// (its vertex array's faces, Oct 16 2026: the eye trace left the roof there);
+// the path runs along +x at z about -500, the floor near 100. The last block's
+// origin in the course's frame is (8000, 0, 12000) (src/tunnel/world/blocks.c).
+#define NIGHT_TUNNEL_EXIT_X (1400.0f)
+#define NIGHT_TUNNEL_EXIT_Z (-500.0f)
+#define NIGHT_TUNNEL_EXIT_ORIGIN_X (8000.0f)
+#define NIGHT_TUNNEL_EXIT_ORIGIN_Z (12000.0f)
 
 static const Night nights[] = {
     {   // The Beach: a clear night, a full moon over the sea.
@@ -229,7 +238,7 @@ static u8 snow_relit;                 // the record lit again once the water's h
 // current; the rock hides it where the cart is under the roof, and the
 // mouth shows it from inside (JackandBeans, Oct 15 2026: rain seen through
 // the openings, none under the roof).
-static u8 roof_block0;           // this frame: the first block or the next is current (noted at a world model's drawing)
+static u8 roof_volume;           // this frame: 1 the entry's volume stands (the first block or the next is current), 2 the exit's (the last two), 0 none
 static f32 roof_shift[3];        // the first block's origin in the current block's frame (the game moves its origin at each block)
 static f32 roof_past;            // how far the camera is under the roof, in the first block's frame; 0 under the open sky
 static f32 cave_now;             // how far the camera is in the cave's own light: 0 under the open sky, 1 under the roof
@@ -708,6 +717,9 @@ static u8 open_air(u32 at) {
             s32 cx, cz;
             u32 top;
 
+            if (!roof->open_sky) {
+                return 0;       // no painted sky over this block: the hall that draws no ceiling is cave too
+            }
             if (v[0] < roof->x0 || v[2] < roof->z0) {
                 return 1;
             }
@@ -1056,7 +1068,7 @@ static void model_enters(GObj* obj, s32 kind) {
     // as the UI camera begins (night_ui_begins). First found by JackandBeans's
     // picture, Oct 11 2026: rain in the tunnel, and a hang where it met
     // Electrode's explosion in the same list.
-    if (night->sky == NULL && on_the_ride && !scoring && !roof_block0
+    if (night->sky == NULL && on_the_ride && !scoring && !roof_volume
         && (u32) first->payload.any >= night->world_lo && (u32) first->payload.any < night->world_hi) {
         GObj* cam = *(GObj* volatile*) 0x8004AC48u;
 
@@ -1066,7 +1078,7 @@ static void model_enters(GObj* obj, s32 kind) {
             s32 index = (block != 0) ? *(volatile s32*) block : 0;
 
             roof_cam = cam;
-            roof_block0 = (index == 0 || index == 1);
+            roof_volume = (index <= 1) ? 1 : (index >= TUNNEL_ROOF_BLOCKS - 2) ? 2 : 0;
             roof_shift[0] = roof_shift[1] = roof_shift[2] = 0.0f;
             if (block != 0) {
                 u32 desc = *(volatile u32*) (block + 4);        // its descriptor: worldPos at +4, in hundredths
@@ -1077,10 +1089,20 @@ static void model_enters(GObj* obj, s32 kind) {
                     roof_shift[2] = -*(volatile f32*) (desc + 12) * 100.0f;
                 }
             }
-            roof_outside = (index == 0) && (eye[2] < night->roof_z);
-            roof_past = eye[2] - roof_shift[2] - night->roof_z;
-            if (roof_past < 0.0f) {
-                roof_past = 0.0f;
+            {
+                // The camera in the course's frame; how far it is in past the
+                // entry's roof line and how far it is short of the exit's: the
+                // lesser is how far under the roof it stands, 0 under the open sky.
+                f32 cx = eye[0] - roof_shift[0];
+                f32 cz = eye[2] - roof_shift[2];
+                f32 entry_past = cz - night->roof_z;
+                f32 exit_past = NIGHT_TUNNEL_EXIT_ORIGIN_X + NIGHT_TUNNEL_EXIT_X - cx;
+
+                roof_outside = ((index == 0) && (entry_past < 0.0f)) || (exit_past < 0.0f);
+                roof_past = (entry_past < exit_past) ? entry_past : exit_past;
+                if (roof_past < 0.0f) {
+                    roof_past = 0.0f;
+                }
             }
         }
     }
@@ -2891,7 +2913,7 @@ RECOMP_HOOK("omDrawAll") void night_cameras_begin(void) {
     cycle_tick();
     roof_tick();
     roof_outside = 0;
-    roof_block0 = 0;
+    roof_volume = 0;
     if (night != NULL && snow_cover && !snow_relit && flow_y_n > 0 && !scoring && ticks_of(night) > 120) {
         // The water's height is known now: the record lit again once, so
         // the surf line's sand is bare where it was lit before any water was.
@@ -2955,7 +2977,7 @@ RECOMP_HOOK("renSpriteCameraRender") void night_ui_begins(GObj* ui) {
 static void roof_weather(void) {
     GObj* cam = roof_cam;
 
-    if (night == NULL || night->sky != NULL || !roof_block0 || roof_blink || cam == NULL
+    if (night == NULL || night->sky != NULL || !roof_volume || roof_blink || cam == NULL
         || cam->data.cam == NULL || !on_the_ride || scoring) {
         if (night != NULL && night->sky == NULL) {
             rain_quiet();           // past the next block the rain is not heard
@@ -2998,11 +3020,19 @@ static void roof_weather(void) {
                             G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
             // The volume: night_data's box of sheets, the slope's width and
             // length, ending a little past the roof's edge, in the current
-            // block's frame.
-            f32 cx = roof_shift[0];
-            f32 cy = NIGHT_TUNNEL_OPEN_Y + roof_shift[1];
-            f32 cz = night->roof_z + NIGHT_TUNNEL_EAVE - (f32) NIGHT_VOLUME_HALF_Z + roof_shift[2];
+            // block's frame; at the far end the same box laid from a little
+            // under the arch out past the gate, its width along the path.
+            f32 cx, cy, cz;
 
+            if (roof_volume == 1) {
+                cx = roof_shift[0];
+                cy = NIGHT_TUNNEL_OPEN_Y + roof_shift[1];
+                cz = night->roof_z + NIGHT_TUNNEL_EAVE - (f32) NIGHT_VOLUME_HALF_Z + roof_shift[2];
+            } else {
+                cx = NIGHT_TUNNEL_EXIT_ORIGIN_X + NIGHT_TUNNEL_EXIT_X - NIGHT_TUNNEL_EAVE + (f32) NIGHT_VOLUME_HALF_X + roof_shift[0];
+                cy = NIGHT_TUNNEL_OPEN_Y + roof_shift[1];
+                cz = NIGHT_TUNNEL_EXIT_ORIGIN_Z + NIGHT_TUNNEL_EXIT_Z + roof_shift[2];
+            }
             if (storming && roof_outside) {
                 strike_at(t);
                 storm_light();
@@ -3611,8 +3641,7 @@ static void lights_toward_day(void) {
 
 // The fog and the background in force: the day's, or under weather the
 // overcast's, so the far land and the sky's lid meet the flat sky; in a
-// cave the fog is the hour's own with no weather in it, while the
-// background stays the weather's sky, seen through the mouths.
+// cave both are the hour's own with no weather in them.
 static void fog_apply(void) {
     WorldSetup* setup = (WorldSetup*) night->setup;
     s32 share = (s32) (nightness * 256.0f);
@@ -3632,9 +3661,15 @@ static void fog_apply(void) {
         s32 wfog = dfog + (((s32) sky_horizon[k] - dfog) * share) / 256;
         s32 chor = (s32) (((u32) cave_palette[4][k] * (((u32) cave_palette[6][k] + cave_palette[7][k]) / 2)) / 255);
         s32 cfog = day_fog[k] + ((chor - day_fog[k]) * share) / 256;
+        s32 wbg = dbg + (((s32) sky_top[k] - dbg) * share) / 256;
+        s32 ctop = (s32) (((u32) cave_palette[4][k] * (u32) cave_palette[8][k]) / 255);
+        s32 cbg = day_bg[k] + ((ctop - day_bg[k]) * share) / 256;
 
         fog[k] = (u8) (wfog + (s32) ((f32) (cfog - wfog) * cave_now));
-        bg[k] = (u8) (dbg + (((s32) sky_top[k] - dbg) * share) / 256);
+        // The background too: it is the sky through the mouths, which the
+        // painted sky's faces cover, and the dark of the hall that draws no
+        // ceiling, which must stay the hour's own under weather.
+        bg[k] = (u8) (wbg + (s32) ((f32) (cbg - wbg) * cave_now));
     }
     setFogColor(fog[0], fog[1], fog[2]);
     setFogDistance((u16) fmin, (u16) fmax);     // the game reads the record's distances at the load alone
@@ -4503,7 +4538,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         snow_cover = (wx_from == WX_SNOW) || (wx_to == WX_SNOW && wx_share >= 0.5f);    // on a roofed course, only in the open air (open_air)
         snow_relit = 0;
         roof_outside = 0;
-        roof_block0 = 0;
+        roof_volume = 0;
         cave_now = 0.0f;
         // The fine switches are Custom's; Simple takes their defaults.
         fx_lit = simple_setup() || (recomp_get_config_u32("effects") == 1);     // "Night-lit" is the second choice

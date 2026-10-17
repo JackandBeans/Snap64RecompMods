@@ -176,7 +176,7 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "tunnel_weather"
 name = "Tunnel Weather"
-description = "The weather over the Tunnel's open-air start, up to the cave's mouth. Under the roof the cave keeps the hour's own light."
+description = "The weather over the Tunnel's open air: the start up to the cave's mouth, and the far end past its arch. Under the roof the cave keeps the hour's own light."
 type = "Enum"
 options = [ "Clear", "Rain", "Storm", "Snow" ]
 default = "Clear"

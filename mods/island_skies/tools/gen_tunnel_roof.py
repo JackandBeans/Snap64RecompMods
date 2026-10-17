@@ -112,6 +112,7 @@ def main():
         '    s16 z0;',
         '    u16 w;',
         '    u16 h;',
+        '    u8 open_sky;          // the block has faces of the painted sky: the open air is where no ceiling stands',
         '    const u8* cells;',
         '} TunnelRoof;',
     ]
@@ -121,12 +122,14 @@ def main():
     for b, addr in enumerate(BLOCKS):
         vtx, tris = read_block(os.path.join(decomp, 'assets', 'tunnel', 'block%d' % b))
         down = [t for t, pic in tris if normal_y(t) < DOWN and longest_edge(t) < SKY_EDGE]
+        block_sky = 0
         for t, pic in tris:
             if normal_y(t) < DOWN and longest_edge(t) >= SKY_EDGE and pic[1] is not None:
                 sky_pictures.add(pic[1])
+                block_sky = 1
         if not down:
             lines.append('static const u8 tunnel_roof_cells%d[] = { 0 };' % b)
-            entries.append('    { 0x%08Xu, 0x%08Xu, 0, 0, 0, 0, tunnel_roof_cells%d },' % (addr, addr + 16 * len(vtx), b))
+            entries.append('    { 0x%08Xu, 0x%08Xu, 0, 0, 0, 0, %d, tunnel_roof_cells%d },' % (addr, addr + 16 * len(vtx), block_sky, b))
             print('block %d: %d vertices, %d triangles, no ceiling' % (b, len(vtx), len(tris)))
             continue
         xs = [p[0] for t in down for p in t]
@@ -151,6 +154,8 @@ def main():
                         cells[i] = max(cells[i], value)
 
         def under_roof(p):
+            if not block_sky:
+                return True     # no sky over this block: all of it is cave
             cx, cz = (p[0] - x0) // CELL, (p[2] - z0) // CELL
             if p[0] < x0 or p[2] < z0 or cx >= w or cz >= h:
                 return False
@@ -166,13 +171,13 @@ def main():
                 if key is not None:
                     cave_pictures.add(key)
         roofed = sum(1 for c in cells if c)
-        print('block %d: %d vertices, %d triangles, %d ceilings, %d cave faces; grid %dx%d from (%d, %d), %d cells roofed'
-              % (b, len(vtx), len(tris), len(down), cave_faces, w, h, x0, z0, roofed))
+        print('block %d: %d vertices, %d triangles, %d ceilings, %d cave faces, sky faces %s; grid %dx%d from (%d, %d), %d cells roofed'
+              % (b, len(vtx), len(tris), len(down), cave_faces, 'yes' if block_sky else 'no', w, h, x0, z0, roofed))
         lines.append('static const u8 tunnel_roof_cells%d[] = {' % b)
         for cz in range(h):
             lines.append('    ' + ' '.join('%d,' % c for c in cells[cz * w:(cz + 1) * w]))
         lines.append('};')
-        entries.append('    { 0x%08Xu, 0x%08Xu, %d, %d, %d, %d, tunnel_roof_cells%d },' % (addr, addr + 16 * len(vtx), x0, z0, w, h, b))
+        entries.append('    { 0x%08Xu, 0x%08Xu, %d, %d, %d, %d, %d, tunnel_roof_cells%d },' % (addr, addr + 16 * len(vtx), x0, z0, w, h, block_sky, b))
     lines.append('static const TunnelRoof tunnel_roofs[TUNNEL_ROOF_BLOCKS] = {')
     lines.extend(entries)
     lines.append('};')

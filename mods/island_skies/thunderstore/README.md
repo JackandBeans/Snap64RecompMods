@@ -64,9 +64,10 @@ its details, then A again for its options. The first row is **Setup**:
   courses' skies do: it is a thing of the world there, hidden by the rock
   once the cart is under the roof and seen through the mouth looking
   back. Under the roof nothing falls, and the cave keeps the hour's own
-  light and fog: the weather's stay with the open air. Day is the
-  cartridge's own day, and the weather chosen falls on it as it does
-  under Live.
+  light and fog: the weather's stay with the open air. At the far end the
+  weather waits past the last arch, seen through it as the gate comes.
+  Day is the cartridge's own day, and the weather chosen falls on it as
+  it does under Live.
 - **Live** is your clock and the island's own weather, with nothing else
   to set.
 - **Custom** opens every row: each course's hour and weather, and the fine
@@ -127,7 +128,7 @@ to full and back, and south of the equator its lit side is the other one.
 - **Beach Weather, River Weather, Valley Weather, Volcano Weather, Tunnel
   Weather**: each course's own sky, clear, rain, a storm or snow; the
   Volcano can have ash as well; the Tunnel's falls over its open-air
-  start, up to the cave's mouth.
+  start, up to the cave's mouth, and again past the arch at its far end.
 - **Effects at Night**: splashes, dust and mist take the night's light, or
   keep their day colors.
 - **Water Glow**: the moon's glint on the water and the River's fireflies.

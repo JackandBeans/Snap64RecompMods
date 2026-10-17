@@ -12,6 +12,7 @@ typedef struct TunnelRoof {
     s16 z0;
     u16 w;
     u16 h;
+    u8 open_sky;          // the block has faces of the painted sky: the open air is where no ceiling stands
     const u8* cells;
 } TunnelRoof;
 static const u8 tunnel_roof_cells0[] = {
@@ -564,18 +565,19 @@ static const u8 tunnel_roof_cells5[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 static const TunnelRoof tunnel_roofs[TUNNEL_ROOF_BLOCKS] = {
-    { 0x8011F130u, 0x80120400u, -3150, 1050, 92, 24, tunnel_roof_cells0 },
-    { 0x801211A0u, 0x80122850u, -2400, -2150, 93, 90, tunnel_roof_cells1 },
-    { 0x80123E60u, 0x80126350u, -1800, -2350, 100, 85, tunnel_roof_cells2 },
-    { 0x801278D0u, 0x80129710u, -1700, -2200, 111, 84, tunnel_roof_cells3 },
-    { 0x8012A380u, 0x8012B360u, -1950, -5100, 72, 108, tunnel_roof_cells4 },
-    { 0x8012C100u, 0x8012DBF0u, -2700, -3400, 83, 146, tunnel_roof_cells5 },
+    { 0x8011F130u, 0x80120400u, -3150, 1050, 92, 24, 1, tunnel_roof_cells0 },
+    { 0x801211A0u, 0x80122850u, -2400, -2150, 93, 90, 0, tunnel_roof_cells1 },
+    { 0x80123E60u, 0x80126350u, -1800, -2350, 100, 85, 0, tunnel_roof_cells2 },
+    { 0x801278D0u, 0x80129710u, -1700, -2200, 111, 84, 0, tunnel_roof_cells3 },
+    { 0x8012A380u, 0x8012B360u, -1950, -5100, 72, 108, 0, tunnel_roof_cells4 },
+    { 0x8012C100u, 0x8012DBF0u, -2700, -3400, 83, 146, 1, tunnel_roof_cells5 },
 };
 // The pictures the cave's faces draw with: a palette's address for a paletted picture, the
 // picture's own for the rest. Under snow these are left as they are.
-#define TUNNEL_CAVE_PICTURES 18
+#define TUNNEL_CAVE_PICTURES 19
 static const u32 tunnel_cave_pictures[TUNNEL_CAVE_PICTURES] = {
     0x8014E5E8u, 0x8014EE18u, 0x8014F648u, 0x8014FE78u, 0x801506A8u, 0x80150ED8u,
-    0x80151708u, 0x80151B38u, 0x80151F68u, 0x80152398u, 0x801527C8u, 0x80153028u,
-    0x80153458u, 0x80153888u, 0x80153CB0u, 0x801544E0u, 0x801575C0u, 0x801585C8u,
+    0x80151708u, 0x80151B38u, 0x80151F68u, 0x80152398u, 0x801527C8u, 0x80152BF8u,
+    0x80153028u, 0x80153458u, 0x80153888u, 0x80153CB0u, 0x801544E0u, 0x801575C0u,
+    0x801585C8u,
 };
