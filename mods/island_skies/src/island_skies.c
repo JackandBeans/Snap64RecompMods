@@ -447,12 +447,51 @@ static void roof_weather(void);
 #define SNOW_G 240
 #define SNOW_B 252
 
-// The Tunnel's painted sky: the faces that show the sky's pictures. Under
-// weather their corners go white as the sky drums' do, so the overcast
-// picture alone colors them, and toward the night's horizon tint as the
-// hour darkens; no snow lies on them and none is steep. (JackandBeans's
-// pictures, Oct 15 2026: the sky in panels of three tints under snow.)
+// The Tunnel's painted sky: the faces that show the sky's pictures. Their
+// corners take the sky drums' rule at every hour (sky_corner_color): the
+// cartridge's paint, white under the overcast, toward the night's tints by
+// height; no world light, no sun across them, no steep shade, no snow.
+// (JackandBeans's pictures, Oct 15 and 16 2026: the sky in panels of three
+// tints under snow, and a lighter panel with a hard edge at dusk.)
 static u8 sky_face;
+
+// How high a painted sky's corner stands, 0 at the sky's lowest corner and
+// 1 at its lid, from its block's record; below 0 for a corner that is no
+// block's (tunnel_roof.inc).
+static f32 sky_up(u32 at) {
+    s32 b;
+
+    for (b = 0; b < TUNNEL_ROOF_BLOCKS; b++) {
+        const TunnelRoof* roof = &tunnel_roofs[b];
+
+        if (at >= roof->vtx_lo && at < roof->vtx_hi) {
+            f32 span = (f32) (roof->sky_y_hi - roof->sky_y_lo);
+            f32 up;
+
+            if (!roof->open_sky || span < 1.0f) {
+                return -1.0f;
+            }
+            up = ((f32) ((const volatile s16*) at)[1] - (f32) roof->sky_y_lo) / span;
+            return up < 0.0f ? 0.0f : up > 1.0f ? 1.0f : up;
+        }
+    }
+    return -1.0f;
+}
+
+// A sky corner's color: the cartridge's paint, white under the overcast,
+// toward the night's tints by its height, as the sky drums' corners go
+// (sky_corners); nightness and overcast_share as they stand.
+static void sky_corner_color(volatile u8* color, const u8* paint, f32 up) {
+    s32 k;
+
+    for (k = 0; k < 3; k++) {
+        f32 day = (f32) paint[k] + (255.0f - (f32) paint[k]) * overcast_share;
+        f32 tint = (f32) tint_lo[k] + ((f32) tint_hi[k] - (f32) tint_lo[k]) * up;
+        f32 value = day + (tint - day) * nightness;
+
+        color[k] = (u8) (value < 0.0f ? 0 : value > 255.0f ? 255 : (s32) value);
+    }
+}
 // Its cave: the corners under the roof, lit by the hour alone (the cave
 // palette), the weather kept to the open air. (JackandBeans, Oct 15 2026:
 // the snow's light reached inside the cave.)
@@ -462,6 +501,16 @@ static const u8 no_light[3] = { 0, 0, 0 };     // the cave's directional term: n
 static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
     if (at != 0 && mark(tinted, at)) {
         volatile u8* color = (volatile u8*) (at + 12);
+        if (sky_face) {
+            f32 up = sky_up(at);
+
+            if (up >= 0.0f) {
+                u8 paint[3] = { color[0], color[1], color[2] };
+
+                sky_corner_color(color, paint, up);
+                return;
+            }
+        }
         const u8* light = flowing ? light_flow
                         : (at >= night->world_lo && at < night->world_hi) ? (cave_face ? cave_palette[0] : light_world) : light_body;
         const u8* diff = cave_face ? no_light : land_diff;     // no sun nor moon reaches in
@@ -496,15 +545,6 @@ static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
                 u32 lit = light[k] + (flowing ? 0 : ((diff[k] * (u32) toward) >> 8));
 
                 color[k] = (u8) part(color[k], whole(lit));
-            }
-        }
-        if (sky_face && overcast_share > 0.0f) {
-            s32 k;
-
-            for (k = 0; k < 3; k++) {
-                s32 flat = 255 + (s32) ((f32) ((s32) tint_lo[k] - 255) * nightness);
-
-                color[k] = (u8) ((s32) color[k] + (s32) ((f32) (flat - (s32) color[k]) * overcast_share));
             }
         }
         if (steep) {
@@ -767,7 +807,7 @@ static void glint_face_set(u32 slot, s32 steep, s32 toward, u32 snow) {
 
     if (copy < GLINT_VTX && glint_face[copy] == 0) {
         glint_face[copy] = (u16) (0x8000u | (steep ? 0x4000u : 0u) | (flowing ? 0x2000u : 0u) | (cave_face ? 0x1000u : 0u)
-                                  | ((u32) toward & 0x1FFu));
+                                  | (sky_face ? 0x0800u : 0u) | ((u32) toward & 0x1FFu));
         glint_snow[copy] = (u8) (snow > 255 ? 255 : snow);
         glint_world_y[copy] = (s16) (((volatile s16*) slots[slot])[1] + walk_node_y);
     }
@@ -3430,6 +3470,17 @@ static void relight_record(void) {
             flow = (f >> 13) & 1;
             cave = (f >> 12) & 1;
             toward = f & 0x1FF;
+            if (f & 0x0800u) {      // a painted sky's corner: the sky's rule
+                f32 up = sky_up(src + 16 * v);
+
+                if (up >= 0.0f) {
+                    c[0] = (u8) (orig >> 24);
+                    c[1] = (u8) (orig >> 16);
+                    c[2] = (u8) (orig >> 8);
+                    sky_corner_color(color, c, up);
+                    continue;
+                }
+            }
             light = flow ? light_flow : cave ? cave_palette[0] : light_world;
             diff = cave ? no_light : land_diff;
             c[0] = (u8) (orig >> 24);

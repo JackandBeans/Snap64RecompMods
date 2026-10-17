@@ -13,6 +13,8 @@ typedef struct TunnelRoof {
     u16 w;
     u16 h;
     u8 open_sky;          // the block has faces of the painted sky: the open air is where no ceiling stands
+    s16 sky_y_lo;         // the painted sky, its lowest and highest corners (the horizon ring and the lid)
+    s16 sky_y_hi;
     const u8* cells;
 } TunnelRoof;
 static const u8 tunnel_roof_cells0[] = {
@@ -565,12 +567,12 @@ static const u8 tunnel_roof_cells5[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 static const TunnelRoof tunnel_roofs[TUNNEL_ROOF_BLOCKS] = {
-    { 0x8011F130u, 0x80120400u, -3150, 1050, 92, 24, 1, tunnel_roof_cells0 },
-    { 0x801211A0u, 0x80122850u, -2400, -2150, 93, 90, 0, tunnel_roof_cells1 },
-    { 0x80123E60u, 0x80126350u, -1800, -2350, 100, 85, 0, tunnel_roof_cells2 },
-    { 0x801278D0u, 0x80129710u, -1700, -2200, 111, 84, 0, tunnel_roof_cells3 },
-    { 0x8012A380u, 0x8012B360u, -1950, -5100, 72, 108, 0, tunnel_roof_cells4 },
-    { 0x8012C100u, 0x8012DBF0u, -2700, -3400, 83, 146, 1, tunnel_roof_cells5 },
+    { 0x8011F130u, 0x80120400u, -3150, 1050, 92, 24, 1, -75, 3478, tunnel_roof_cells0 },
+    { 0x801211A0u, 0x80122850u, -2400, -2150, 93, 90, 0, 0, 0, tunnel_roof_cells1 },
+    { 0x80123E60u, 0x80126350u, -1800, -2350, 100, 85, 0, 0, 0, tunnel_roof_cells2 },
+    { 0x801278D0u, 0x80129710u, -1700, -2200, 111, 84, 0, 0, 0, tunnel_roof_cells3 },
+    { 0x8012A380u, 0x8012B360u, -1950, -5100, 72, 108, 0, 0, 0, tunnel_roof_cells4 },
+    { 0x8012C100u, 0x8012DBF0u, -2700, -3400, 83, 146, 1, 493, 2638, tunnel_roof_cells5 },
 };
 // The pictures the cave's faces draw with: a palette's address for a paletted picture, the
 // picture's own for the rest. Under snow these are left as they are.

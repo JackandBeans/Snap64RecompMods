@@ -34,8 +34,9 @@
   roof; the rain's voice recedes with the mouth over the first stretch
   under the roof, and the storm's thunder goes with the open sky.
   Snow lies on the whole stretch, the track with the rest, the painted
-  sky over it takes the weather and the hour as one, as the other
-  courses' skies do (it stood in panels of three tints under snow), and
+  sky over it, at both ends, takes the weather and the hour as one, as
+  the other courses' skies do (it stood in panels of three tints under
+  snow, and in a lighter panel with a hard edge at dusk), and
   the Custom row Tunnel Weather is new. The far end has its own volume:
   the second tunnel's roof ends in an arch that opens 1400 units into
   the last block, and the weather falls from a little under that arch
