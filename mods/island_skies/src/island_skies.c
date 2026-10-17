@@ -177,12 +177,13 @@ static const Night nights[] = {
         // inside only the mouths' color and the light carry it. Its stars, moon and
         // suns are the generator's as every course's, drawn around the eye after
         // the land (roof_weather), there being no drum to hang them on. The
-        // pictures were found by the texture log, Oct 11 2026 (801565B8 and
-        // 80101FB8, RGBA16); the block lists (Oct 17) load 801565B8 for the sky
-        // of both ends and, at the far end, a second painted box of pale clouds,
-        // 801575C0, which keeps the game's own corner colors (the purple end) and
-        // takes the stars (roof_sky_depth); 80101FB8 is in no block list.
-        NIGHT_TUNNEL_SETUP, "tunnel", "tunnel_weather", 0, { 0x801565B8u, 0x80101FB8u }, { 0, 0 },
+        // pictures: 801565B8 is the sky of both ends; 801575C0 a second, smaller
+        // painted box of pale clouds at the far end, beside the track (block 5,
+        // x -2384..972, z 929..3860), found in the block lists Oct 17 2026 and
+        // not yet seen in a frame; both take the sky's rule and the stars
+        // (roof_sky_depth). The texture log of Oct 11 had named 80101FB8, which
+        // is in no block list.
+        NIGHT_TUNNEL_SETUP, "tunnel", "tunnel_weather", 0, { 0x801565B8u, 0x801575C0u }, { 0, 0 },
         { 0, 0 }, { 0, 0 }, 0, 0,
         0x8011CB50u, 0x8018BC30u, { 118, 130, 178 }, { 126, 140, 196 }, { 100, 120, 170 },
         { 196, 200, 212 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 996, 1000,
