@@ -25,38 +25,35 @@
   wet and bare, the surf line (the Beach's sea); the record is lit again
   once, when the water's height is first known. On the Volcano snow is a
   dusting only, the ground warm, with the rock showing through.
-- The Tunnel's open-air start takes the weather: rain, a storm or snow
-  stands as one volume of the world over the slope up to the cave's
-  mouth, where the roof begins (found from the block's own triangles:
-  z 1380 of the first block), and a little past its edge, as under any
-  eave, the slope's whole width. The rock hides it once the cart is under
-  the roof, the mouth shows it looking back, and nothing falls under the
-  roof; the rain's voice recedes with the mouth over the first stretch
-  under the roof, and the storm's thunder goes with the open sky.
-  Snow lies on the whole stretch, the track with the rest, the painted
-  sky over it, at both ends, takes the weather and the hour as one, as
-  the other courses' skies do (it stood in panels of three tints under
-  snow, and in a lighter panel with a hard edge at dusk), and
-  the Custom row Tunnel Weather is new. The far end has its own volume:
-  the second tunnel's roof ends in an arch that opens 1400 units into
-  the last block, and the weather falls from a little under that arch
-  out past the gate, with the rain's voice coming back as the arch
-  nears (the last camera, after the gate, stands in it). Under the roof
-  the cave keeps the hour's own light, fog, fog distance and background;
-  the weather's light, its nearer fog and the snow on the ground stay
-  with the open air, told apart by the blocks' own ceilings (a map of
-  every ceiling face, from the decompilation's meshes; a block with no
-  painted sky, like the hall in the middle that draws no ceiling, is
-  cave throughout), and the rock picture the cave shares with the
-  cliffs outside is not lifted under snow. Shaped on JackandBeans's
-  rides and pictures, Oct 15 and 16 2026: rain seen through the
-  openings, none under the roof, the snow still falling at the mouth
-  looking back, the snow's light gone from inside the cave. The
-  weather is drawn into
-  the game's main list under the counter and the pointer: the
-  see-through list the Tunnel's sky uses is 3072 bytes by the level's
-  setup, and the rain's sheets overran it at Electrode's explosion, a
-  hang (found by JackandBeans, Oct 11 2026).
+- The Tunnel takes the weather at both ends. Over the open-air start,
+  rain, a storm or snow stands as one volume of the world, the slope's
+  whole width, from the course's edge to the cave's mouth and a little
+  under its arch, as under any eave; the mouth's line is read from the
+  block's own triangles (z 1380 of the first block). The rock hides it
+  once the cart is under the roof, and the mouth shows it looking back.
+  At the far end the second tunnel's roof ends in an arch that opens
+  1400 units into the last block, and the weather falls again from a
+  little under that arch out past the gate, seen through the arch as the
+  gate comes; the end's last camera stands in it. Nothing falls under
+  the roof. Under the roof the cave keeps the hour's own light, fog, fog
+  distance and background; the weather's light, its nearer fog and the
+  snow on the ground stay with the open air. The two are told apart by
+  the blocks' own ceilings, a map of every ceiling face from the
+  decompilation's meshes; a block with no painted sky, like the hall in
+  the middle that draws no ceiling, is cave throughout. Snow lies on the
+  whole open stretch, the track with the rest, and the rock picture the
+  cave shares with the cliffs outside is not lifted under snow. The
+  painted sky at both ends takes the weather and the hour as the other
+  courses' skies do, each corner by its height; it stood in panels of
+  three tints under snow, and in a lighter panel with a hard edge at
+  dusk. The rain's voice recedes with the mouth and comes back as the
+  far arch nears; the storm's thunder goes with the open sky. The Custom
+  row Tunnel Weather is new. Shaped on JackandBeans's rides and pictures,
+  Oct 15 and 16 2026. The weather is drawn into the game's main list
+  under the counter and the pointer: the see-through list the Tunnel's
+  sky uses is 3072 bytes by the level's setup, and the rain's sheets
+  overran it at Electrode's explosion, a hang (found by JackandBeans,
+  Oct 11 2026).
 - Under Live in the cold months the island's rain is snow on every
   course, and the details page says "snow" where it said "rain".
 - The Cave stays as the cartridge has it: lit by its own lights, with no
