@@ -68,18 +68,20 @@ its details, then A again for its options. The first row is **Setup**:
   weather waits past the last arch, seen through it as the gate comes.
   Day is the cartridge's own day, and the weather chosen falls on it as
   it does under Live.
-- **Live** is your clock and the island's own weather, with nothing else
-  to set.
+- **Live** is your clock and the island's own weather. Its only other
+  rows are Sun, Latitude and Longitude, which set the sun's hours (see
+  How Live works).
 - **Custom** opens every row: each course's hour and weather, and the fine
   switches.
 
 A change on the page takes effect as the next ride starts; a ride under
 way keeps the sky it started with.
 
-The mod's details page (Options > Mods, Island Skies) says what it is
-doing right now: the hour and its light, the weather, the sun's hours, and
-the next change of weather when one is near. As a ride starts, a line at
-the top of the screen says the hour and the sky for four seconds, and a
+Under Live, or with a course on Your clock, the mod's details page
+(Options > Mods, Island Skies) says what it is doing right now: the hour
+and its light, the weather, the sun's hours, and, under Live, the next
+change of weather when one is near. As such a ride starts, a line at the
+top of the screen says the hour and the sky for four seconds, and a
 change of weather during a ride is announced the same way.
 
 ## How Live works

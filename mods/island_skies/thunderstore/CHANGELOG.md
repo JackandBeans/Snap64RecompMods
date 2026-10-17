@@ -7,11 +7,35 @@
   1.1.0 left its painted sky bare. They stand behind the hills and the
   rock, so the mouth and the arch take them as the cart passes. Asked
   for by JackandBeans on Oct 17 2026.
-- A photo of the Tunnel keeps those stars in the album, in Professor
-  Oak's review and in the report's pictures. The photo's world is drawn
-  by the photo code's own camera, which the ride's way of drawing them
-  never saw, so the first build showed them on the ride and not in the
-  photo. Found by JackandBeans on Oct 17 2026.
+- A photo of the Tunnel keeps those stars, as the photos are checked
+  after the ride. The photo's world is drawn by the photo code's own
+  camera, which the ride's way of drawing them never saw, so the first
+  build showed them on the ride and not in the photo. Found by
+  JackandBeans on Oct 17 2026.
+- The Tunnel's photos keep the rest of its sky too. A photo taken under
+  the roof has the cave's own light and fog, as the ride had there;
+  1.1.0 gave every photo of the Tunnel the open air's, so a photo in the
+  cave on a rainy night came out grayer and foggier than the ride. A
+  photo of an open end keeps its rain or snow, and a storm's flash, as
+  the other courses' photos do.
+- The Tunnel's open ends have a storm's bolt and flash over the painted
+  sky, the shooting stars of a clear night, and Moonlight on Pokémon
+  while the cart is under the open sky, as the other courses have. The
+  rock and the hills hide the bolt and the stars as they hide the moon.
+- Day with Island's own is the cartridge's day on every course. Since
+  1.0.1 the River rained by day under Island's own, against that
+  version's own note and the README.
+- Under Live, the Volcano's ash days and the snow days of a far latitude
+  turn at midnight as the island's weather turns, not all at once
+  during a ride; and a photo taken before midnight and checked after it
+  keeps its own day's weather.
+- Under Live, a snowfall that begins during a ride no longer lights the
+  bare land as if snow lay on it; snow that lies keeps its light when
+  the sky clears.
+- The README says that the details page's line and the line over the
+  course come under Live or Your clock, and that Live shows the Sun,
+  Latitude and Longitude rows.
+- These six were found in a review of the code on Oct 17 2026.
 
 ## 1.1.0
 
