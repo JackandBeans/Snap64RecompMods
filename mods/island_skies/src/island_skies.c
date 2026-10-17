@@ -255,6 +255,9 @@ static u8 roof_blink;            // the main camera's blink frame (the shutter's
 static Gfx* roof_sky;            // the sky list in force (the night's, the sunset's or the dawn's; spare_point)
 static Mtx roof_sky_mtx[2];      // its place around the eye, this frame's and the last's
 static u8 roof_sky_turn;
+static GObj* photo_sky_cam;      // a photo's camera that drew the roofed course's land in this object pass
+static Mtx photo_sky_mtx[4];     // the sky's place around that camera's eye (more than one may draw in a frame)
+static u8 photo_sky_turn;
 // A roofed course (the Tunnel): its sky is painted faces of the level, not a
 // drum, so the cave is told from the open air (open_air) and its stars, moon
 // and suns are drawn after the land (roof_weather).
@@ -456,6 +459,7 @@ static void rain_quiet(void);
 static void rain_at(Gfx** list, f32 ex, f32 ey, f32 ez);
 static void snow_at(Gfx** list, f32 ex, f32 ey, f32 ez);
 static void roof_weather(void);
+static void roof_stars(Gfx** list, u32 oc, Mtx* mtx);
 
 #define SNOW_R 236
 #define SNOW_G 240
@@ -1158,6 +1162,16 @@ static void model_enters(GObj* obj, s32 kind) {
                     roof_past = 0.0f;
                 }
             }
+        }
+    }
+    // A photo of a roofed course: the camera drawing its land, whose object
+    // pass ends with the sky (night_objects_end).
+    if (ROOFED(night) && !on_the_ride && !scoring && photo_sky_cam == NULL
+        && (u32) first->payload.any >= night->world_lo && (u32) first->payload.any < night->world_hi) {
+        GObj* cam = *(GObj* volatile*) 0x8004AC48u;
+
+        if (cam != NULL && cam->data.cam != NULL) {
+            photo_sky_cam = cam;
         }
     }
     drawing_water = (water_model != 0 && (u32) first->payload.any == water_model);
@@ -3080,21 +3094,8 @@ static void roof_weather(void) {
             // roof_tick's and the moon's state moment_apply's, as everywhere.
             // (Asked for by JackandBeans, Oct 17 2026.)
             if (roof_sky != NULL && !raining && !snowing) {
-                const volatile f32* eye = (const volatile f32*) (oc + 0x3C);
-                Mtx* mtx;
-
                 roof_sky_turn ^= 1;
-                mtx = &roof_sky_mtx[roof_sky_turn];
-                place(mtx, eye[0], eye[1], eye[2]);
-                command(list, (0x64u << 24) | 0x00002Cu, 1);        // the lists live in the mod's memory
-                command(list, (0x64u << 24) | 0x00000Cu, 0x534B5900u);   // the group: its place followed between ticks
-                command(list, 0x00002829u, 0);
-                gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-                gSPDisplayList((*list)++, roof_sky);
-                gDPSetDepthSource((*list)++, G_ZS_PIXEL);
-                gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
-                command(list, (0x64u << 24) | 0x00000Du, 1);
-                command(list, (0x64u << 24) | 0x00002Cu, 0);
+                roof_stars(list, oc, &roof_sky_mtx[roof_sky_turn]);
             }
             // The volume: night_data's box of sheets, the slope's width and
             // length, ending a little past the roof's edge, in the current
@@ -3139,6 +3140,55 @@ static void roof_weather(void) {
             }
         }
     }
+}
+
+// A course without a drum: its stars, moon and suns placed around the camera's
+// eye, under the camera's view and projection in force.
+static void roof_stars(Gfx** list, u32 oc, Mtx* mtx) {
+    const volatile f32* eye = (const volatile f32*) (oc + 0x3C);
+
+    place(mtx, eye[0], eye[1], eye[2]);
+    command(list, (0x64u << 24) | 0x00002Cu, 1);        // the lists live in the mod's memory
+    command(list, (0x64u << 24) | 0x00000Cu, 0x534B5900u);   // the group: its place followed between ticks
+    command(list, 0x00002829u, 0);
+    gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
+    gSPDisplayList((*list)++, roof_sky);
+    gDPSetDepthSource((*list)++, G_ZS_PIXEL);
+    gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
+    command(list, (0x64u << 24) | 0x00000Du, 1);
+    command(list, (0x64u << 24) | 0x00002Cu, 0);
+}
+
+// A photo of a roofed course (the album, Professor Oak's review, the
+// report's pictures): the photo code's own camera draws its world, with no
+// main camera and no UI camera after it, so the ride's way (roof_weather)
+// never runs and the photo had no stars. The sky is drawn as that camera's
+// object pass ends, after the land as on the ride, in its viewport and under
+// its matrices still (every object pushes and pops its own; the decompilation,
+// sys/render.c), and at the photo's instant. (JackandBeans, Oct 17 2026.)
+RECOMP_HOOK("renCameraRenderObjects") void night_objects_begin(GObj* cam_obj, s32 mode) {
+    photo_sky_cam = NULL;
+}
+
+RECOMP_HOOK_RETURN("renCameraRenderObjects") void night_objects_end(void) {
+    GObj* cam = photo_sky_cam;
+    Gfx** list = &MAIN_GFX_POS[0];
+
+    photo_sky_cam = NULL;
+    if (cam == NULL || cam != *(GObj* volatile*) 0x8004AC48u || cam->data.cam == NULL || night == NULL
+        || !ROOFED(night) || on_the_ride || scoring || roof_sky == NULL || raining || snowing || *list == NULL) {
+        return;
+    }
+    if (night->twinkle != NULL) {
+        twinkle(night);         // the photo's instant (ticks_of)
+    }
+    gDPPipeSync((*list)++);
+    gDPSetOtherMode((*list)++,
+                    G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
+                    | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
+                    G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
+    photo_sky_turn = (photo_sky_turn + 1) & 3;
+    roof_stars(list, (u32) cam->data.cam, &photo_sky_mtx[photo_sky_turn]);
 }
 
 // The game scores a photo by redrawing its scene into small depth pictures

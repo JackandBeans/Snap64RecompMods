@@ -7,6 +7,11 @@
   1.1.0 left its painted sky bare. They stand behind the hills and the
   rock, so the mouth and the arch take them as the cart passes. Asked
   for by JackandBeans on Oct 17 2026.
+- A photo of the Tunnel keeps those stars in the album, in Professor
+  Oak's review and in the report's pictures. The photo's world is drawn
+  by the photo code's own camera, which the ride's way of drawing them
+  never saw, so the first build showed them on the ride and not in the
+  photo. Found by JackandBeans on Oct 17 2026.
 
 ## 1.1.0
 
