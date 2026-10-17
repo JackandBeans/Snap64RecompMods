@@ -132,10 +132,10 @@ typedef struct Night {
 // Its blocks' ceilings over a grid, from the decompilation's meshes: which
 // corners are under the roof, in every block (tools/gen_tunnel_roof.py).
 #include "tunnel_roof.inc"
-#define NIGHT_TUNNEL_OPEN_Y (400.0f)
+#define NIGHT_TUNNEL_OPEN_Y (1000.0f)    // the volume's middle height: its sheets reach 1300 above it and 1700 below, over a floor near 100 to 400
 #define NIGHT_TUNNEL_VOICE_Z (900.0f)    // the rain's voice fades to nothing this far under the roof
 #define NIGHT_TUNNEL_CAVE_Z (400.0f)     // the fog and the scene light are the hour's own this far under the roof
-#define NIGHT_TUNNEL_EAVE (200.0f)       // the weather still falls this far under the roof's edge, as under any eave
+#define NIGHT_TUNNEL_EAVE (400.0f)       // the weather still falls this far under the roof's edge, as under any eave (the arch is high to z 1800)
 
 static const Night nights[] = {
     {   // The Beach: a clear night, a full moon over the sea.
@@ -448,13 +448,14 @@ static u8 sky_face;
 // palette), the weather kept to the open air. (JackandBeans, Oct 15 2026:
 // the snow's light reached inside the cave.)
 static u8 cave_face;
+static const u8 no_light[3] = { 0, 0, 0 };     // the cave's directional term: none (JackandBeans's picture, Oct 16 2026: the dusk's sun on an inner wall)
 
 static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
     if (at != 0 && mark(tinted, at)) {
         volatile u8* color = (volatile u8*) (at + 12);
         const u8* light = flowing ? light_flow
                         : (at >= night->world_lo && at < night->world_hi) ? (cave_face ? cave_palette[0] : light_world) : light_body;
-        const u8* diff = cave_face ? cave_palette[3] : land_diff;
+        const u8* diff = cave_face ? no_light : land_diff;     // no sun nor moon reaches in
 
         // The water's height in the world: the vertex's, plus its block's place.
         // Only the course's own water counts: the Zero-One has parts of the
@@ -3400,7 +3401,7 @@ static void relight_record(void) {
             cave = (f >> 12) & 1;
             toward = f & 0x1FF;
             light = flow ? light_flow : cave ? cave_palette[0] : light_world;
-            diff = cave ? cave_palette[3] : land_diff;
+            diff = cave ? no_light : land_diff;
             c[0] = (u8) (orig >> 24);
             c[1] = (u8) (orig >> 16);
             c[2] = (u8) (orig >> 8);
