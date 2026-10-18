@@ -1,0 +1,87 @@
+name: Bug report
+description: A mod does something wrong, or the port will not load it
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks. The files asked for below are what make a report answerable;
+        `snap64.log` is written next to the executable on every run (on Linux, in the
+        data directory the log's first line names; on a Mac, in
+        `~/Library/Application Support/Snap64 Recomp/`). A bug in the port itself,
+        with no mod on, belongs in the
+        [port's issues](https://github.com/JackandBeans/Snap64Recomp/issues).
+  - type: dropdown
+    id: mod
+    attributes:
+      label: Mod
+      options:
+        - Island Skies
+        - Unlimited Film
+        - Unlock Everything
+        - More than one (say which below)
+    validations:
+      required: true
+  - type: input
+    id: mod_version
+    attributes:
+      label: Mod version
+      description: From the mod's details page in Options > Mods, or the release you downloaded.
+      placeholder: 1.1.1
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Port version
+      description: From the window title, or Properties > Details on Snap64Recomp.exe.
+      placeholder: 1.1.5
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead. Does it happen with the mod off?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reach it
+      description: |
+        Course, place, what you were doing, and the mod's settings (for Island Skies, the Setup row and
+        the rows under it). A screenshot or a short clip helps for anything visual.
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - Windows 11
+        - Windows 10
+        - Steam Deck, the native Linux build
+        - Steam Deck, the Windows build through Proton
+        - Linux desktop, the native build
+        - Linux desktop, the Windows build through Wine or Proton
+        - Mac, Apple Silicon
+        - Mac, Intel
+        - Something else (say what below)
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files
+      description: |
+        Attach `snap64.log` and `mods.json` from the executable's folder, and the mod's own settings file
+        from `mod_config/` there (on a Mac, from `~/Library/Application Support/Snap64 Recomp/`; drag
+        them here). Never attach your ROM.
+  - type: checkboxes
+    id: restarted
+    attributes:
+      label: Loaded
+      options:
+        - label: The mod shows On in Options > Mods, and the game was restarted after it was installed or turned on.
+          required: true

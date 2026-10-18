@@ -3,10 +3,46 @@
 Mods for [Snap64 Recomp](https://github.com/JackandBeans/Snap64Recomp), the
 native PC port of Pokémon Snap. Each mod is one `.nrm` file, also packed as
 a Thunderstore zip, and each has a page of its own with its options and its
-changelog. Unlimited Film and Unlock Everything run on the port at 1.0.9 or
-later; Island Skies needs 1.1.3 or later.
+changelog.
+
+<p>
+<img src="mods/island_skies/pictures/lapras.png" width="49%" alt="Lapras on the sea at sunset">
+<img src="mods/island_skies/pictures/river_stars.png" width="49%" alt="The River at night under the stars">
+<img src="mods/island_skies/pictures/valley_rain.png" width="49%" alt="The Valley in rain">
+<img src="mods/island_skies/pictures/volcano_snow.png" width="49%" alt="Rapidash in the snow on the Volcano">
+</p>
+
+Island Skies: the Beach at sunset, the River at night, the Valley in rain
+and the Volcano in snow. More pictures are on
+[its page](mods/island_skies/thunderstore/README.md).
+
+| Mod | Version | Needs | Download |
+| --- | --- | --- | --- |
+| [Island Skies](mods/island_skies/thunderstore/README.md) | 1.1.1 | Snap64 Recomp 1.1.3 or later | [snap64_island_skies.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_island_skies.nrm) |
+| [Unlimited Film](mods/unlimited_film/thunderstore/README.md) | 1.0.2 | Snap64 Recomp 1.0.9 or later | [snap64_unlimited_film.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_unlimited_film.nrm) |
+| [Unlock Everything](mods/unlock_everything/thunderstore/README.md) | 1.0.2 | Snap64 Recomp 1.0.9 or later | [snap64_unlock_everything.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_unlock_everything.nrm) |
+
+The links are the latest release's files. Every
+[release](https://github.com/JackandBeans/Snap64RecompMods/releases)
+carries all three mods, each as its `.nrm` and as a Thunderstore zip; the
+release's name says which mod changed and its new version, and the tag
+counts the releases. Installing is one step, under [Installing](#installing).
 
 ## The mods
+
+### Island Skies
+
+The island's sky at any hour and in any weather: night, sunset, dawn, a
+dusk that falls during the ride, or live by your own clock, under weather
+of the island's own that holds from one ride to the next and turns during
+a ride when its time comes. Stars, a moon with its glint on the water,
+shooting stars, the Volcano's embers; rain, storms with lightning, snow
+that lies, ash over the Volcano. By day the island is exactly as the
+cartridge draws it, and photos keep the sky of their instant. Simple set-up
+is three rows, Live adds only the sun's, Custom opens every row.
+
+[Page](mods/island_skies/thunderstore/README.md) ·
+[Changelog](mods/island_skies/thunderstore/CHANGELOG.md)
 
 ### Unlimited Film
 
@@ -29,30 +65,6 @@ not touched. Copy `saves/` somewhere safe first if you may want to go back.
 
 [Page](mods/unlock_everything/thunderstore/README.md) ·
 [Changelog](mods/unlock_everything/thunderstore/CHANGELOG.md)
-
-### Island Skies
-
-The island's sky at any hour and in any weather: night, sunset, dawn, a
-dusk that falls during the ride, or live by your own clock, under weather
-of the island's own that holds from one ride to the next and turns during
-a ride when its time comes. Stars, a moon with its glint on the water,
-shooting stars, the Volcano's embers; rain, storms with lightning, snow
-that lies, ash over the Volcano. By day the island is exactly as the
-cartridge draws it, and photos keep the sky of their instant. Simple set-up
-is three rows, Live adds only the sun's, Custom opens every row.
-
-<p>
-<img src="mods/island_skies/pictures/lapras.png" width="49%" alt="Lapras on the sea at sunset">
-<img src="mods/island_skies/pictures/river_stars.png" width="49%" alt="The River at night under the stars">
-<img src="mods/island_skies/pictures/valley_rain.png" width="49%" alt="The Valley in rain">
-<img src="mods/island_skies/pictures/volcano_snow.png" width="49%" alt="Rapidash in the snow on the Volcano">
-</p>
-
-The Beach at sunset, the River at night, the Valley in rain and the Volcano
-in snow. More pictures are on the mod's page.
-
-[Page](mods/island_skies/thunderstore/README.md) ·
-[Changelog](mods/island_skies/thunderstore/CHANGELOG.md)
 
 ## Installing
 
@@ -123,6 +135,19 @@ three kinds of function: one that calls the game's `memcpy`, one the port's
 own patches replace, and one that waits a frame. Snap64 Recomp 1.1.0 fixes
 all three; Unlimited Film was written around the first, with a patch of a
 small function that runs at the same moment, so it runs on 1.0.9 too.
+
+## Writing a mod
+
+The [mod template](https://github.com/JackandBeans/Snap64RecompModTemplate)
+is the place to start: a mod's skeleton, the tool chain and the steps, the
+same ones the Building section above uses. The port's
+[MODS.md](https://github.com/JackandBeans/Snap64Recomp/blob/main/docs/MODS.md)
+says what the port does with a mod, what it refuses to load, and where a
+mod's settings and the log go. The three mods here are working examples:
+each is a `mod.toml` (the manifest and the options page), a `src/` folder
+and a Thunderstore page under `mods/<mod>/`, and the Makefile and
+`tools/pack_thunderstore.py` take a new one by name. A mod that may touch
+the scoring is checked with `tools/check_mod.py`, below.
 
 ## Tools
 

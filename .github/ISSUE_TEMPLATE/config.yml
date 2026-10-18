@@ -1,0 +1,10 @@
+# Blank issues stay allowed; the form is a guide, not a gate. An idea for a
+# mod, or for one of these, is a plain issue here.
+blank_issues_enabled: true
+contact_links:
+  - name: A bug in the port itself
+    url: https://github.com/JackandBeans/Snap64Recomp/issues
+    about: Something wrong with no mod on belongs with the port, whose issue form asks for what it needs.
+  - name: A question about the port
+    url: https://github.com/JackandBeans/Snap64Recomp/discussions/categories/q-a
+    about: How something works, whether something is expected, what a setting does.
