@@ -39,7 +39,7 @@ a ride when its time comes. Stars, a moon with its glint on the water,
 shooting stars, the Volcano's embers; rain, storms with lightning, snow
 that lies, ash over the Volcano. By day the island is exactly as the
 cartridge draws it, and photos keep the sky of their instant. Simple set-up
-is three rows, Live is one, Custom opens every row.
+is three rows, Live adds only the sun's, Custom opens every row.
 
 [Page](mods/island_skies/thunderstore/README.md) ·
 [Changelog](mods/island_skies/thunderstore/CHANGELOG.md)
@@ -78,7 +78,9 @@ it on or off, and Z there opens a mod's own settings.
 - **Island Skies.** The port's scoring replay (`tools/check_mod.py`): the
   45 photos of the ride scored the same with the mod on as off. The cycle,
   the weather's turns, the moon and the sounds were checked frame by frame
-  in captured rides.
+  in captured rides, and so were 1.1.1's Tunnel photos in rain, its storm
+  over the Tunnel, and the River by day under Island's own, which matched
+  the game without the mod pixel for pixel.
 
 ## Building
 
