@@ -18,6 +18,10 @@ cartridge draws it, and photos keep the sky of their instant.
 
 The Beach at sunset: the sun over the sea, Pikachu on the sand.
 
+![Lapras at sunset](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/lapras.png)
+
+Lapras out on the sea at sunset, the sun low over the water.
+
 ![The Beach at night](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/night.png)
 
 The Beach at night: Butterfree under the stars.
@@ -30,13 +34,25 @@ A storm on the Beach: rain on the wind under a gray sky.
 
 The River at night: fireflies over the water under the stars.
 
+![The River under the stars](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/river_stars.png)
+
+The River at night, down the water: the stars overhead, fireflies along the banks.
+
 ![The Valley in snow](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/valley.png)
 
 The Valley in snow: the rapids under a snowfall, the banks white.
 
+![The Valley in rain](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/valley_rain.png)
+
+The Valley in rain: the cliffs gray in the mist, Magikarp leaping by the rapids.
+
 ![The Volcano at sunset](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/volcano.png)
 
 The Volcano at sunset: the crater's plume over the lava, ash on the wind.
+
+![The Volcano in snow](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/volcano_snow.png)
+
+The Volcano in snow: Rapidash running through the falling snow.
 
 ## Installing
 

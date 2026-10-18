@@ -41,6 +41,16 @@ that lies, ash over the Volcano. By day the island is exactly as the
 cartridge draws it, and photos keep the sky of their instant. Simple set-up
 is three rows, Live adds only the sun's, Custom opens every row.
 
+<p>
+<img src="mods/island_skies/pictures/lapras.png" width="49%" alt="Lapras on the sea at sunset">
+<img src="mods/island_skies/pictures/river_stars.png" width="49%" alt="The River at night under the stars">
+<img src="mods/island_skies/pictures/valley_rain.png" width="49%" alt="The Valley in rain">
+<img src="mods/island_skies/pictures/volcano_snow.png" width="49%" alt="Rapidash in the snow on the Volcano">
+</p>
+
+The Beach at sunset, the River at night, the Valley in rain and the Volcano
+in snow. More pictures are on the mod's page.
+
 [Page](mods/island_skies/thunderstore/README.md) ·
 [Changelog](mods/island_skies/thunderstore/CHANGELOG.md)
 
