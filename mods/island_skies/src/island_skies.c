@@ -109,7 +109,7 @@ typedef struct Night {
     s8 key[3];              // where the night's key light comes from: the moon, or the lava below
     u8 glint;               // the moon's glint on the water: the courses that have water
     u8 embers;              // the Volcano: embers over the lava, its sky pulsing with it, ash for weather
-    Gfx* const* fireflies;  // fireflies over the water, where there are any
+    Gfx* const* fireflies;  // the fireflies, a list a dot, where there are any
     s8 sun[3];              // where the sunset's sun stands
     Gfx* sun_list;          // the sun and its haze, for the sky at sunset
     s8 dawn_sun[3];         // where the dawn's sun stands
@@ -158,7 +158,7 @@ static const Night nights[] = {
         NIGHT_RIVER_SKY_VTX, NIGHT_RIVER_SKY_VTX_N, NIGHT_RIVER_R_LO, NIGHT_RIVER_R_SCALE,
         0x8012A0C0u, 0x801416F0u, { 86, 124, 196 }, { 104, 142, 214 }, { 66, 104, 156 },
         { 104, 120, 176 }, { 188, 192, 208 }, { 48, 56, 80 }, { 16, 20, 44 }, 988, 1000,
-        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_groups, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn, night_river_band, night_river_dawn_band, 0.0f },
+        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_dots, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn, night_river_band, night_river_dawn_band, 0.0f },
     {   // The Volcano: no moon. The lava keeps its own light and lights the smoke from below.
         NIGHT_VOLCANO_SETUP, "volcano", "volcano_weather", NIGHT_VOLCANO_SPARE, NIGHT_VOLCANO_PICS, NIGHT_VOLCANO_ROWS,
         NIGHT_VOLCANO_SKY_VTX, NIGHT_VOLCANO_SKY_VTX_N, NIGHT_VOLCANO_R_LO, NIGHT_VOLCANO_R_SCALE,
@@ -2359,16 +2359,21 @@ static void embers(void) {
     glint_scan(1);
 }
 
-// Fireflies: four groups of small dots around the camera, each drifting on
-// slow waves of its own and pulsing -- lit for half its cycle, dark for the
-// other half -- out of step with the others. A photo keeps the pulse of its
-// instant, as it keeps the twinkle.
+// Fireflies: four groups of small dots around the camera, near the water,
+// each group drifting on slow waves of its own. Each dot flashes by itself:
+// a quick rise and a fade, half a second in all, once every three to six
+// seconds at a moment of its own, so a handful are lit at any instant and
+// never the same ones together. A photo keeps the flashes of its instant,
+// as it keeps the twinkle.
+#define FIREFLY_RISE 6          // ticks: a tenth of a second up
+#define FIREFLY_LIT 36          // ticks: the whole flash, rise and fade
+#define FIREFLY_PEAK 190        // the brightest it gets, of 255
 static void fireflies(GObj* sky) {
     Gfx** list = &MAIN_GFX_POS[1];
     DObj* eye = sky->data.dobj;
     u32 ticks = ticks_of(night);
     Mtx* set = glow_mtx[glow_turn];
-    u32 g;
+    u32 g, i;
 
     if (eye == NULL || *list == NULL) {
         return;
@@ -2376,23 +2381,40 @@ static void fireflies(GObj* sky) {
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_glow_begin);
     for (g = 0; g < NIGHT_FIREFLY_GROUPS; g++) {
-        s32 pulse = night_sine[(((ticks * (23 + 3 * g)) >> 4) + 64 * g) & 0xFF];
         f32 dx = (f32) (night_sine[(((ticks * 3) >> 3) + 40 * g) & 0xFF] * 24) / 127.0f;
         f32 dy = (f32) (night_sine[(((ticks * 2) >> 3) + 90 * g) & 0xFF] * 12) / 127.0f;
         f32 dz = (f32) (night_sine[(((ticks * 5) >> 4) + 20 * g) & 0xFF] * 20) / 127.0f;
         Mtx* mtx = &set[1 + g];
+        s32 opened = 0;
 
-        if (pulse <= 4) {
-            continue;
+        for (i = 0; i < NIGHT_FIREFLY_DOTS; i++) {
+            u32 k = g * NIGHT_FIREFLY_DOTS + i;
+            u32 span = 200 + ((k * 37) % 160);   // this dot's own: three and a third to six seconds
+            u32 at = (ticks + k * 97) % span;    // where in its span the instant falls
+            s32 bright;
+
+            if (at >= FIREFLY_LIT) {
+                continue;
+            }
+            if (at < FIREFLY_RISE) {
+                bright = (s32) (at + 1) * FIREFLY_PEAK / FIREFLY_RISE;
+            } else {
+                bright = (s32) (FIREFLY_LIT - at) * FIREFLY_PEAK / (FIREFLY_LIT - FIREFLY_RISE);
+            }
+            if (!opened) {
+                opened = 1;
+                place(mtx, eye->position.v.x + dx, eye->position.v.y + dy, eye->position.v.z + dz);
+                command(list, (0x64u << 24) | 0x00000Cu, 0x46460000u | g);
+                command(list, 0x00002829u, 0);
+                gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
+            }
+            gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u32) ((f32) bright * clear_share));
+            gSPDisplayList((*list)++, night->fireflies[k]);
         }
-        place(mtx, eye->position.v.x + dx, eye->position.v.y + dy, eye->position.v.z + dz);
-        command(list, (0x64u << 24) | 0x00000Cu, 0x46460000u | g);
-        command(list, 0x00002829u, 0);
-        gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u32) ((f32) pulse * 2.0f * clear_share));
-        gSPDisplayList((*list)++, night->fireflies[g]);
-        gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
-        command(list, (0x64u << 24) | 0x00000Du, 1);
+        if (opened) {
+            gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
+            command(list, (0x64u << 24) | 0x00000Du, 1);
+        }
     }
     gSPDisplayList((*list)++, night_rain_end);
     command(list, (0x64u << 24) | 0x00002Cu, 0);

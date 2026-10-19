@@ -387,7 +387,51 @@ SNOW_HEIGHT = 1000      # a sheet's height
 
 
 FIREFLY_GROUPS = 4
-FIREFLY_DOTS = 16
+FIREFLY_DOTS = 12
+
+
+def make_fireflies(w, h):
+    """The River's fireflies: small dots around the camera, in a ring from 160 to 700 units, from a
+    little below the eye to a little above it, near the water. Each group stands under a matrix of its
+    own, which the mod drifts, and each dot has a list of its own, so that the mod lights the dots one
+    by one, each flashing at moments of its own."""
+    rng = random.Random(4242)
+    for g in range(FIREFLY_GROUPS):
+        verts = []
+        for i in range(FIREFLY_DOTS):
+            a = rng.uniform(0, 2 * math.pi)
+            r = math.sqrt(rng.uniform(160.0 ** 2, 700.0 ** 2))
+            x, z = r * math.cos(a), r * math.sin(a)
+            y = rng.uniform(-60.0, 40.0)
+            half = rng.uniform(2.6, 4.0)
+            col = (210, 255, 130)
+            for ax, az in ((1.0, 0.0), (0.0, 1.0)):
+                for sgn, dy, (s_, t) in ((-1, -1, (0, 512)), (1, -1, (512, 512)), (1, 1, (512, 0)), (-1, 1, (0, 0))):
+                    verts.append('    V(%d, %d, %d, %d, %d, %d, %d, %d),' % (
+                        int(round(x + sgn * half * ax)), int(round(y + dy * half)), int(round(z + sgn * half * az)), s_, t, col[0], col[1], col[2]))
+        w('static Vtx night_firefly_vtx%d[] = {' % g)
+        for v in verts:
+            w(v)
+        w('};')
+        for i in range(FIREFLY_DOTS):
+            w('static Gfx night_firefly_dot%d_%d[] = {' % (g, i))
+            w('    gsSPVertex(&night_firefly_vtx%d[%d], 8, 0),' % (g, 8 * i))
+            w('    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),')
+            w('    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),')
+            w('    gsSPEndDisplayList(),')
+            w('};')
+        w('')
+    w('Gfx* const night_firefly_dots[] = {')
+    for g in range(FIREFLY_GROUPS):
+        w('    %s,' % ', '.join('night_firefly_dot%d_%d' % (g, i) for i in range(FIREFLY_DOTS)))
+    w('};')
+    w('')
+    h.append('')
+    h.append('// the moon path and the fireflies')
+    h.append('#define NIGHT_FIREFLY_GROUPS %d' % FIREFLY_GROUPS)
+    h.append('#define NIGHT_FIREFLY_DOTS %d' % FIREFLY_DOTS)
+    h.append('extern Gfx night_glow_begin[];')
+    h.append('extern Gfx* const night_firefly_dots[];')
 
 
 def make_glow(w, h, built):
@@ -404,42 +448,7 @@ def make_glow(w, h, built):
     w('    gsSPEndDisplayList(),')
     w('};')
     w('')
-    # Fireflies: small dots around the camera, in a ring from 120 to 700 units, from a little below the
-    # eye to well above it; each group is drawn with its own prim color, which the mod pulses.
-    rng = random.Random(4242)
-    for g in range(FIREFLY_GROUPS):
-        verts = []
-        for i in range(FIREFLY_DOTS):
-            a = rng.uniform(0, 2 * math.pi)
-            r = math.sqrt(rng.uniform(120.0 ** 2, 700.0 ** 2))
-            x, z = r * math.cos(a), r * math.sin(a)
-            y = rng.uniform(-60.0, 140.0)
-            half = rng.uniform(3.2, 5.0)
-            col = (210, 255, 130)
-            for ax, az in ((1.0, 0.0), (0.0, 1.0)):
-                for sgn, dy, (s_, t) in ((-1, -1, (0, 512)), (1, -1, (512, 512)), (1, 1, (512, 0)), (-1, 1, (0, 0))):
-                    verts.append('    V(%d, %d, %d, %d, %d, %d, %d, %d),' % (
-                        int(round(x + sgn * half * ax)), int(round(y + dy * half)), int(round(z + sgn * half * az)), s_, t, col[0], col[1], col[2]))
-        w('static Vtx night_firefly_vtx%d[] = {' % g)
-        for v in verts:
-            w(v)
-        w('};')
-        w('static Gfx night_firefly_group%d[] = {' % g)
-        for first in range(0, len(verts), 32):
-            cnt = min(32, len(verts) - first)
-            w('    gsSPVertex(&night_firefly_vtx%d[%d], %d, 0),' % (g, first, cnt))
-            for o in range(0, cnt, 4):
-                w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (o, o + 1, o + 2, o, o + 2, o + 3))
-        w('    gsSPEndDisplayList(),')
-        w('};')
-        w('')
-    w('Gfx* const night_firefly_groups[] = { %s };' % ', '.join('night_firefly_group%d' % g for g in range(FIREFLY_GROUPS)))
-    w('')
-    h.append('')
-    h.append('// the moon path and the fireflies')
-    h.append('#define NIGHT_FIREFLY_GROUPS %d' % FIREFLY_GROUPS)
-    h.append('extern Gfx night_glow_begin[];')
-    h.append('extern Gfx* const night_firefly_groups[];')
+    make_fireflies(w, h)
     # A shooting star: a streak along +x, its head (+x) white and its tail dark, the soft dot
     # stretched along it. About six degrees of sky at DIST; the mod turns it onto the sky with a
     # matrix (place_frame), moves it along a great circle and fades it by the primitive alpha.

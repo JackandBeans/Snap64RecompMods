@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.2
+
+- The River's fireflies are fewer and calmer. Each flashes by itself,
+  a quick rise and a fade over half a second, once every three to six
+  seconds at a moment of its own, so a handful are lit at any instant
+  and never the same ones together. 1.1.1 lit them sixteen at a time,
+  in four groups that each glowed for a second and a half of every
+  three, and the water swarmed. There are 48 where there were 64, each
+  smaller and dimmer, and they keep near the water, from a little below
+  the camera to a little above it, where some hung high in the sky.
+  Asked for by JackandBeans on Oct 18 2026.
+
 ## 1.1.1
 
 - The Tunnel has the stars and the moon at night, and the sunset's and

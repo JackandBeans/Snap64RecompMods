@@ -55,8 +55,9 @@ extern Gfx night_snow_alpha[];
 
 // the moon path and the fireflies
 #define NIGHT_FIREFLY_GROUPS 4
+#define NIGHT_FIREFLY_DOTS 12
 extern Gfx night_glow_begin[];
-extern Gfx* const night_firefly_groups[];
+extern Gfx* const night_firefly_dots[];
 extern Gfx night_streak[];
 
 // beach
