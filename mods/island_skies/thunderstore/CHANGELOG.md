@@ -33,7 +33,13 @@
   oddly, since the port glides a sheet between the game's frames while
   its picture is written only at each frame, and its flat plane cut the
   sloping banks in a straight edge (JackandBeans, Oct 19 2026). The mist
-  is now drawn on the water's and the shore's own triangles instead.
+  is now drawn on the water's and the shore's own triangles instead. Its
+  first cut that way was drawn in the middle of the scene and left its
+  modes to the land drawn after it, which went wrong, drew a seam along
+  every shared edge, and took no fog, so a block coming into view brought
+  a bright veil with it (JackandBeans, Oct 19 2026, "extremely glitchy
+  and choppy"): it is drawn after the whole scene now, under the camera's
+  own matrices, without the edge smoothing, and fogged as the land is.
 
 ## 1.1.1
 

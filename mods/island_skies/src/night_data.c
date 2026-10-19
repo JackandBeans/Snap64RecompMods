@@ -114003,11 +114003,12 @@ static u8 night_mist_pic[] __attribute__((aligned(8))) = {
     178, 173, 163, 158, 168, 188, 204, 216, 221, 218, 209, 192, 167, 148, 142, 143, 145, 116,  51,   0,   0,   0,   0,   0,   0,   0,   0,  13,  43,  80, 125, 162,
     204, 207, 216, 230, 249, 253, 234, 210, 197, 205, 217, 222, 206, 178, 157, 144, 139, 110,  42,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,  29, 106, 174,
 };
-// The mist is drawn after the water, among the see-through things, in two cycles: the picture
-// by the corner's alpha, then by the primitive's, the thickness; the color is the primitive's.
-// The tile wraps, so the picture repeats over the water by the corners' s and t, which the mod
-// writes from their places in the world. The cycle type and the geometry modes are left as the
-// rain leaves them.
+// The mist is drawn after the whole scene, in two cycles: the picture by the corner's alpha,
+// then by the primitive's, the thickness; the color is the corner's, the mist's gone into the
+// fog's as far as the fog has it. The tile wraps, so the picture repeats over the water by the
+// corners' s and t, which the mod writes from their places in the world. No edge smoothing: on
+// a see-through surface it draws a seam along every shared edge. The cycle type and the
+// geometry modes are left as the rain leaves them.
 Gfx night_mist_begin[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
@@ -114015,8 +114016,8 @@ Gfx night_mist_begin[] = {
     gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),
     gsDPSetTextureLUT(G_TT_NONE),
     gsDPLoadTextureBlock(night_mist_pic, G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0, G_TX_WRAP, G_TX_WRAP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),
-    gsDPSetCombineLERP(0, 0, 0, PRIMITIVE, TEXEL0, 0, SHADE, 0, 0, 0, 0, COMBINED, COMBINED, 0, PRIMITIVE, 0),
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2),
+    gsDPSetCombineLERP(0, 0, 0, SHADE, TEXEL0, 0, SHADE, 0, 0, 0, 0, COMBINED, COMBINED, 0, PRIMITIVE, 0),
+    gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_XLU_SURF2),
     gsSPEndDisplayList(),
 };
 Gfx night_mist_end[] = {

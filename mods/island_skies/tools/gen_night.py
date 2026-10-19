@@ -445,7 +445,7 @@ def make_mist(w, h):
     s and t from its place in the world, so the picture lies still on the water and the wisps are a
     hundred units and more across. Drawn in two cycles: the picture by the corner's alpha (the
     mist's thickness there), then by the primitive's (the mist's at this instant); the color is the
-    primitive's."""
+    corner's, the mist's toward the fog's by the fog there."""
     rng = random.Random(3131)
     size = 32
 
@@ -472,11 +472,12 @@ def make_mist(w, h):
     for y in range(size):
         w('    ' + ', '.join('%3d' % v for v in pic[y * size:(y + 1) * size]) + ',')
     w('};')
-    w('// The mist is drawn after the water, among the see-through things, in two cycles: the picture')
-    w("// by the corner's alpha, then by the primitive's, the thickness; the color is the primitive's.")
-    w("// The tile wraps, so the picture repeats over the water by the corners' s and t, which the mod")
-    w('// writes from their places in the world. The cycle type and the geometry modes are left as the')
-    w("// rain leaves them.")
+    w('// The mist is drawn after the whole scene, in two cycles: the picture by the corner\'s alpha,')
+    w("// then by the primitive's, the thickness; the color is the corner's, the mist's gone into the")
+    w("// fog's as far as the fog has it. The tile wraps, so the picture repeats over the water by the")
+    w("// corners' s and t, which the mod writes from their places in the world. No edge smoothing: on")
+    w('// a see-through surface it draws a seam along every shared edge. The cycle type and the')
+    w('// geometry modes are left as the rain leaves them.')
     w('Gfx night_mist_begin[] = {')
     w('    gsDPPipeSync(),')
     w('    gsDPSetCycleType(G_CYC_2CYCLE),')
@@ -484,8 +485,8 @@ def make_mist(w, h):
     w('    gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),')
     w('    gsDPSetTextureLUT(G_TT_NONE),')
     w('    gsDPLoadTextureBlock(night_mist_pic, G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0, G_TX_WRAP, G_TX_WRAP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),')
-    w('    gsDPSetCombineLERP(0, 0, 0, PRIMITIVE, TEXEL0, 0, SHADE, 0, 0, 0, 0, COMBINED, COMBINED, 0, PRIMITIVE, 0),')
-    w('    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2),')
+    w('    gsDPSetCombineLERP(0, 0, 0, SHADE, TEXEL0, 0, SHADE, 0, 0, 0, 0, COMBINED, COMBINED, 0, PRIMITIVE, 0),')
+    w('    gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_XLU_SURF2),')
     w('    gsSPEndDisplayList(),')
     w('};')
     w('Gfx night_mist_end[] = {')
