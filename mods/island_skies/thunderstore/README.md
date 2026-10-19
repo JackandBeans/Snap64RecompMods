@@ -9,8 +9,9 @@ day and night, under weather of its own that holds from one ride to
 the next and turns during a ride when its time comes. Stars that twinkle,
 a moon with its glint on the water, a shooting star now and then, the
 Volcano lit by its lava; rain, storms with lightning and snow that lies,
-on every course, and ash over the Volcano. By day the island is exactly as the
-cartridge draws it, and photos keep the sky of their instant.
+on every course, and ash over the Volcano; at dawn a mist lies on the River
+and the Valley and lifts as the day comes. By day the island is exactly as
+the cartridge draws it, and photos keep the sky of their instant.
 
 ## Pictures
 
@@ -83,7 +84,10 @@ its details, then A again for its options. The first row is **Setup**:
   light and fog: the weather's stay with the open air. At the far end the
   weather waits past the last arch, seen through it as the gate comes.
   Day is the cartridge's own day, and the weather chosen falls on it as
-  it does under Live.
+  it does under Live. Dawn lays a mist on the River and the Valley, in
+  the fog and on the water, that thins as the ride goes; under Live it
+  gathers through the night's last hour, lies thickest as the sky pinks,
+  and lifts as the day comes. Rain and snow have their own gray instead.
 - **Live** is your clock and the island's own weather. Its only other
   rows are Sun, Latitude and Longitude, which set the sun's hours (see
   How Live works).

@@ -11,6 +11,13 @@
   smaller and dimmer, and they keep near the water, from a little below
   the camera to a little above it, where some hung high in the sky.
   Asked for by JackandBeans on Oct 18 2026.
+- A mist at dawn on the River and the Valley: the fog draws in and goes
+  a pale warm gray, and a sheet of it lies on the water, drifting, with
+  the banks standing out of it. It gathers through the night's last hour,
+  lies thickest as the sky pinks and lifts as the day comes under Live;
+  a ride at Dawn starts in it and sees it thin as the ride goes. Clear
+  weather only. Chosen by JackandBeans on Oct 18 2026 from a list of
+  what the mod still lacked.
 
 ## 1.1.1
 

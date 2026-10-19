@@ -208,6 +208,7 @@ static f32 moon_light = 1.0f;    // how much of the moon is lit: 0.3 at new to 1
 static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
 static u8 dusk;                  // or that the sun sets during the ride
+static u8 misty;                 // a fixed dawn on a course with a mist: the fog alone moves as the ride goes (mist_now)
 static u8 cycle;                 // or that the player's clock drives the hour, day and night
 static u8 daytime;               // or that the time chosen is Day: the cycle's day hour, held at midday
 static u32 day_weather;          // the weather night_of drew for a Day load, for the load to take
@@ -289,6 +290,9 @@ static Gfx* const* rain_sheets_now = night_rain_sheets;   // the sheets the next
 static Gfx* const* snow_sheets_now = night_snow_sheets;
 static Mtx glow_mtx[2][1 + NIGHT_FIREFLY_GROUPS];   // the moon path's and the fireflies' matrices, two sets
 static u8 glow_turn;
+static Mtx mist_mtx[2];          // the mist sheet's matrix, two sets as the glows'
+static u8 mist_rgb[3];           // the sheet's color: the fog's in force, a little lighter (fog_apply)
+static u8 mist_said;             // the ride's first mist said in the log
 static f32 flow_y_sum;           // the water's height: the mean, the lowest and the highest of the vertices that flow
 static f32 flow_y_min, flow_y_max;
 static u32 flow_y_n;
@@ -1293,6 +1297,8 @@ static void weather_palettes_keep(const Night* by);
 static void sun_hours_apply(void);
 static s32 sun_latitude(void);
 static void fireflies(GObj* sky);
+static void mist_at(GObj* sky, f32 share);
+static f32 mist_now(void);
 static GObj* sky_now;           // the sky being drawn, for the camera's place
 
 // A model just drawn. A material may carry light colors of its own, which
@@ -1330,11 +1336,19 @@ static void model_leaves(void) {
     // The water was just drawn: what glows on it or over it is drawn now, so
     // that the water, which is drawn among the see-through things and writes
     // no depth, does not paint over it.
-    if (drawing_water && glows_on && !sunset && !scoring && clear_share > 0.0f && sky_now != NULL) {
-        drawing_water = 0;
-        glow_turn ^= 1;
-        if (night->fireflies != NULL) {
-            fireflies(sky_now);
+    if (drawing_water && !scoring && sky_now != NULL) {
+        f32 mist = mist_now();
+        s32 glows = glows_on && !sunset && clear_share > 0.0f;
+
+        if (glows || mist > 0.0f) {
+            drawing_water = 0;
+            glow_turn ^= 1;
+            if (glows && night->fireflies != NULL) {
+                fireflies(sky_now);
+            }
+            if (mist > 0.0f) {
+                mist_at(sky_now, mist);
+            }
         }
     }
 }
@@ -2420,6 +2434,50 @@ static void fireflies(GObj* sky) {
     command(list, (0x64u << 24) | 0x00002Cu, 0);
 }
 
+// The mist's sheet: night_data's rings, laid flat under the eye at about the
+// water's height (the cart rides on the water), its picture kept with the
+// world as the sheet rides with the eye and drifting slowly on the clock,
+// its thickness the mist's at this instant and its color the fog's, a little
+// lighter. Drawn right after the water, as the fireflies are, so the water
+// does not paint over it.
+#define MIST_BELOW 36.0f        // how far under the eye the sheet lies
+#define MIST_ALPHA 150.0f       // the sheet's alpha at full mist, where its corners are full
+static void mist_at(GObj* sky, f32 share) {
+    Gfx** list = &MAIN_GFX_POS[1];
+    DObj* eye = sky->data.dobj;
+    u32 ticks = ticks_of(night);
+    Mtx* mtx = &mist_mtx[glow_turn];
+    f32 per = 32.0f / NIGHT_MIST_TILE;      // texels a unit
+    s32 us, ut;
+
+    if (eye == NULL || *list == NULL) {
+        return;
+    }
+    place(mtx, eye->position.v.x, eye->position.v.y - MIST_BELOW, eye->position.v.z);
+    // The tile's origin moves against the eye, so the picture stays with the
+    // world, and on with the clock, a texel every two seconds or so, so that
+    // it drifts.
+    us = (-(s32) (eye->position.v.x * per) + (s32) (ticks / 120)) & 31;
+    ut = (-(s32) (eye->position.v.z * per) + (s32) (ticks / 150)) & 31;
+    command(list, (0x64u << 24) | 0x00002Cu, 1);
+    gSPDisplayList((*list)++, night_mist_begin);
+    gDPSetTileSize((*list)++, G_TX_RENDERTILE, us << 2, ut << 2, (us + 31) << 2, (ut + 31) << 2);
+    gDPSetPrimColor((*list)++, 0, 0, mist_rgb[0], mist_rgb[1], mist_rgb[2], (u32) (MIST_ALPHA * share));
+    command(list, (0x64u << 24) | 0x00000Cu, 0x4D490000u);
+    command(list, 0x00002829u, 0);
+    gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
+    gSPDisplayList((*list)++, night_mist_sheet);
+    gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
+    command(list, (0x64u << 24) | 0x00000Du, 1);
+    gSPDisplayList((*list)++, night_mist_end);
+    command(list, (0x64u << 24) | 0x00002Cu, 0);
+    if (!mist_said && on_the_ride) {
+        mist_said = 1;
+        recomp_printf("[island skies] the mist stands at %d of 100 at tick %u; the eye at %d, the water from %d to %d\n",
+                      (s32) (share * 100.0f), ticks, (s32) eye->position.v.y, (s32) flow_y_min, (s32) flow_y_max);
+    }
+}
+
 // Lightning. Time is cut into spans of a few seconds; whether a span has a
 // strike, when in the span, where around the sky and in which shape all
 // come from the span's number alone, so the same instant always shows the
@@ -3409,6 +3467,7 @@ static const Night* night_of(WorldSetup* setup) {
             sunset = (time == TIME_SUNSET || time == TIME_DAWN || time == TIME_DUSK);
             dawn = (time == TIME_DAWN);
             dusk = (time == TIME_DUSK);
+            misty = dawn && (nights[i].setup == NIGHT_RIVER_SETUP || nights[i].setup == NIGHT_VALLEY_SETUP);
             daytime = (time == TIME_DAY);
             day_weather_set = 0;
             if (daytime) {
@@ -3778,6 +3837,39 @@ static f32 ease(f32 w) {
     return w * w * (3.0f - 2.0f * w);
 }
 
+// The dawn's mist on the River and the Valley: a veil in the fog (fog_apply)
+// and a sheet lying on the water (mist_at). It gathers through the last hour
+// of the night, is thickest as the sky pinks and lifts as the day comes; a
+// ride at the fixed dawn thins it as the ride goes, as the morning would.
+// Clear weather only: rain and snow have their own gray. How much of it
+// stands at this instant, 0 to 1.
+#define MIST_GATHER 60.0f           // minutes before the dawn's first minute that it begins to gather
+#define MIST_RIDE_TICKS 10800.0f    // three minutes: a fixed dawn's mist thins over them
+#define MIST_RIDE_KEPT 0.4f         // to this much of itself
+static f32 mist_now(void) {
+    f32 m = cycle_minute, w;
+
+    if (night == NULL || m < 0.0f || !(night->setup == NIGHT_RIVER_SETUP || night->setup == NIGHT_VALLEY_SETUP)) {
+        return 0.0f;
+    }
+    if (m < m_dawn0 - MIST_GATHER || m >= m_day0) {
+        return 0.0f;
+    }
+    if (m < m_dawn1) {
+        w = (m - (m_dawn0 - MIST_GATHER)) / (m_dawn1 - (m_dawn0 - MIST_GATHER));
+    } else {
+        w = 1.0f - (m - m_dawn1) / (m_day0 - m_dawn1);
+    }
+    w = ease(w);
+    if (!cycle) {
+        f32 t = (f32) ticks_of(night) / MIST_RIDE_TICKS;
+
+        t = t > 1.0f ? 1.0f : t;
+        w *= 1.0f - (1.0f - MIST_RIDE_KEPT) * ease(t);
+    }
+    return w * clear_share;
+}
+
 // A glow band's corners: faded, and deepened toward a red violet as it goes.
 static void band_state(Vtx* v, const u8 colors[4][3], f32 fade, f32 late) {
     static const u8 deep[3] = { 205, 75, 115 };
@@ -3936,7 +4028,9 @@ static void lights_toward_day(void) {
 
 // The fog and the background in force: the day's, or under weather the
 // overcast's, so the far land and the sky's lid meet the flat sky; in a
-// cave both are the hour's own with no weather in them.
+// cave both are the hour's own with no weather in them. At dawn on a course
+// with a mist, the fog draws in and pales by the mist's share.
+#define MIST_FOG_DROP 18.0f         // how much nearer the fog begins at full mist (the rain's is 6, the snow's 10)
 static void fog_apply(void) {
     WorldSetup* setup = (WorldSetup*) night->setup;
     s32 share = (s32) (nightness * 256.0f);
@@ -3947,6 +4041,7 @@ static void fog_apply(void) {
     s32 fmax = day_fog_max + (((s32) fog_far - day_fog_max) * share) / 256;
     u8 fog[3], bg[3];
     u8 base[3];
+    f32 mist;
     s32 k;
 
     overcast_base(base);
@@ -3965,6 +4060,19 @@ static void fog_apply(void) {
         // painted sky's faces cover, and the dark of the hall that draws no
         // ceiling, which must stay the hour's own under weather.
         bg[k] = (u8) (wbg + (s32) ((f32) (cbg - wbg) * cave_now));
+    }
+    mist = mist_now();
+    if (mist > 0.0f) {
+        // The dawn's mist: the fog draws in and goes pale, a warm gray.
+        static const u8 pale[3] = { 226, 212, 214 };
+
+        fmin -= (s32) (MIST_FOG_DROP * mist);
+        for (k = 0; k < 3; k++) {
+            fog[k] = (u8) (fog[k] + (s32) ((f32) ((s32) pale[k] - fog[k]) * 0.8f * mist));
+        }
+    }
+    for (k = 0; k < 3; k++) {
+        mist_rgb[k] = (u8) (fog[k] + (255 - fog[k]) / 12);
     }
     setFogColor(fog[0], fog[1], fog[2]);
     setFogDistance((u16) fmin, (u16) fmax);     // the game reads the record's distances at the load alone
@@ -4834,7 +4942,7 @@ static void cycle_tick(void) {
     f32 m;
     s32 turning = 0;
 
-    if (night == NULL || scoring || !(cycle || dusk)) {
+    if (night == NULL || scoring || !(cycle || dusk || misty)) {
         return;
     }
     t = ticks_of(night);
@@ -4842,6 +4950,12 @@ static void cycle_tick(void) {
         return;
     }
     dusk_last = t;
+    if (!(cycle || dusk)) {
+        if (!storming) {
+            fog_apply();        // a fixed dawn's mist thins as the ride goes: the fog alone moves
+        }
+        return;
+    }
     m = mode_minutes();
     if (cycle) {
         turning = weather_tick();       // the island's weather moves with the clock
@@ -4936,6 +5050,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         clear_maps();
         flow_y_sum = 0.0f;
         flow_y_n = 0;
+        mist_said = 0;
         water_model = 0;
         glint_reset();
         sky_extent(by);

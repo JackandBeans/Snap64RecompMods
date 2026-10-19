@@ -59,6 +59,11 @@ extern Gfx night_snow_alpha[];
 extern Gfx night_glow_begin[];
 extern Gfx* const night_firefly_dots[];
 extern Gfx night_streak[];
+// the dawn's mist
+#define NIGHT_MIST_TILE 450.0f
+extern Gfx night_mist_sheet[];
+extern Gfx night_mist_begin[];
+extern Gfx night_mist_end[];
 
 // beach
 #define NIGHT_BEACH_SETUP 0x8011B914u

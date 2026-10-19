@@ -434,6 +434,96 @@ def make_fireflies(w, h):
     h.append('extern Gfx* const night_firefly_dots[];')
 
 
+MIST_RINGS = [0.0, 120.0, 260.0, 450.0, 700.0, 1000.0, 1400.0, 1900.0]   # the sheet's rings, units from the eye
+MIST_ALPHAS = [0, 40, 130, 230, 255, 240, 150, 0]                        # each ring's alpha: none at the eye, full a few hundred out, soft at the edge
+MIST_SPOKES = 12
+MIST_TILE = 450.0       # units of the world one tile of the picture covers
+
+
+def make_mist(w, h):
+    """The dawn's mist on the water: a sheet lying flat around the eye, rings of corners whose alpha
+    rises from nothing at the eye (so the camera is never inside a wall of it) to full a few hundred
+    units out and fades again at the far edge, under a soft tileable noise picture that the mod keeps
+    fixed to the world as the sheet rides with the eye. Drawn in two cycles: the picture by the
+    corner's alpha, then by the primitive's, which is the mist's thickness; the color is the
+    primitive's."""
+    rng = random.Random(3131)
+    size = 32
+
+    def lattice(n):
+        g = [[rng.random() for _ in range(n)] for _ in range(n)]
+        out = []
+        for y in range(size):
+            for x in range(size):
+                fx, fy = x * n / size, y * n / size
+                x0, y0 = int(fx), int(fy)
+                tx, ty = fx - x0, fy - y0
+                tx, ty = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
+                x1, y1 = (x0 + 1) % n, (y0 + 1) % n
+                out.append((g[y0][x0] * (1 - tx) + g[y0][x1] * tx) * (1 - ty) + (g[y1][x0] * (1 - tx) + g[y1][x1] * tx) * ty)
+        return out
+
+    a, b, c = lattice(4), lattice(8), lattice(16)
+    pic = [max(0, min(255, int(round(255 * (0.30 + 0.70 * (0.55 * a[i] + 0.30 * b[i] + 0.15 * c[i])))))) for i in range(size * size)]
+    w('static u8 night_mist_pic[] __attribute__((aligned(8))) = {')
+    for y in range(size):
+        w('    ' + ', '.join('%3d' % v for v in pic[y * size:(y + 1) * size]) + ',')
+    w('};')
+    scale = 32.0 * 32.0 / MIST_TILE      # s and t: a texel is 32, a tile 32 texels
+    w('static Vtx night_mist_vtx[] = {')
+    w('    { { { 0, 0, 0 }, 0, { 0, 0 }, { 255, 255, 255, %d } } },' % MIST_ALPHAS[0])
+    for r, alpha in zip(MIST_RINGS[1:], MIST_ALPHAS[1:]):
+        for k in range(MIST_SPOKES):
+            ang = 2 * math.pi * k / MIST_SPOKES
+            x, z = r * math.cos(ang), r * math.sin(ang)
+            w('    { { { %d, 0, %d }, 0, { %d, %d }, { 255, 255, 255, %d } } },' % (
+                int(round(x)), int(round(z)), int(round(x * scale)), int(round(z * scale)), alpha))
+    w('};')
+    w('Gfx night_mist_sheet[] = {')
+    w('    gsSPVertex(&night_mist_vtx[0], %d, 0),' % (1 + MIST_SPOKES))
+    for k in range(0, MIST_SPOKES, 2):
+        w('    gsSP2Triangles(0, %d, %d, 0, 0, %d, %d, 0),' % (
+            1 + k, 1 + (k + 1) % MIST_SPOKES, 1 + (k + 1) % MIST_SPOKES, 1 + (k + 2) % MIST_SPOKES))
+    for ring in range(1, len(MIST_RINGS) - 1):
+        first = 1 + (ring - 1) * MIST_SPOKES
+        w('    gsSPVertex(&night_mist_vtx[%d], %d, 0),' % (first, 2 * MIST_SPOKES))
+        for k in range(MIST_SPOKES):
+            a0, a1 = k, (k + 1) % MIST_SPOKES
+            b0, b1 = MIST_SPOKES + k, MIST_SPOKES + (k + 1) % MIST_SPOKES
+            w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (a0, b0, b1, a0, b1, a1))
+    w('    gsSPEndDisplayList(),')
+    w('};')
+    w('// The mist is drawn after the water, among the see-through things, in two cycles: the picture')
+    w("// by the corner's alpha, then by the primitive's, the thickness; the color is the primitive's.")
+    w('// The tile wraps, so the picture repeats over the sheet; the mod moves its origin (the tile')
+    w('// size) to keep it with the world as the sheet rides with the eye. The cycle type and the')
+    w("// geometry modes are left as the rain leaves them.")
+    w('Gfx night_mist_begin[] = {')
+    w('    gsDPPipeSync(),')
+    w('    gsDPSetCycleType(G_CYC_2CYCLE),')
+    w('    gsSPGeometryMode(G_LIGHTING | G_CULL_BACK | G_FOG | G_TEXTURE_GEN, G_ZBUFFER | G_SHADE),')
+    w('    gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON),')
+    w('    gsDPSetTextureLUT(G_TT_NONE),')
+    w('    gsDPLoadTextureBlock(night_mist_pic, G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0, G_TX_WRAP, G_TX_WRAP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),')
+    w('    gsDPSetCombineLERP(0, 0, 0, PRIMITIVE, TEXEL0, 0, SHADE, 0, 0, 0, 0, COMBINED, COMBINED, 0, PRIMITIVE, 0),')
+    w('    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2),')
+    w('    gsSPEndDisplayList(),')
+    w('};')
+    w('Gfx night_mist_end[] = {')
+    w('    gsDPPipeSync(),')
+    w('    gsDPSetCycleType(G_CYC_1CYCLE),')
+    w('    gsSPGeometryMode(0, G_LIGHTING | G_CULL_BACK),')
+    w('    gsSPEndDisplayList(),')
+    w('};')
+    w('')
+    h.append('')
+    h.append("// the dawn's mist")
+    h.append('#define NIGHT_MIST_TILE %.1ff' % MIST_TILE)
+    h.append('extern Gfx night_mist_sheet[];')
+    h.append('extern Gfx night_mist_begin[];')
+    h.append('extern Gfx night_mist_end[];')
+
+
 def make_glow(w, h, built):
     """The additive glow state (the rain's state with an adding blend, which the moon's glint on the
     water draws with too), the River's fireflies and the shooting star's streak."""
@@ -470,6 +560,7 @@ def make_glow(w, h, built):
     w('};')
     w('')
     h.append('extern Gfx night_streak[];')
+    make_mist(w, h)
 
 
 def make_snow(w, h):
