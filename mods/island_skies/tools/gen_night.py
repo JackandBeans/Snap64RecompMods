@@ -435,9 +435,11 @@ def make_fireflies(w, h):
 
 
 MIST_RINGS = [0.0, 120.0, 260.0, 450.0, 700.0, 1000.0, 1400.0, 1900.0]   # the sheet's rings, units from the eye
-MIST_ALPHAS = [0, 40, 130, 230, 255, 240, 150, 0]                        # each ring's alpha: none at the eye, full a few hundred out, soft at the edge
+MIST_ALPHAS = [0, 20, 70, 160, 220, 230, 150, 0]                         # each ring's alpha: none at the eye, faint near the cart, fullest in the middle distance, soft at the edge
 MIST_SPOKES = 12
 MIST_TILE = 450.0       # units of the world one tile of the picture covers
+MIST_CLEAR = 0.35       # the noise below this is open water; the noise lies about 0.5, up to about 0.8
+MIST_FULL = 0.80        # and at this it is a wisp's full thickness
 
 
 def make_mist(w, h):
@@ -464,7 +466,9 @@ def make_mist(w, h):
         return out
 
     a, b, c = lattice(4), lattice(8), lattice(16)
-    pic = [max(0, min(255, int(round(255 * (0.30 + 0.70 * (0.55 * a[i] + 0.30 * b[i] + 0.15 * c[i])))))) for i in range(size * size)]
+    # Wisps with clear water between: the noise below MIST_CLEAR is nothing, and the rest rises to
+    # full, so about a third of the sheet is open and the mist lies in drifts, not as a film.
+    pic = [max(0, min(255, int(round(255 * ((0.55 * a[i] + 0.30 * b[i] + 0.15 * c[i]) - MIST_CLEAR) / (MIST_FULL - MIST_CLEAR))))) for i in range(size * size)]
     w('static u8 night_mist_pic[] __attribute__((aligned(8))) = {')
     for y in range(size):
         w('    ' + ', '.join('%3d' % v for v in pic[y * size:(y + 1) * size]) + ',')

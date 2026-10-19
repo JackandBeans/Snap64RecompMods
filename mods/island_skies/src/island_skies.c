@@ -2470,18 +2470,20 @@ static void fireflies(GObj* sky) {
 }
 
 // The mist's sheet: night_data's rings, laid flat just over the water, its
-// picture kept with the world as the sheet rides with the eye and drifting
-// slowly on the clock, its thickness the mist's at this instant and its
-// color the fog's, a little lighter. Drawn right after the water, as the
-// fireflies are, so the water does not paint over it. Where the course's
-// water is flat (the River) the sheet lies at the water's own recorded
-// height; where it is not (the Valley's rapids and falls) it lies a set
-// way under the eye, which rides on the water. The first cut hung it 36
-// under the eye everywhere, which stood it over the River's water, and it
-// veiled the logs and the banks' feet (JackandBeans, Oct 18 2026).
+// picture (wisps, with open water between) kept with the world as the sheet
+// rides with the eye and drifting slowly on the clock, its thickness the
+// mist's at this instant and its color the fog's, a little lighter. Drawn
+// right after the water, as the fireflies are, so the water does not paint
+// over it. Where the course's water is flat (the River) the sheet lies at
+// the water's own recorded height; where it is not (the Valley's rapids and
+// falls) it lies a set way under the eye, which rides on the water. The
+// first cut hung it 36 under the eye everywhere, which stood it over the
+// River's water, and it veiled the logs and the banks' feet (JackandBeans,
+// Oct 18 2026); the second lay as a film over all the water and was still
+// too much (Oct 19).
 #define MIST_OVER 3.0f          // how far over a flat water the sheet lies
 #define MIST_BELOW 60.0f        // how far under the eye it lies where the water is not flat
-#define MIST_ALPHA 120.0f       // the sheet's alpha at full mist, where its corners are full
+#define MIST_ALPHA 100.0f       // the sheet's alpha at full mist, where its corners and its picture are full
 static void mist_at(GObj* sky, f32 share) {
     Gfx** list = &MAIN_GFX_POS[1];
     DObj* eye = sky->data.dobj;
@@ -4077,8 +4079,8 @@ static void lights_toward_day(void) {
 // overcast's, so the far land and the sky's lid meet the flat sky; in a
 // cave both are the hour's own with no weather in them. At dawn on a course
 // with a mist, the fog draws in a little and pales by the mist's share.
-#define MIST_FOG_DROP 8.0f          // how much nearer the fog begins at full mist (the rain's is 6, the snow's 10)
-#define MIST_FOG_PALE 0.4f          // how far from the sky's horizon toward the pale the fog goes at full mist
+#define MIST_FOG_DROP 4.0f          // how much nearer the fog begins at full mist (the rain's is 6, the snow's 10)
+#define MIST_FOG_PALE 0.25f         // how far from the sky's horizon toward the pale the fog goes at full mist
 static void fog_apply(void) {
     WorldSetup* setup = (WorldSetup*) night->setup;
     s32 share = (s32) (nightness * 256.0f);
@@ -4115,7 +4117,8 @@ static void fog_apply(void) {
         // own horizon color part of the way to a pale gray, so the far land
         // fades into a lighter sky and not into white. The first cut pulled
         // the fog most of the way to a near white and drew it in far, and the
-        // walls and the logs went white (JackandBeans, Oct 18 2026).
+        // walls and the logs went white (JackandBeans, Oct 18 2026); the
+        // second cut's two fifths was still too much (Oct 19).
         static const u8 pale[3] = { 204, 196, 204 };
 
         fmin -= (s32) (MIST_FOG_DROP * mist);
