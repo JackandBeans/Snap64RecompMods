@@ -25,7 +25,11 @@
   The first cut pulled the fog most of the way to white and hung the
   sheet over the water, and the walls and the logs went white
   (JackandBeans, Oct 18 2026); the second lay as a film over all the
-  water and was still too much (Oct 19 2026).
+  water and was still too much (Oct 19 2026); the third moved its
+  picture in jumps of a texel against the gliding world, which read as
+  the mist moving oddly and standing out of place (JackandBeans, Oct 19
+  2026), so the wisps now take their place on the water from each
+  corner's own coordinates, written as the sheet is drawn.
 
 ## 1.1.1
 

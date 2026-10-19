@@ -445,10 +445,10 @@ MIST_FULL = 0.80        # and at this it is a wisp's full thickness
 def make_mist(w, h):
     """The dawn's mist on the water: a sheet lying flat around the eye, rings of corners whose alpha
     rises from nothing at the eye (so the camera is never inside a wall of it) to full a few hundred
-    units out and fades again at the far edge, under a soft tileable noise picture that the mod keeps
-    fixed to the world as the sheet rides with the eye. Drawn in two cycles: the picture by the
-    corner's alpha, then by the primitive's, which is the mist's thickness; the color is the
-    primitive's."""
+    units out and fades again at the far edge, under a tileable noise picture of wisps that the mod
+    keeps fixed to the world as the sheet rides with the eye, by writing each corner's s and t at
+    each draw. Drawn in two cycles: the picture by the corner's alpha, then by the primitive's,
+    which is the mist's thickness; the color is the primitive's."""
     rng = random.Random(3131)
     size = 32
 
@@ -473,35 +473,42 @@ def make_mist(w, h):
     for y in range(size):
         w('    ' + ', '.join('%3d' % v for v in pic[y * size:(y + 1) * size]) + ',')
     w('};')
-    scale = 32.0 * 32.0 / MIST_TILE      # s and t: a texel is 32, a tile 32 texels
-    w('static Vtx night_mist_vtx[] = {')
-    w('    { { { 0, 0, 0 }, 0, { 0, 0 }, { 255, 255, 255, %d } } },' % MIST_ALPHAS[0])
+    # The corners' s and t are written by the mod at each draw (mist_at): each corner's place in the
+    # world, so the picture stays with the world as the sheet rides with the eye, with a slow drift.
+    # Two copies, for the ride's draw and a photo's in one frame, each with its own list.
+    corners = [(0, 0, MIST_ALPHAS[0])]
     for r, alpha in zip(MIST_RINGS[1:], MIST_ALPHAS[1:]):
         for k in range(MIST_SPOKES):
             ang = 2 * math.pi * k / MIST_SPOKES
-            x, z = r * math.cos(ang), r * math.sin(ang)
-            w('    { { { %d, 0, %d }, 0, { %d, %d }, { 255, 255, 255, %d } } },' % (
-                int(round(x)), int(round(z)), int(round(x * scale)), int(round(z * scale)), alpha))
+            corners.append((int(round(r * math.cos(ang))), int(round(r * math.sin(ang))), alpha))
+    w('Vtx night_mist_vtx[2][%d] = {' % len(corners))
+    for copy in range(2):
+        w('    {')
+        for x, z, alpha in corners:
+            w('        { { { %d, 0, %d }, 0, { 0, 0 }, { 255, 255, 255, %d } } },' % (x, z, alpha))
+        w('    },')
     w('};')
-    w('Gfx night_mist_sheet[] = {')
-    w('    gsSPVertex(&night_mist_vtx[0], %d, 0),' % (1 + MIST_SPOKES))
-    for k in range(0, MIST_SPOKES, 2):
-        w('    gsSP2Triangles(0, %d, %d, 0, 0, %d, %d, 0),' % (
-            1 + k, 1 + (k + 1) % MIST_SPOKES, 1 + (k + 1) % MIST_SPOKES, 1 + (k + 2) % MIST_SPOKES))
-    for ring in range(1, len(MIST_RINGS) - 1):
-        first = 1 + (ring - 1) * MIST_SPOKES
-        w('    gsSPVertex(&night_mist_vtx[%d], %d, 0),' % (first, 2 * MIST_SPOKES))
-        for k in range(MIST_SPOKES):
-            a0, a1 = k, (k + 1) % MIST_SPOKES
-            b0, b1 = MIST_SPOKES + k, MIST_SPOKES + (k + 1) % MIST_SPOKES
-            w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (a0, b0, b1, a0, b1, a1))
-    w('    gsSPEndDisplayList(),')
-    w('};')
+    for copy in range(2):
+        w('static Gfx night_mist_sheet%d[] = {' % copy)
+        w('    gsSPVertex(&night_mist_vtx[%d][0], %d, 0),' % (copy, 1 + MIST_SPOKES))
+        for k in range(0, MIST_SPOKES, 2):
+            w('    gsSP2Triangles(0, %d, %d, 0, 0, %d, %d, 0),' % (
+                1 + k, 1 + (k + 1) % MIST_SPOKES, 1 + (k + 1) % MIST_SPOKES, 1 + (k + 2) % MIST_SPOKES))
+        for ring in range(1, len(MIST_RINGS) - 1):
+            first = 1 + (ring - 1) * MIST_SPOKES
+            w('    gsSPVertex(&night_mist_vtx[%d][%d], %d, 0),' % (copy, first, 2 * MIST_SPOKES))
+            for k in range(MIST_SPOKES):
+                a0, a1 = k, (k + 1) % MIST_SPOKES
+                b0, b1 = MIST_SPOKES + k, MIST_SPOKES + (k + 1) % MIST_SPOKES
+                w('    gsSP2Triangles(%d, %d, %d, 0, %d, %d, %d, 0),' % (a0, b0, b1, a0, b1, a1))
+        w('    gsSPEndDisplayList(),')
+        w('};')
+    w('Gfx* const night_mist_sheets[2] = { night_mist_sheet0, night_mist_sheet1 };')
     w('// The mist is drawn after the water, among the see-through things, in two cycles: the picture')
     w("// by the corner's alpha, then by the primitive's, the thickness; the color is the primitive's.")
-    w('// The tile wraps, so the picture repeats over the sheet; the mod moves its origin (the tile')
-    w('// size) to keep it with the world as the sheet rides with the eye. The cycle type and the')
-    w("// geometry modes are left as the rain leaves them.")
+    w("// The tile wraps, so the picture repeats over the sheet by the corners' s and t, which the mod")
+    w('// writes at each draw to keep it with the world. The cycle type and the geometry modes are')
+    w("// left as the rain leaves them.")
     w('Gfx night_mist_begin[] = {')
     w('    gsDPPipeSync(),')
     w('    gsDPSetCycleType(G_CYC_2CYCLE),')
@@ -523,7 +530,9 @@ def make_mist(w, h):
     h.append('')
     h.append("// the dawn's mist")
     h.append('#define NIGHT_MIST_TILE %.1ff' % MIST_TILE)
-    h.append('extern Gfx night_mist_sheet[];')
+    h.append('#define NIGHT_MIST_VTX_N %d' % (1 + MIST_SPOKES * (len(MIST_RINGS) - 1)))
+    h.append('extern Vtx night_mist_vtx[2][NIGHT_MIST_VTX_N];    // the sheet\'s corners, a copy a draw; s and t written by the mod')
+    h.append('extern Gfx* const night_mist_sheets[2];             // the sheet drawn from each copy')
     h.append('extern Gfx night_mist_begin[];')
     h.append('extern Gfx night_mist_end[];')
 

@@ -2471,8 +2471,9 @@ static void fireflies(GObj* sky) {
 
 // The mist's sheet: night_data's rings, laid flat just over the water, its
 // picture (wisps, with open water between) kept with the world as the sheet
-// rides with the eye and drifting slowly on the clock, its thickness the
-// mist's at this instant and its color the fog's, a little lighter. Drawn
+// rides with the eye, by the corners' own s and t written at each draw, and
+// drifting slowly on the clock, its thickness the mist's at this instant and
+// its color the fog's, a little lighter. Drawn
 // right after the water, as the fireflies are, so the water does not paint
 // over it. Where the course's water is flat (the River) the sheet lies at
 // the water's own recorded height; where it is not (the Valley's rapids and
@@ -2482,16 +2483,19 @@ static void fireflies(GObj* sky) {
 // Oct 18 2026); the second lay as a film over all the water and was still
 // too much (Oct 19).
 #define MIST_OVER 3.0f          // how far over a flat water the sheet lies
-#define MIST_BELOW 60.0f        // how far under the eye it lies where the water is not flat
+#define MIST_BELOW 97.0f        // how far under the eye it lies where the water is not flat (the eye rides 100 over the River's)
+#define MIST_DRIFT_X (NIGHT_MIST_TILE / 3600.0f)    // the picture's drift, units a tick: a tile a minute along x
+#define MIST_DRIFT_Z (NIGHT_MIST_TILE / 4500.0f)    // and a tile in 75 seconds along z
 #define MIST_ALPHA 100.0f       // the sheet's alpha at full mist, where its corners and its picture are full
 static void mist_at(GObj* sky, f32 share) {
     Gfx** list = &MAIN_GFX_POS[1];
     DObj* eye = sky->data.dobj;
     u32 ticks = ticks_of(night);
     Mtx* mtx = &mist_mtx[glow_turn];
-    f32 per = 32.0f / NIGHT_MIST_TILE;      // texels a unit
-    f32 y;
-    s32 us, ut;
+    Vtx* v = night_mist_vtx[glow_turn];
+    f32 per = 32.0f * 32.0f / NIGHT_MIST_TILE;  // a corner's s and t (a texel is 32) a unit of the world
+    f32 y, ox, oz;
+    s32 k;
 
     if (eye == NULL || *list == NULL) {
         return;
@@ -2501,19 +2505,25 @@ static void mist_at(GObj* sky, f32 share) {
         y = flow_y_max + MIST_OVER;
     }
     place(mtx, eye->position.v.x, y, eye->position.v.z);
-    // The tile's origin moves against the eye, so the picture stays with the
-    // world, and on with the clock, a texel every two seconds or so, so that
-    // it drifts.
-    us = (-(s32) (eye->position.v.x * per) + (s32) (ticks / 120)) & 31;
-    ut = (-(s32) (eye->position.v.z * per) + (s32) (ticks / 150)) & 31;
+    // The picture stays with the world: each corner's s and t are its place
+    // in the world, less a whole number of tiles so they fit the corner's
+    // sixteen bits, plus a slow drift on the clock, written at each draw into
+    // this turn's copy of the corners. The second and third cuts moved the
+    // tile's origin a whole texel at a time, 14 units, and the picture went
+    // in jumps against the gliding world (JackandBeans, Oct 19 2026).
+    ox = eye->position.v.x - (f32) ((s32) (eye->position.v.x / NIGHT_MIST_TILE)) * NIGHT_MIST_TILE + (f32) (ticks % 3600) * MIST_DRIFT_X;
+    oz = eye->position.v.z - (f32) ((s32) (eye->position.v.z / NIGHT_MIST_TILE)) * NIGHT_MIST_TILE + (f32) (ticks % 4500) * MIST_DRIFT_Z;
+    for (k = 0; k < NIGHT_MIST_VTX_N; k++) {
+        v[k].v.tc[0] = (s16) (((f32) v[k].v.ob[0] + ox) * per);
+        v[k].v.tc[1] = (s16) (((f32) v[k].v.ob[2] + oz) * per);
+    }
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_mist_begin);
-    gDPSetTileSize((*list)++, G_TX_RENDERTILE, us << 2, ut << 2, (us + 31) << 2, (ut + 31) << 2);
     gDPSetPrimColor((*list)++, 0, 0, mist_rgb[0], mist_rgb[1], mist_rgb[2], (u32) (MIST_ALPHA * share));
     command(list, (0x64u << 24) | 0x00000Cu, 0x4D490000u);
     command(list, 0x00002829u, 0);
     gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-    gSPDisplayList((*list)++, night_mist_sheet);
+    gSPDisplayList((*list)++, night_mist_sheets[glow_turn]);
     gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
     command(list, (0x64u << 24) | 0x00000Du, 1);
     gSPDisplayList((*list)++, night_mist_end);
