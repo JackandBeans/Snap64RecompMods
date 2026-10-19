@@ -387,14 +387,14 @@ SNOW_HEIGHT = 1000      # a sheet's height
 
 
 FIREFLY_GROUPS = 4
-FIREFLY_DOTS = 12
+FIREFLY_DOTS = 8
 
 
 def make_fireflies(w, h):
     """The River's fireflies: small dots around the camera, in a ring from 160 to 700 units, from a
     little below the eye to a little above it, near the water. Each group stands under a matrix of its
     own, which the mod drifts, and each dot has a list of its own, so that the mod lights the dots one
-    by one, each flashing at moments of its own."""
+    by one, each flashing at moments of its own, few and far between."""
     rng = random.Random(4242)
     for g in range(FIREFLY_GROUPS):
         verts = []

@@ -2,15 +2,17 @@
 
 ## 1.1.2
 
-- The River's fireflies are fewer and calmer. Each flashes by itself,
-  a quick rise and a fade over half a second, once every three to six
-  seconds at a moment of its own, so a handful are lit at any instant
-  and never the same ones together. 1.1.1 lit them sixteen at a time,
-  in four groups that each glowed for a second and a half of every
-  three, and the water swarmed. There are 48 where there were 64, each
-  smaller and dimmer, and they keep near the water, from a little below
-  the camera to a little above it, where some hung high in the sky.
-  Asked for by JackandBeans on Oct 18 2026.
+- The River's fireflies are few and seldom. Each flashes by itself,
+  a soft rise and a longer fade under a second in all, at a moment of
+  its own drawn afresh every twelve seconds, five times in eight, so no
+  two keep time and no stretch of the ride repeats; a flash shows
+  somewhere every few seconds. 1.1.1 lit them sixteen at a time, in four
+  groups that each glowed for a second and a half of every three, and
+  the water swarmed. There are 32 where there were 64, each smaller and
+  dimmer, and they keep near the water, from a little below the camera
+  to a little above it, where some hung high in the sky. Asked for by
+  JackandBeans on Oct 18 2026, twice: the first cut still blinked too
+  fast and too often.
 - A mist at dawn on the River and the Valley: the fog draws in and goes
   a pale warm gray, and a sheet of it lies on the water, drifting, with
   the banks standing out of it. It gathers through the night's last hour,

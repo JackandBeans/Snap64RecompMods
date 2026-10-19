@@ -2374,14 +2374,56 @@ static void embers(void) {
 }
 
 // Fireflies: four groups of small dots around the camera, near the water,
-// each group drifting on slow waves of its own. Each dot flashes by itself:
-// a quick rise and a fade, half a second in all, once every three to six
-// seconds at a moment of its own, so a handful are lit at any instant and
-// never the same ones together. A photo keeps the flashes of its instant,
-// as it keeps the twinkle.
-#define FIREFLY_RISE 6          // ticks: a tenth of a second up
-#define FIREFLY_LIT 36          // ticks: the whole flash, rise and fade
-#define FIREFLY_PEAK 190        // the brightest it gets, of 255
+// each group drifting on slow waves of its own. Each dot flashes by itself
+// and seldom: its time is cut into spans of twelve seconds, and in each
+// span a draw from the span's number and the dot's own says whether it
+// flashes at all (five spans in eight) and when, so no two spans are alike
+// and no two dots keep time together; the flash is a soft rise, a moment
+// held, and a longer fade, under a second in all. A photo keeps the flashes
+// of its instant, as it keeps the twinkle.
+#define FIREFLY_SPAN 720        // ticks: twelve seconds
+#define FIREFLY_ODDS 5          // of 8: how many spans have a flash
+#define FIREFLY_RISE 12         // ticks: the rise
+#define FIREFLY_HOLD 6          // held at the top
+#define FIREFLY_FADE 36         // and the fade
+#define FIREFLY_LIT (FIREFLY_RISE + FIREFLY_HOLD + FIREFLY_FADE)
+#define FIREFLY_PEAK 150        // the brightest it gets, of 255
+
+// A draw for a dot and a span: the same numbers in, the same number out.
+static u32 firefly_draw(u32 dot, u32 span) {
+    u32 x = dot * 0x9E3779B1u ^ span * 0x85EBCA77u;
+
+    x ^= x >> 15;
+    x *= 0x2C1B3C6Du;
+    x ^= x >> 12;
+    return x;
+}
+
+// How bright a dot is at an instant, 0 when dark.
+static s32 firefly_bright(u32 dot, u32 ticks) {
+    u32 t = ticks + dot * 97;           // each dot's spans begin at a moment of its own
+    u32 span = t / FIREFLY_SPAN;
+    u32 in = t - span * FIREFLY_SPAN;
+    u32 draw = firefly_draw(dot, span);
+    u32 at;
+
+    if ((draw & 7) >= FIREFLY_ODDS) {
+        return 0;
+    }
+    at = (draw >> 3) % (FIREFLY_SPAN - FIREFLY_LIT);
+    if (in < at || in >= at + FIREFLY_LIT) {
+        return 0;
+    }
+    in -= at;
+    if (in < FIREFLY_RISE) {
+        return (s32) (in + 1) * FIREFLY_PEAK / FIREFLY_RISE;
+    }
+    if (in < FIREFLY_RISE + FIREFLY_HOLD) {
+        return FIREFLY_PEAK;
+    }
+    return (s32) (FIREFLY_LIT - in) * FIREFLY_PEAK / FIREFLY_FADE;
+}
+
 static void fireflies(GObj* sky) {
     Gfx** list = &MAIN_GFX_POS[1];
     DObj* eye = sky->data.dobj;
@@ -2403,17 +2445,10 @@ static void fireflies(GObj* sky) {
 
         for (i = 0; i < NIGHT_FIREFLY_DOTS; i++) {
             u32 k = g * NIGHT_FIREFLY_DOTS + i;
-            u32 span = 200 + ((k * 37) % 160);   // this dot's own: three and a third to six seconds
-            u32 at = (ticks + k * 97) % span;    // where in its span the instant falls
-            s32 bright;
+            s32 bright = firefly_bright(k, ticks);
 
-            if (at >= FIREFLY_LIT) {
+            if (bright <= 0) {
                 continue;
-            }
-            if (at < FIREFLY_RISE) {
-                bright = (s32) (at + 1) * FIREFLY_PEAK / FIREFLY_RISE;
-            } else {
-                bright = (s32) (FIREFLY_LIT - at) * FIREFLY_PEAK / (FIREFLY_LIT - FIREFLY_RISE);
             }
             if (!opened) {
                 opened = 1;

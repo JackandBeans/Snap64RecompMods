@@ -113552,38 +113552,6 @@ static Vtx night_firefly_vtx0[] = {
     V(-177, -47, 374, 512, 512, 210, 255, 130),
     V(-177, -40, 374, 512, 0, 210, 255, 130),
     V(-177, -40, 367, 0, 0, 210, 255, 130),
-    V(-481, 17, 46, 0, 512, 210, 255, 130),
-    V(-474, 17, 46, 512, 512, 210, 255, 130),
-    V(-474, 25, 46, 512, 0, 210, 255, 130),
-    V(-481, 25, 46, 0, 0, 210, 255, 130),
-    V(-478, 17, 42, 0, 512, 210, 255, 130),
-    V(-478, 17, 49, 512, 512, 210, 255, 130),
-    V(-478, 25, 49, 512, 0, 210, 255, 130),
-    V(-478, 25, 42, 0, 0, 210, 255, 130),
-    V(-322, -3, 44, 0, 512, 210, 255, 130),
-    V(-314, -3, 44, 512, 512, 210, 255, 130),
-    V(-314, 5, 44, 512, 0, 210, 255, 130),
-    V(-322, 5, 44, 0, 0, 210, 255, 130),
-    V(-318, -3, 40, 0, 512, 210, 255, 130),
-    V(-318, -3, 48, 512, 512, 210, 255, 130),
-    V(-318, 5, 48, 512, 0, 210, 255, 130),
-    V(-318, 5, 40, 0, 0, 210, 255, 130),
-    V(-671, 25, 82, 0, 512, 210, 255, 130),
-    V(-664, 25, 82, 512, 512, 210, 255, 130),
-    V(-664, 32, 82, 512, 0, 210, 255, 130),
-    V(-671, 32, 82, 0, 0, 210, 255, 130),
-    V(-668, 25, 78, 0, 512, 210, 255, 130),
-    V(-668, 25, 86, 512, 512, 210, 255, 130),
-    V(-668, 32, 86, 512, 0, 210, 255, 130),
-    V(-668, 32, 78, 0, 0, 210, 255, 130),
-    V(266, -16, -512, 0, 512, 210, 255, 130),
-    V(272, -16, -512, 512, 512, 210, 255, 130),
-    V(272, -10, -512, 512, 0, 210, 255, 130),
-    V(266, -10, -512, 0, 0, 210, 255, 130),
-    V(269, -16, -515, 0, 512, 210, 255, 130),
-    V(269, -16, -509, 512, 512, 210, 255, 130),
-    V(269, -10, -509, 512, 0, 210, 255, 130),
-    V(269, -10, -515, 0, 0, 210, 255, 130),
 };
 static Gfx night_firefly_dot0_0[] = {
     gsSPVertex(&night_firefly_vtx0[0], 8, 0),
@@ -113633,32 +113601,40 @@ static Gfx night_firefly_dot0_7[] = {
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot0_8[] = {
-    gsSPVertex(&night_firefly_vtx0[64], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot0_9[] = {
-    gsSPVertex(&night_firefly_vtx0[72], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot0_10[] = {
-    gsSPVertex(&night_firefly_vtx0[80], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot0_11[] = {
-    gsSPVertex(&night_firefly_vtx0[88], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
 
 static Vtx night_firefly_vtx1[] = {
+    V(-481, 17, 46, 0, 512, 210, 255, 130),
+    V(-474, 17, 46, 512, 512, 210, 255, 130),
+    V(-474, 25, 46, 512, 0, 210, 255, 130),
+    V(-481, 25, 46, 0, 0, 210, 255, 130),
+    V(-478, 17, 42, 0, 512, 210, 255, 130),
+    V(-478, 17, 49, 512, 512, 210, 255, 130),
+    V(-478, 25, 49, 512, 0, 210, 255, 130),
+    V(-478, 25, 42, 0, 0, 210, 255, 130),
+    V(-322, -3, 44, 0, 512, 210, 255, 130),
+    V(-314, -3, 44, 512, 512, 210, 255, 130),
+    V(-314, 5, 44, 512, 0, 210, 255, 130),
+    V(-322, 5, 44, 0, 0, 210, 255, 130),
+    V(-318, -3, 40, 0, 512, 210, 255, 130),
+    V(-318, -3, 48, 512, 512, 210, 255, 130),
+    V(-318, 5, 48, 512, 0, 210, 255, 130),
+    V(-318, 5, 40, 0, 0, 210, 255, 130),
+    V(-671, 25, 82, 0, 512, 210, 255, 130),
+    V(-664, 25, 82, 512, 512, 210, 255, 130),
+    V(-664, 32, 82, 512, 0, 210, 255, 130),
+    V(-671, 32, 82, 0, 0, 210, 255, 130),
+    V(-668, 25, 78, 0, 512, 210, 255, 130),
+    V(-668, 25, 86, 512, 512, 210, 255, 130),
+    V(-668, 32, 86, 512, 0, 210, 255, 130),
+    V(-668, 32, 78, 0, 0, 210, 255, 130),
+    V(266, -16, -512, 0, 512, 210, 255, 130),
+    V(272, -16, -512, 512, 512, 210, 255, 130),
+    V(272, -10, -512, 512, 0, 210, 255, 130),
+    V(266, -10, -512, 0, 0, 210, 255, 130),
+    V(269, -16, -515, 0, 512, 210, 255, 130),
+    V(269, -16, -509, 512, 512, 210, 255, 130),
+    V(269, -10, -509, 512, 0, 210, 255, 130),
+    V(269, -10, -515, 0, 0, 210, 255, 130),
     V(87, -22, 553, 0, 512, 210, 255, 130),
     V(95, -22, 553, 512, 512, 210, 255, 130),
     V(95, -15, 553, 512, 0, 210, 255, 130),
@@ -113691,6 +113667,57 @@ static Vtx night_firefly_vtx1[] = {
     V(138, -61, 106, 512, 512, 210, 255, 130),
     V(138, -54, 106, 512, 0, 210, 255, 130),
     V(138, -54, 99, 0, 0, 210, 255, 130),
+};
+static Gfx night_firefly_dot1_0[] = {
+    gsSPVertex(&night_firefly_vtx1[0], 8, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
+    gsSPEndDisplayList(),
+};
+static Gfx night_firefly_dot1_1[] = {
+    gsSPVertex(&night_firefly_vtx1[8], 8, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
+    gsSPEndDisplayList(),
+};
+static Gfx night_firefly_dot1_2[] = {
+    gsSPVertex(&night_firefly_vtx1[16], 8, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
+    gsSPEndDisplayList(),
+};
+static Gfx night_firefly_dot1_3[] = {
+    gsSPVertex(&night_firefly_vtx1[24], 8, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
+    gsSPEndDisplayList(),
+};
+static Gfx night_firefly_dot1_4[] = {
+    gsSPVertex(&night_firefly_vtx1[32], 8, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
+    gsSPEndDisplayList(),
+};
+static Gfx night_firefly_dot1_5[] = {
+    gsSPVertex(&night_firefly_vtx1[40], 8, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
+    gsSPEndDisplayList(),
+};
+static Gfx night_firefly_dot1_6[] = {
+    gsSPVertex(&night_firefly_vtx1[48], 8, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
+    gsSPEndDisplayList(),
+};
+static Gfx night_firefly_dot1_7[] = {
+    gsSPVertex(&night_firefly_vtx1[56], 8, 0),
+    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
+    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
+    gsSPEndDisplayList(),
+};
+
+static Vtx night_firefly_vtx2[] = {
     V(-447, 16, -310, 0, 512, 210, 255, 130),
     V(-441, 16, -310, 512, 512, 210, 255, 130),
     V(-441, 22, -310, 512, 0, 210, 255, 130),
@@ -113756,80 +113783,56 @@ static Vtx night_firefly_vtx1[] = {
     V(-341, -24, 80, 512, 0, 210, 255, 130),
     V(-341, -24, 72, 0, 0, 210, 255, 130),
 };
-static Gfx night_firefly_dot1_0[] = {
-    gsSPVertex(&night_firefly_vtx1[0], 8, 0),
+static Gfx night_firefly_dot2_0[] = {
+    gsSPVertex(&night_firefly_vtx2[0], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot1_1[] = {
-    gsSPVertex(&night_firefly_vtx1[8], 8, 0),
+static Gfx night_firefly_dot2_1[] = {
+    gsSPVertex(&night_firefly_vtx2[8], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot1_2[] = {
-    gsSPVertex(&night_firefly_vtx1[16], 8, 0),
+static Gfx night_firefly_dot2_2[] = {
+    gsSPVertex(&night_firefly_vtx2[16], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot1_3[] = {
-    gsSPVertex(&night_firefly_vtx1[24], 8, 0),
+static Gfx night_firefly_dot2_3[] = {
+    gsSPVertex(&night_firefly_vtx2[24], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot1_4[] = {
-    gsSPVertex(&night_firefly_vtx1[32], 8, 0),
+static Gfx night_firefly_dot2_4[] = {
+    gsSPVertex(&night_firefly_vtx2[32], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot1_5[] = {
-    gsSPVertex(&night_firefly_vtx1[40], 8, 0),
+static Gfx night_firefly_dot2_5[] = {
+    gsSPVertex(&night_firefly_vtx2[40], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot1_6[] = {
-    gsSPVertex(&night_firefly_vtx1[48], 8, 0),
+static Gfx night_firefly_dot2_6[] = {
+    gsSPVertex(&night_firefly_vtx2[48], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot1_7[] = {
-    gsSPVertex(&night_firefly_vtx1[56], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot1_8[] = {
-    gsSPVertex(&night_firefly_vtx1[64], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot1_9[] = {
-    gsSPVertex(&night_firefly_vtx1[72], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot1_10[] = {
-    gsSPVertex(&night_firefly_vtx1[80], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot1_11[] = {
-    gsSPVertex(&night_firefly_vtx1[88], 8, 0),
+static Gfx night_firefly_dot2_7[] = {
+    gsSPVertex(&night_firefly_vtx2[56], 8, 0),
     gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
 
-static Vtx night_firefly_vtx2[] = {
+static Vtx night_firefly_vtx3[] = {
     V(-141, -18, 319, 0, 512, 210, 255, 130),
     V(-133, -18, 319, 512, 512, 210, 255, 130),
     V(-133, -10, 319, 512, 0, 210, 255, 130),
@@ -113894,209 +113897,6 @@ static Vtx night_firefly_vtx2[] = {
     V(165, -52, -210, 512, 512, 210, 255, 130),
     V(165, -46, -210, 512, 0, 210, 255, 130),
     V(165, -46, -216, 0, 0, 210, 255, 130),
-    V(368, 8, -347, 0, 512, 210, 255, 130),
-    V(373, 8, -347, 512, 512, 210, 255, 130),
-    V(373, 13, -347, 512, 0, 210, 255, 130),
-    V(368, 13, -347, 0, 0, 210, 255, 130),
-    V(371, 8, -350, 0, 512, 210, 255, 130),
-    V(371, 8, -344, 512, 512, 210, 255, 130),
-    V(371, 13, -344, 512, 0, 210, 255, 130),
-    V(371, 13, -350, 0, 0, 210, 255, 130),
-    V(-162, 31, 426, 0, 512, 210, 255, 130),
-    V(-156, 31, 426, 512, 512, 210, 255, 130),
-    V(-156, 37, 426, 512, 0, 210, 255, 130),
-    V(-162, 37, 426, 0, 0, 210, 255, 130),
-    V(-159, 31, 422, 0, 512, 210, 255, 130),
-    V(-159, 31, 429, 512, 512, 210, 255, 130),
-    V(-159, 37, 429, 512, 0, 210, 255, 130),
-    V(-159, 37, 422, 0, 0, 210, 255, 130),
-    V(404, -38, -461, 0, 512, 210, 255, 130),
-    V(409, -38, -461, 512, 512, 210, 255, 130),
-    V(409, -32, -461, 512, 0, 210, 255, 130),
-    V(404, -32, -461, 0, 0, 210, 255, 130),
-    V(407, -38, -464, 0, 512, 210, 255, 130),
-    V(407, -38, -458, 512, 512, 210, 255, 130),
-    V(407, -32, -458, 512, 0, 210, 255, 130),
-    V(407, -32, -464, 0, 0, 210, 255, 130),
-    V(132, -60, -555, 0, 512, 210, 255, 130),
-    V(140, -60, -555, 512, 512, 210, 255, 130),
-    V(140, -52, -555, 512, 0, 210, 255, 130),
-    V(132, -52, -555, 0, 0, 210, 255, 130),
-    V(136, -60, -559, 0, 512, 210, 255, 130),
-    V(136, -60, -551, 512, 512, 210, 255, 130),
-    V(136, -52, -551, 512, 0, 210, 255, 130),
-    V(136, -52, -559, 0, 0, 210, 255, 130),
-};
-static Gfx night_firefly_dot2_0[] = {
-    gsSPVertex(&night_firefly_vtx2[0], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_1[] = {
-    gsSPVertex(&night_firefly_vtx2[8], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_2[] = {
-    gsSPVertex(&night_firefly_vtx2[16], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_3[] = {
-    gsSPVertex(&night_firefly_vtx2[24], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_4[] = {
-    gsSPVertex(&night_firefly_vtx2[32], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_5[] = {
-    gsSPVertex(&night_firefly_vtx2[40], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_6[] = {
-    gsSPVertex(&night_firefly_vtx2[48], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_7[] = {
-    gsSPVertex(&night_firefly_vtx2[56], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_8[] = {
-    gsSPVertex(&night_firefly_vtx2[64], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_9[] = {
-    gsSPVertex(&night_firefly_vtx2[72], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_10[] = {
-    gsSPVertex(&night_firefly_vtx2[80], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot2_11[] = {
-    gsSPVertex(&night_firefly_vtx2[88], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-
-static Vtx night_firefly_vtx3[] = {
-    V(-301, -50, -114, 0, 512, 210, 255, 130),
-    V(-296, -50, -114, 512, 512, 210, 255, 130),
-    V(-296, -44, -114, 512, 0, 210, 255, 130),
-    V(-301, -44, -114, 0, 0, 210, 255, 130),
-    V(-298, -50, -117, 0, 512, 210, 255, 130),
-    V(-298, -50, -111, 512, 512, 210, 255, 130),
-    V(-298, -44, -111, 512, 0, 210, 255, 130),
-    V(-298, -44, -117, 0, 0, 210, 255, 130),
-    V(579, -41, -381, 0, 512, 210, 255, 130),
-    V(585, -41, -381, 512, 512, 210, 255, 130),
-    V(585, -35, -381, 512, 0, 210, 255, 130),
-    V(579, -35, -381, 0, 0, 210, 255, 130),
-    V(582, -41, -384, 0, 512, 210, 255, 130),
-    V(582, -41, -378, 512, 512, 210, 255, 130),
-    V(582, -35, -378, 512, 0, 210, 255, 130),
-    V(582, -35, -384, 0, 0, 210, 255, 130),
-    V(-403, 34, 16, 0, 512, 210, 255, 130),
-    V(-396, 34, 16, 512, 512, 210, 255, 130),
-    V(-396, 41, 16, 512, 0, 210, 255, 130),
-    V(-403, 41, 16, 0, 0, 210, 255, 130),
-    V(-399, 34, 12, 0, 512, 210, 255, 130),
-    V(-399, 34, 19, 512, 512, 210, 255, 130),
-    V(-399, 41, 19, 512, 0, 210, 255, 130),
-    V(-399, 41, 12, 0, 0, 210, 255, 130),
-    V(187, 25, -316, 0, 512, 210, 255, 130),
-    V(194, 25, -316, 512, 512, 210, 255, 130),
-    V(194, 33, -316, 512, 0, 210, 255, 130),
-    V(187, 33, -316, 0, 0, 210, 255, 130),
-    V(191, 25, -320, 0, 512, 210, 255, 130),
-    V(191, 25, -312, 512, 512, 210, 255, 130),
-    V(191, 33, -312, 512, 0, 210, 255, 130),
-    V(191, 33, -320, 0, 0, 210, 255, 130),
-    V(-95, -46, -208, 0, 512, 210, 255, 130),
-    V(-88, -46, -208, 512, 512, 210, 255, 130),
-    V(-88, -39, -208, 512, 0, 210, 255, 130),
-    V(-95, -39, -208, 0, 0, 210, 255, 130),
-    V(-91, -46, -212, 0, 512, 210, 255, 130),
-    V(-91, -46, -205, 512, 512, 210, 255, 130),
-    V(-91, -39, -205, 512, 0, 210, 255, 130),
-    V(-91, -39, -212, 0, 0, 210, 255, 130),
-    V(-583, 9, 152, 0, 512, 210, 255, 130),
-    V(-577, 9, 152, 512, 512, 210, 255, 130),
-    V(-577, 14, 152, 512, 0, 210, 255, 130),
-    V(-583, 14, 152, 0, 0, 210, 255, 130),
-    V(-580, 9, 150, 0, 512, 210, 255, 130),
-    V(-580, 9, 155, 512, 512, 210, 255, 130),
-    V(-580, 14, 155, 512, 0, 210, 255, 130),
-    V(-580, 14, 150, 0, 0, 210, 255, 130),
-    V(241, -52, 159, 0, 512, 210, 255, 130),
-    V(246, -52, 159, 512, 512, 210, 255, 130),
-    V(246, -46, 159, 512, 0, 210, 255, 130),
-    V(241, -46, 159, 0, 0, 210, 255, 130),
-    V(244, -52, 156, 0, 512, 210, 255, 130),
-    V(244, -52, 162, 512, 512, 210, 255, 130),
-    V(244, -46, 162, 512, 0, 210, 255, 130),
-    V(244, -46, 156, 0, 0, 210, 255, 130),
-    V(-128, 32, -112, 0, 512, 210, 255, 130),
-    V(-121, 32, -112, 512, 512, 210, 255, 130),
-    V(-121, 39, -112, 512, 0, 210, 255, 130),
-    V(-128, 39, -112, 0, 0, 210, 255, 130),
-    V(-124, 32, -116, 0, 512, 210, 255, 130),
-    V(-124, 32, -109, 512, 512, 210, 255, 130),
-    V(-124, 39, -109, 512, 0, 210, 255, 130),
-    V(-124, 39, -116, 0, 0, 210, 255, 130),
-    V(-467, -49, 13, 0, 512, 210, 255, 130),
-    V(-460, -49, 13, 512, 512, 210, 255, 130),
-    V(-460, -42, 13, 512, 0, 210, 255, 130),
-    V(-467, -42, 13, 0, 0, 210, 255, 130),
-    V(-464, -49, 9, 0, 512, 210, 255, 130),
-    V(-464, -49, 17, 512, 512, 210, 255, 130),
-    V(-464, -42, 17, 512, 0, 210, 255, 130),
-    V(-464, -42, 9, 0, 0, 210, 255, 130),
-    V(-430, -36, -506, 0, 512, 210, 255, 130),
-    V(-425, -36, -506, 512, 512, 210, 255, 130),
-    V(-425, -31, -506, 512, 0, 210, 255, 130),
-    V(-430, -31, -506, 0, 0, 210, 255, 130),
-    V(-427, -36, -509, 0, 512, 210, 255, 130),
-    V(-427, -36, -504, 512, 512, 210, 255, 130),
-    V(-427, -31, -504, 512, 0, 210, 255, 130),
-    V(-427, -31, -509, 0, 0, 210, 255, 130),
-    V(-483, 26, 175, 0, 512, 210, 255, 130),
-    V(-478, 26, 175, 512, 512, 210, 255, 130),
-    V(-478, 31, 175, 512, 0, 210, 255, 130),
-    V(-483, 31, 175, 0, 0, 210, 255, 130),
-    V(-481, 26, 173, 0, 512, 210, 255, 130),
-    V(-481, 26, 178, 512, 512, 210, 255, 130),
-    V(-481, 31, 178, 512, 0, 210, 255, 130),
-    V(-481, 31, 173, 0, 0, 210, 255, 130),
-    V(202, 33, 277, 0, 512, 210, 255, 130),
-    V(208, 33, 277, 512, 512, 210, 255, 130),
-    V(208, 39, 277, 512, 0, 210, 255, 130),
-    V(202, 39, 277, 0, 0, 210, 255, 130),
-    V(205, 33, 274, 0, 512, 210, 255, 130),
-    V(205, 33, 280, 512, 512, 210, 255, 130),
-    V(205, 39, 280, 512, 0, 210, 255, 130),
-    V(205, 39, 274, 0, 0, 210, 255, 130),
 };
 static Gfx night_firefly_dot3_0[] = {
     gsSPVertex(&night_firefly_vtx3[0], 8, 0),
@@ -114146,36 +113946,12 @@ static Gfx night_firefly_dot3_7[] = {
     gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
     gsSPEndDisplayList(),
 };
-static Gfx night_firefly_dot3_8[] = {
-    gsSPVertex(&night_firefly_vtx3[64], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot3_9[] = {
-    gsSPVertex(&night_firefly_vtx3[72], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot3_10[] = {
-    gsSPVertex(&night_firefly_vtx3[80], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
-static Gfx night_firefly_dot3_11[] = {
-    gsSPVertex(&night_firefly_vtx3[88], 8, 0),
-    gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0),
-    gsSP2Triangles(4, 5, 6, 0, 4, 6, 7, 0),
-    gsSPEndDisplayList(),
-};
 
 Gfx* const night_firefly_dots[] = {
-    night_firefly_dot0_0, night_firefly_dot0_1, night_firefly_dot0_2, night_firefly_dot0_3, night_firefly_dot0_4, night_firefly_dot0_5, night_firefly_dot0_6, night_firefly_dot0_7, night_firefly_dot0_8, night_firefly_dot0_9, night_firefly_dot0_10, night_firefly_dot0_11,
-    night_firefly_dot1_0, night_firefly_dot1_1, night_firefly_dot1_2, night_firefly_dot1_3, night_firefly_dot1_4, night_firefly_dot1_5, night_firefly_dot1_6, night_firefly_dot1_7, night_firefly_dot1_8, night_firefly_dot1_9, night_firefly_dot1_10, night_firefly_dot1_11,
-    night_firefly_dot2_0, night_firefly_dot2_1, night_firefly_dot2_2, night_firefly_dot2_3, night_firefly_dot2_4, night_firefly_dot2_5, night_firefly_dot2_6, night_firefly_dot2_7, night_firefly_dot2_8, night_firefly_dot2_9, night_firefly_dot2_10, night_firefly_dot2_11,
-    night_firefly_dot3_0, night_firefly_dot3_1, night_firefly_dot3_2, night_firefly_dot3_3, night_firefly_dot3_4, night_firefly_dot3_5, night_firefly_dot3_6, night_firefly_dot3_7, night_firefly_dot3_8, night_firefly_dot3_9, night_firefly_dot3_10, night_firefly_dot3_11,
+    night_firefly_dot0_0, night_firefly_dot0_1, night_firefly_dot0_2, night_firefly_dot0_3, night_firefly_dot0_4, night_firefly_dot0_5, night_firefly_dot0_6, night_firefly_dot0_7,
+    night_firefly_dot1_0, night_firefly_dot1_1, night_firefly_dot1_2, night_firefly_dot1_3, night_firefly_dot1_4, night_firefly_dot1_5, night_firefly_dot1_6, night_firefly_dot1_7,
+    night_firefly_dot2_0, night_firefly_dot2_1, night_firefly_dot2_2, night_firefly_dot2_3, night_firefly_dot2_4, night_firefly_dot2_5, night_firefly_dot2_6, night_firefly_dot2_7,
+    night_firefly_dot3_0, night_firefly_dot3_1, night_firefly_dot3_2, night_firefly_dot3_3, night_firefly_dot3_4, night_firefly_dot3_5, night_firefly_dot3_6, night_firefly_dot3_7,
 };
 
 static Vtx night_streak_vtx[] = {
