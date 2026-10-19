@@ -290,9 +290,11 @@ static Gfx* const* rain_sheets_now = night_rain_sheets;   // the sheets the next
 static Gfx* const* snow_sheets_now = night_snow_sheets;
 static Mtx glow_mtx[2][1 + NIGHT_FIREFLY_GROUPS];   // the moon path's and the fireflies' matrices, two sets
 static u8 glow_turn;
-static Mtx mist_mtx[2];          // the mist sheet's matrix, two sets as the glows'
-static u8 mist_rgb[3];           // the sheet's color: the fog's in force, a little lighter (fog_apply)
-static u8 mist_said;             // the ride's first mist said in the log
+static u8 mist_rgb[3];           // the mist's color: the fog's in force, a little lighter (fog_apply)
+static u8 mist_said, mist_said_frame;   // the ride's first mist said in the log, and a whole frame of it
+static f32 mist_share;           // the mist at this instant, for the draw (mist_now)
+static u16 mist_parts_frame;     // the parts of the record that carried mist this frame,
+static u32 mist_corners_frame;   // and their misted corners
 static f32 flow_y_sum;           // the water's height: the mean, the lowest and the highest of the vertices that flow
 static f32 flow_y_min, flow_y_max;
 static u32 flow_y_n;
@@ -335,6 +337,7 @@ static u32 glint_orig_cn[GLINT_VTX];     // each copy's day colors, as the cours
 static u16 glint_face[GLINT_VTX];        // each copy's lighting: bit 15 lit, 14 steep, 13 water, low nine bits toward
 static u8 glint_snow[GLINT_VTX];         // each copy's share of snow, 0 to 255, from its face's slope
 static s16 glint_world_y[GLINT_VTX];     // each copy's height in the world, for the surf line at a relight
+static s16 glint_world_x[GLINT_VTX], glint_world_z[GLINT_VTX];   // and its place across, for the mist's floors
 static u8 sky_mask_pic[2][SKY_TEXELS];   // each sky picture's cloud mask, kept for the dusk
 static u8 pal2_a[11][3], pal2_b[11][3], pal2_d[11][3];   // the three palettes for the weather the island turns to
 static u8 mix_a[11][3], mix_b[11][3], mix_d[11][3];      // the two weathers' palettes mixed, as far as the turn has come
@@ -347,6 +350,7 @@ static u8 star_fade = 255;               // how far the stars have come up
 static u32 dusk_last;
 static u8 glint_seg_n, glint_recording, glint_turn, glint_said, glint_said_drawn;
 static u8 drawing_glint;              // the model being drawn has segments of the glint
+static u8 drawing_parts;              // the model being drawn has parts in the record at all
 static u32 glint_model;               // the model being walked
 static u8 glint_slot_ok[64];           // the walker's slots that hold copies,
 static u16 glint_slot_op[64];          // and the load that filled each
@@ -369,7 +373,8 @@ static void glint_reset(void) {
     glint_said = 0;
     glint_said_drawn = 0;
 }
-static f32 walk_node_y;          // the height in the world of the node being walked (its blocks are placed)
+static f32 walk_node_y;          // the height in the world of the node being walked (its blocks are placed),
+static f32 walk_node_x, walk_node_z;   // and its place across
 static u8 lit;                   // the walker's reading of G_LIGHTING
 static u8 flowing;               // the walker's reading of the material: the one that flows
 static u32 slots[64];            // the walker's vertex buffer: where each painted vertex came from
@@ -839,6 +844,8 @@ static void glint_face_set(u32 slot, s32 steep, s32 toward, u32 snow) {
                                   | (sky_face ? 0x0800u : 0u) | ((u32) toward & 0x1FFu));
         glint_snow[copy] = (u8) (snow > 255 ? 255 : snow);
         glint_world_y[copy] = (s16) (((volatile s16*) slots[slot])[1] + walk_node_y);
+        glint_world_x[copy] = (s16) (((volatile s16*) slots[slot])[0] + walk_node_x);
+        glint_world_z[copy] = (s16) (((volatile s16*) slots[slot])[2] + walk_node_z);
     }
 }
 
@@ -1038,9 +1045,11 @@ static void walk_payload(DObj* node, s32 kind) {
     if (payload == NULL) {
         return;
     }
-    walk_node_y = 0.0f;
+    walk_node_x = walk_node_y = walk_node_z = 0.0f;
     while (up != NULL && (u32) up != 1 && guard-- > 0) {
+        walk_node_x += up->position.v.x;
         walk_node_y += up->position.v.y;
+        walk_node_z += up->position.v.z;
         up = up->parent;
     }
     glint_top_n = 0;
@@ -1235,11 +1244,13 @@ static void model_enters(GObj* obj, s32 kind) {
     }
     drawing_water = (water_model != 0 && (u32) first->payload.any == water_model);
     drawing_glint = 0;
+    drawing_parts = 0;
     {
         s32 k;
 
         for (k = 0; k < glint_seg_n; k++) {
             if (glint_seg[k].model == (u32) first->payload.any) {
+                drawing_parts = 1;
                 drawing_glint |= glint_seg[k].flow;
             }
         }
@@ -1275,6 +1286,7 @@ static void model_enters(GObj* obj, s32 kind) {
             glint_seg_n = seg_before;
         } else {
             drawing_glint = (glint_tris > tris_before);
+            drawing_parts = (glint_seg_n > seg_before);
         }
         if (flow_y_n > water_before && water_model == 0) {
             water_model = (u32) first->payload.any;
@@ -1297,7 +1309,7 @@ static void weather_palettes_keep(const Night* by);
 static void sun_hours_apply(void);
 static s32 sun_latitude(void);
 static void fireflies(GObj* sky);
-static void mist_at(GObj* sky, f32 share);
+static void mist_scan(void);
 static f32 mist_now(void);
 static GObj* sky_now;           // the sky being drawn, for the camera's place
 
@@ -1333,22 +1345,23 @@ static void model_leaves(void) {
         drawing_glint = 0;
         embers();
     }
-    // The water was just drawn: what glows on it or over it is drawn now, so
-    // that the water, which is drawn among the see-through things and writes
-    // no depth, does not paint over it.
-    if (drawing_water && !scoring && sky_now != NULL) {
-        f32 mist = mist_now();
-        s32 glows = glows_on && !sunset && clear_share > 0.0f;
-
-        if (glows || mist > 0.0f) {
-            drawing_water = 0;
-            glow_turn ^= 1;
-            if (glows && night->fireflies != NULL) {
-                fireflies(sky_now);
-            }
-            if (mist > 0.0f) {
-                mist_at(sky_now, mist);
-            }
+    // The water was just drawn: what glows on it is drawn now, so that the
+    // water, which is drawn among the see-through things and writes no
+    // depth, does not paint over it.
+    if (drawing_water && !scoring && sky_now != NULL && glows_on && !sunset && clear_share > 0.0f) {
+        drawing_water = 0;
+        glow_turn ^= 1;
+        if (night->fireflies != NULL) {
+            fireflies(sky_now);
+        }
+    }
+    // A model with parts of the record was just drawn: the dawn's mist on
+    // its water and its shore is drawn now, for the same reason.
+    if (drawing_parts && !scoring && sky_now != NULL) {
+        drawing_parts = 0;
+        mist_share = mist_now();
+        if (mist_share > 0.0f) {
+            mist_scan();
         }
     }
 }
@@ -2239,6 +2252,234 @@ static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
     }
 }
 
+// The dawn's mist on the water and the shore: the record's own triangles
+// drawn again, each corner's thickness from its height over the water near
+// it and from its distance to the eye, under the picture of wisps laid on
+// the world by the corners' own places, with a slow drift. Drawn in the
+// world's own space, as the embers are, right after the model that holds the
+// part, so the water does not paint over it; each corner is pulled a little
+// toward the eye, so the land it copies does not refuse it, and a face
+// steeper than sixty degrees carries none. Four cuts of a sheet riding with
+// the eye went before (JackandBeans, Oct 18 and 19 2026): its flat plane
+// cut the sloping banks in a straight edge, and its picture, written anew
+// at each frame while the port glided the sheet between frames, moved
+// against the water.
+#define MIST_NEAR 60.0f         // units from the eye within which the mist is nothing,
+#define MIST_FULL 520.0f        // and at which it is full
+#define MIST_FAR0 1100.0f       // where it begins to thin again toward the far fog,
+#define MIST_FAR1 2200.0f       // and where it is gone
+#define MIST_FLOOR 3.0f         // units over or under the water near it up to which a corner is fully misted,
+#define MIST_RISE 26.0f         // and over how many more it clears
+#define MIST_REACH0 160.0f      // units across from the nearest water corner within which the shore is fully misted,
+#define MIST_REACH1 420.0f      // and at which it is bare
+#define MIST_PULL 2.0f          // how far each corner is pulled toward the eye
+#define MIST_ALPHA 100.0f       // the mist's alpha at full mist, where its corners and its picture are full
+#define MIST_DRIFT_S 14400u     // ticks of one tile's drift along s (four minutes),
+#define MIST_DRIFT_T 18000u     // and along t (five)
+#define MIST_POOL 1024          // the water corners the floors are taken from
+#define MIST_UNKNOWN 0x7FFF
+static Vtx mist_vtx[2][GLINT_VTX];      // the copies, two sets as the glint's
+static s16 mist_floor[GLINT_VTX];       // the water's height near each copy, once found,
+static u8 mist_near[GLINT_VTX];         // and how far across that water lies, in fours of units
+static s16 mist_pool[MIST_POOL][3];     // the water's corners in the world
+static u16 mist_pool_n;
+static u16 mist_floor_n;                // the copies whose floors are reset and whose water is in the pool
+static u32 mist_corners;                // corners with any mist in the last scan
+
+// The record grows as the course's models are first drawn: the copies that
+// came since the last misty draw have their floors reset, their water corners
+// join the pool, and if any did, every floor is found again.
+static void mist_floors_keep(void) {
+    u32 i, grew = 0;
+
+    for (i = mist_floor_n; i < glint_vtx_n && i < GLINT_VTX; i++) {
+        mist_floor[i] = MIST_UNKNOWN;
+        if ((glint_face[i] & 0xA000u) == 0xA000u && mist_pool_n < MIST_POOL) {
+            mist_pool[mist_pool_n][0] = glint_world_x[i];
+            mist_pool[mist_pool_n][1] = glint_world_y[i];
+            mist_pool[mist_pool_n][2] = glint_world_z[i];
+            mist_pool_n++;
+            grew = 1;
+        }
+    }
+    if (grew) {
+        for (i = 0; i < mist_floor_n; i++) {
+            mist_floor[i] = MIST_UNKNOWN;
+        }
+    }
+    mist_floor_n = (u16) (glint_vtx_n < GLINT_VTX ? glint_vtx_n : GLINT_VTX);
+}
+
+// The water nearest a copy, across: its height, and how far it lies. Found
+// once, at the copy's first misty draw; where the record has no water, the
+// water's recorded top stands for it.
+static void mist_floor_find(u32 i, f32 px, f32 pz) {
+    f32 best = 1.0e18f, y = flow_y_max;
+    u32 n;
+
+    for (n = 0; n < mist_pool_n; n++) {
+        f32 dx = (f32) mist_pool[n][0] - px, dz = (f32) mist_pool[n][2] - pz;
+        f32 d = dx * dx + dz * dz;
+
+        if (d < best) {
+            best = d;
+            y = (f32) mist_pool[n][1];
+        }
+    }
+    mist_floor[i] = (s16) y;
+    best = (mist_pool_n > 0) ? __builtin_sqrtf(best) / 4.0f : 0.0f;
+    mist_near[i] = (u8) (best > 255.0f ? 255.0f : best);
+}
+
+// One copy for the mist, from its record and its part's matrix: its place in
+// the world pulled toward the eye, its s and t from that place, its alpha by
+// the eye's distance and by its height over the water near it.
+static u32 mist_corner(u32 i, f32 m[4][4], const f32* eye, f32 base_s, f32 base_t, f32 drift_s, f32 drift_t, f32 per) {
+    const Vtx* src = &glint_vtx[0][i];
+    Vtx* dst = &mist_vtx[glint_turn][i];
+    f32 x = src->v.ob[0], y = src->v.ob[1], z = src->v.ob[2];
+    f32 px = x * m[0][0] + y * m[1][0] + z * m[2][0] + m[3][0];
+    f32 py = x * m[0][1] + y * m[1][1] + z * m[2][1] + m[3][1];
+    f32 pz = x * m[0][2] + y * m[1][2] + z * m[2][2] + m[3][2];
+    f32 vx = eye[0] - px, vy = eye[1] - py, vz = eye[2] - pz;
+    f32 d = __builtin_sqrtf(vx * vx + vy * vy + vz * vz);
+    f32 a, g, h, pull;
+
+    if (d <= MIST_NEAR) {
+        a = 0.0f;
+    } else if (d < MIST_FULL) {
+        a = (d - MIST_NEAR) / (MIST_FULL - MIST_NEAR);
+    } else if (d < MIST_FAR0) {
+        a = 1.0f;
+    } else if (d < MIST_FAR1) {
+        a = (MIST_FAR1 - d) / (MIST_FAR1 - MIST_FAR0);
+    } else {
+        a = 0.0f;
+    }
+    if (mist_floor[i] == MIST_UNKNOWN) {
+        mist_floor_find(i, px, pz);
+    }
+    h = py - (f32) mist_floor[i];
+    h = h < 0.0f ? -h : h;
+    g = 1.0f - (h - MIST_FLOOR) / MIST_RISE;
+    g = g < 0.0f ? 0.0f : g > 1.0f ? 1.0f : g;
+    h = 1.0f - ((f32) mist_near[i] * 4.0f - MIST_REACH0) / (MIST_REACH1 - MIST_REACH0);
+    g *= h < 0.0f ? 0.0f : h > 1.0f ? 1.0f : h;
+    a *= g;
+    pull = (d > MIST_PULL) ? MIST_PULL / d : 1.0f;
+    dst->v.ob[0] = (s16) (px + vx * pull);
+    dst->v.ob[1] = (s16) (py + vy * pull);
+    dst->v.ob[2] = (s16) (pz + vz * pull);
+    dst->v.flag = 0;
+    dst->v.tc[0] = (s16) ((px - base_s) * per + drift_s);
+    dst->v.tc[1] = (s16) ((pz - base_t) * per + drift_t);
+    dst->v.cn[0] = dst->v.cn[1] = dst->v.cn[2] = 255;
+    dst->v.cn[3] = (u8) (a * 255.0f);
+    return dst->v.cn[3] != 0;
+}
+
+// Whether a triangle of the copies is drawn: not when none of its corners
+// carries mist, nor when its face is steeper than sixty degrees.
+static s32 mist_tri(const Vtx* set, const u16* slot_copy, u32 a, u32 b, u32 c) {
+    const Vtx *A, *B, *C;
+    f32 ux, uy, uz, vx, vy, vz, nx, ny, nz, all;
+
+    if (a >= 64 || b >= 64 || c >= 64 || slot_copy[a] == 0xFFFF || slot_copy[b] == 0xFFFF || slot_copy[c] == 0xFFFF) {
+        return 0;
+    }
+    A = &set[slot_copy[a]];
+    B = &set[slot_copy[b]];
+    C = &set[slot_copy[c]];
+    if (A->v.cn[3] == 0 && B->v.cn[3] == 0 && C->v.cn[3] == 0) {
+        return 0;
+    }
+    ux = (f32) (B->v.ob[0] - A->v.ob[0]);
+    uy = (f32) (B->v.ob[1] - A->v.ob[1]);
+    uz = (f32) (B->v.ob[2] - A->v.ob[2]);
+    vx = (f32) (C->v.ob[0] - A->v.ob[0]);
+    vy = (f32) (C->v.ob[1] - A->v.ob[1]);
+    vz = (f32) (C->v.ob[2] - A->v.ob[2]);
+    nx = uy * vz - uz * vy;
+    ny = uz * vx - ux * vz;
+    nz = ux * vy - uy * vx;
+    all = nx * nx + ny * ny + nz * nz;
+    return all > 1.0f && ny * ny >= 0.25f * all;
+}
+
+// A part of the record under the matrix the game drew it with: its copies
+// set for this frame, then its loads and the triangles that carry mist, in
+// the world's own space.
+static void mist_segment(s32 k, f32 m[4][4], const f32* eye, Gfx** list, s32* opened) {
+    const GlintSeg* seg = &glint_seg[k];
+    Vtx* set = mist_vtx[glint_turn];
+    u32 ticks = ticks_of(night);
+    f32 per = 32.0f * 32.0f / NIGHT_MIST_TILE;      // a corner's s and t (a texel is 32) a unit of the world
+    // Whole tiles off the part's own place, so s and t fit their sixteen bits
+    // and the picture still joins from part to part; and the drift, a tile
+    // in some minutes, wrapping on the tile.
+    f32 base_s = (f32) ((s32) (m[3][0] / NIGHT_MIST_TILE)) * NIGHT_MIST_TILE;
+    f32 base_t = (f32) ((s32) (m[3][2] / NIGHT_MIST_TILE)) * NIGHT_MIST_TILE;
+    f32 drift_s = (f32) (ticks % MIST_DRIFT_S) * (1024.0f / (f32) MIST_DRIFT_S);
+    f32 drift_t = (f32) (ticks % MIST_DRIFT_T) * (1024.0f / (f32) MIST_DRIFT_T);
+    u16 slot_copy[64];
+    u32 j, o, any = 0, pending = 0xFFFFFFFFu;
+    s32 s;
+
+    for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
+        o = glint_op[j];
+        if ((o & GLINT_LOAD) && (o & (GLINT_USED | GLINT_LAND))) {
+            u32 start = (o >> 12) & 0x3FFF, count = (o >> 6) & 0x3F, v;
+
+            for (v = 0; v < count; v++) {
+                any += mist_corner(start + v, m, eye, base_s, base_t, drift_s, drift_t, per);
+            }
+        }
+    }
+    if (any == 0) {
+        return;
+    }
+    mist_corners += any;
+    mist_corners_frame += any;
+    mist_parts_frame++;
+    if (!*opened) {
+        *opened = 1;
+        command(list, (0x64u << 24) | 0x00002Cu, 1);
+        gSPDisplayList((*list)++, night_mist_begin);
+        gDPSetPrimColor((*list)++, 0, 0, mist_rgb[0], mist_rgb[1], mist_rgb[2], (u32) (MIST_ALPHA * mist_share));
+    }
+    for (s = 0; s < 64; s++) {
+        slot_copy[s] = 0xFFFF;
+    }
+    for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
+        o = glint_op[j];
+        if (o & GLINT_LOAD) {
+            u32 start = (o >> 12) & 0x3FFF, count = (o >> 6) & 0x3F, first = o & 63, v;
+
+            if (pending != 0xFFFFFFFFu) {
+                gSP1Triangle((*list)++, (pending >> 16) & 0xFF, (pending >> 8) & 0xFF, pending & 0xFF, 0);
+                pending = 0xFFFFFFFFu;
+            }
+            for (v = 0; v < count && first + v < 64; v++) {
+                slot_copy[first + v] = (o & (GLINT_USED | GLINT_LAND)) ? (u16) (start + v) : 0xFFFF;
+            }
+            if (o & (GLINT_USED | GLINT_LAND)) {
+                gSPVertex((*list)++, &set[start], count, first);
+            }
+        } else if (!mist_tri(set, slot_copy, (o >> 16) & 0xFF, (o >> 8) & 0xFF, o & 0xFF)) {
+            continue;
+        } else if (pending == 0xFFFFFFFFu) {
+            pending = o;
+        } else {
+            gSP2Triangles((*list)++, (pending >> 16) & 0xFF, (pending >> 8) & 0xFF, pending & 0xFF, 0,
+                          (o >> 16) & 0xFF, (o >> 8) & 0xFF, o & 0xFF, 0);
+            pending = 0xFFFFFFFFu;
+        }
+    }
+    if (pending != 0xFFFFFFFFu) {
+        gSP1Triangle((*list)++, (pending >> 16) & 0xFF, (pending >> 8) & 0xFF, pending & 0xFF, 0);
+    }
+}
+
 // The water was just drawn: its commands, from where this model began, hold
 // the matrices its nodes were drawn with and the calls of their lists. Each
 // call that is a segment's is answered with that segment, under the product
@@ -2335,8 +2576,10 @@ static void glint_scan(s32 mode) {
                             glint_drawn[k] = 1;
                             if (mode == 0) {
                                 glint_segment(k, stack[sp], at, la, breath, list, &opened);
-                            } else {
+                            } else if (mode == 1) {
                                 ember_segment(k, stack[sp], list, &opened);
+                            } else {
+                                mist_segment(k, stack[sp], at, list, &opened);
                             }
                             break;
                         }
@@ -2348,11 +2591,11 @@ static void glint_scan(s32 mode) {
             cmd += 2;
         }
         if (opened) {
-            gSPDisplayList((*list)++, night_rain_end);
+            gSPDisplayList((*list)++, mode == 2 ? night_mist_end : night_rain_end);
             command(list, (0x64u << 24) | 0x00002Cu, 0);
         }
     }
-    if (!glint_said_drawn) {
+    if (!glint_said_drawn && mode != 2) {
         s32 drawn = 0;
 
         glint_said_drawn = 1;
@@ -2371,6 +2614,30 @@ static void moon_glint(void) {
 static void embers(void) {
     ember_drawn = 0;
     glint_scan(1);
+}
+
+// The dawn's mist, after a model with parts of the record: the pool of the
+// water's corners is kept up, then the parts are found among the model's
+// commands and drawn (mist_segment).
+static void mist_scan(void) {
+    u32 ticks = ticks_of(night);
+
+    mist_floors_keep();
+    mist_corners = 0;
+    glint_scan(2);
+    // Said once a ride, past the intro's own camera, so the eye's height is
+    // the ride's, at the first model whose parts carry any mist.
+    if (!mist_said && on_the_ride && ticks >= 600 && mist_corners > 0 && sky_now != NULL && sky_now->data.dobj != NULL) {
+        DObj* eye = sky_now->data.dobj;
+
+        mist_said = 1;
+        recomp_printf("[island skies] the mist stands at %d of 100 at tick %u; the eye at %d, the water from %d to %d (%u corners); the record %d corners in %d parts%s%s, %d of the corners water; %u corners misted in this model\n",
+                      (s32) (mist_share * 100.0f), ticks, (s32) eye->position.v.y, (s32) flow_y_min, (s32) flow_y_max, flow_y_n,
+                      (s32) glint_vtx_n, (s32) glint_seg_n,
+                      (glint_vtx_n > GLINT_VTX - 64) ? " (the corners FULL)" : "",
+                      (glint_seg_n >= GLINT_SEGS) ? " (the parts FULL)" : "",
+                      (s32) mist_pool_n, mist_corners);
+    }
 }
 
 // Fireflies: four groups of small dots around the camera, near the water,
@@ -2467,74 +2734,6 @@ static void fireflies(GObj* sky) {
     }
     gSPDisplayList((*list)++, night_rain_end);
     command(list, (0x64u << 24) | 0x00002Cu, 0);
-}
-
-// The mist's sheet: night_data's rings, laid flat just over the water, its
-// picture (wisps, with open water between) kept with the world as the sheet
-// rides with the eye, by the corners' own s and t written at each draw, and
-// drifting slowly on the clock, its thickness the mist's at this instant and
-// its color the fog's, a little lighter. Drawn
-// right after the water, as the fireflies are, so the water does not paint
-// over it. Where the course's water is flat (the River) the sheet lies at
-// the water's own recorded height; where it is not (the Valley's rapids and
-// falls) it lies a set way under the eye, which rides on the water. The
-// first cut hung it 36 under the eye everywhere, which stood it over the
-// River's water, and it veiled the logs and the banks' feet (JackandBeans,
-// Oct 18 2026); the second lay as a film over all the water and was still
-// too much (Oct 19).
-#define MIST_OVER 3.0f          // how far over a flat water the sheet lies
-#define MIST_BELOW 97.0f        // how far under the eye it lies where the water is not flat (the eye rides 100 over the River's)
-#define MIST_DRIFT_X (NIGHT_MIST_TILE / 3600.0f)    // the picture's drift, units a tick: a tile a minute along x
-#define MIST_DRIFT_Z (NIGHT_MIST_TILE / 4500.0f)    // and a tile in 75 seconds along z
-#define MIST_ALPHA 100.0f       // the sheet's alpha at full mist, where its corners and its picture are full
-static void mist_at(GObj* sky, f32 share) {
-    Gfx** list = &MAIN_GFX_POS[1];
-    DObj* eye = sky->data.dobj;
-    u32 ticks = ticks_of(night);
-    Mtx* mtx = &mist_mtx[glow_turn];
-    Vtx* v = night_mist_vtx[glow_turn];
-    f32 per = 32.0f * 32.0f / NIGHT_MIST_TILE;  // a corner's s and t (a texel is 32) a unit of the world
-    f32 y, ox, oz;
-    s32 k;
-
-    if (eye == NULL || *list == NULL) {
-        return;
-    }
-    y = eye->position.v.y - MIST_BELOW;
-    if (flow_y_n > 0 && (flow_y_max - flow_y_min) < 12.0f) {
-        y = flow_y_max + MIST_OVER;
-    }
-    place(mtx, eye->position.v.x, y, eye->position.v.z);
-    // The picture stays with the world: each corner's s and t are its place
-    // in the world, less a whole number of tiles so they fit the corner's
-    // sixteen bits, plus a slow drift on the clock, written at each draw into
-    // this turn's copy of the corners. The second and third cuts moved the
-    // tile's origin a whole texel at a time, 14 units, and the picture went
-    // in jumps against the gliding world (JackandBeans, Oct 19 2026).
-    ox = eye->position.v.x - (f32) ((s32) (eye->position.v.x / NIGHT_MIST_TILE)) * NIGHT_MIST_TILE + (f32) (ticks % 3600) * MIST_DRIFT_X;
-    oz = eye->position.v.z - (f32) ((s32) (eye->position.v.z / NIGHT_MIST_TILE)) * NIGHT_MIST_TILE + (f32) (ticks % 4500) * MIST_DRIFT_Z;
-    for (k = 0; k < NIGHT_MIST_VTX_N; k++) {
-        v[k].v.tc[0] = (s16) (((f32) v[k].v.ob[0] + ox) * per);
-        v[k].v.tc[1] = (s16) (((f32) v[k].v.ob[2] + oz) * per);
-    }
-    command(list, (0x64u << 24) | 0x00002Cu, 1);
-    gSPDisplayList((*list)++, night_mist_begin);
-    gDPSetPrimColor((*list)++, 0, 0, mist_rgb[0], mist_rgb[1], mist_rgb[2], (u32) (MIST_ALPHA * share));
-    command(list, (0x64u << 24) | 0x00000Cu, 0x4D490000u);
-    command(list, 0x00002829u, 0);
-    gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-    gSPDisplayList((*list)++, night_mist_sheets[glow_turn]);
-    gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
-    command(list, (0x64u << 24) | 0x00000Du, 1);
-    gSPDisplayList((*list)++, night_mist_end);
-    command(list, (0x64u << 24) | 0x00002Cu, 0);
-    // Said once a ride, past the intro's own camera, so the eye's height is
-    // the ride's, and the water's record has had its frames.
-    if (!mist_said && on_the_ride && ticks >= 600) {
-        mist_said = 1;
-        recomp_printf("[island skies] the mist stands at %d of 100 at tick %u; the eye at %d, the sheet at %d, the water from %d to %d (%u corners)\n",
-                      (s32) (share * 100.0f), ticks, (s32) eye->position.v.y, (s32) y, (s32) flow_y_min, (s32) flow_y_max, flow_y_n);
-    }
 }
 
 // Lightning. Time is cut into spans of a few seconds; whether a span has a
@@ -2996,6 +3195,14 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
     sky_now = obj;
     glint_turn ^= 1;        // the record's two sets turn once a frame
     ember_turn ^= 1;
+    // The last frame's mist, said once a ride past the intro's own camera.
+    if (night != NULL && !mist_said_frame && on_the_ride && mist_corners_frame > 0 && ticks_of(night) >= 900) {
+        mist_said_frame = 1;
+        recomp_printf("[island skies] the mist in one frame: %d parts of the record's %d carried it, %u corners\n",
+                      (s32) mist_parts_frame, (s32) glint_seg_n, mist_corners_frame);
+    }
+    mist_parts_frame = 0;
+    mist_corners_frame = 0;
     {
         volatile s8* dir = (volatile s8*) (COURSE_LIGHT + 16);
         f32 fx = -(f32) dir[0], fz = -(f32) dir[2];
@@ -3897,7 +4104,7 @@ static f32 ease(f32 w) {
 }
 
 // The dawn's mist on the River and the Valley: a veil in the fog (fog_apply)
-// and a sheet lying on the water (mist_at). It gathers through the last hour
+// and wisps lying on the water and the shore (mist_segment). It gathers through the last hour
 // of the night, is thickest as the sky pinks and lifts as the day comes; a
 // ride at the fixed dawn thins it as the ride goes, as the morning would.
 // Clear weather only: rain and snow have their own gray. How much of it
@@ -5118,6 +5325,9 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         flow_y_sum = 0.0f;
         flow_y_n = 0;
         mist_said = 0;
+        mist_said_frame = 0;
+        mist_floor_n = 0;
+        mist_pool_n = 0;
         water_model = 0;
         glint_reset();
         sky_extent(by);

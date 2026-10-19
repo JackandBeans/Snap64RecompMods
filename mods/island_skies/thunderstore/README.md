@@ -85,9 +85,10 @@ its details, then A again for its options. The first row is **Setup**:
   weather waits past the last arch, seen through it as the gate comes.
   Day is the cartridge's own day, and the weather chosen falls on it as
   it does under Live. Dawn lays a mist on the River and the Valley, in
-  the fog and on the water, that thins as the ride goes; under Live it
-  gathers through the night's last hour, lies thickest as the sky pinks,
-  and lifts as the day comes. Rain and snow have their own gray instead.
+  the fog and on the water and its banks, that thins as the ride goes;
+  under Live it gathers through the night's last hour, lies thickest as
+  the sky pinks, and lifts as the day comes. Rain and snow have their
+  own gray instead.
 - **Live** is your clock and the island's own weather. Its only other
   rows are Sun, Latitude and Longitude, which set the sun's hours (see
   How Live works).

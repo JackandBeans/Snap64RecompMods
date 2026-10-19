@@ -60,10 +60,7 @@ extern Gfx night_glow_begin[];
 extern Gfx* const night_firefly_dots[];
 extern Gfx night_streak[];
 // the dawn's mist
-#define NIGHT_MIST_TILE 450.0f
-#define NIGHT_MIST_VTX_N 85
-extern Vtx night_mist_vtx[2][NIGHT_MIST_VTX_N];    // the sheet's corners, a copy a draw; s and t written by the mod
-extern Gfx* const night_mist_sheets[2];             // the sheet drawn from each copy
+#define NIGHT_MIST_TILE 800.0f
 extern Gfx night_mist_begin[];
 extern Gfx night_mist_end[];
 

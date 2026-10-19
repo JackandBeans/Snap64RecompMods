@@ -16,20 +16,24 @@
 - A mist at dawn on the River and the Valley: the fog draws in a little
   and goes from the sky's own horizon color a quarter of the way to a
   pale gray, so the far land fades into a lighter sky, and wisps of it
-  lie on the water, drifting, with open water between them, faint near
-  the cart and fullest in the middle distance, the banks standing out
-  of it. It gathers through the night's last hour, lies thickest as the
-  sky pinks and lifts as the day comes under Live; a ride at Dawn starts
-  in it and sees it thin as the ride goes. Clear weather only. Chosen by
-  JackandBeans on Oct 18 2026 from a list of what the mod still lacked.
-  The first cut pulled the fog most of the way to white and hung the
-  sheet over the water, and the walls and the logs went white
-  (JackandBeans, Oct 18 2026); the second lay as a film over all the
-  water and was still too much (Oct 19 2026); the third moved its
-  picture in jumps of a texel against the gliding world, which read as
-  the mist moving oddly and standing out of place (JackandBeans, Oct 19
-  2026), so the wisps now take their place on the water from each
-  corner's own coordinates, written as the sheet is drawn.
+  lie on the water and along its banks, with open water between them,
+  faint by the cart and fullest in the middle distance, thinning again
+  toward the far fog. The wisps lie still on the world and drift a
+  little, and they follow the shore up the bank's foot and clear as the
+  ground rises; a wall carries none. It gathers through the night's last
+  hour, lies thickest as the sky pinks and lifts as the day comes under
+  Live; a ride at Dawn starts in it and sees it thin as the ride goes.
+  Clear weather only. Chosen by JackandBeans on Oct 18 2026 from a list
+  of what the mod still lacked. Four cuts of a flat sheet riding with
+  the camera went before it: the first pulled the fog most of the way to
+  white and hung the sheet over the water, and the walls and the logs
+  went white (JackandBeans, Oct 18 2026); the second lay as a film over
+  all the water and was still too much (Oct 19 2026); the third moved
+  its picture in jumps against the gliding world; the fourth still moved
+  oddly, since the port glides a sheet between the game's frames while
+  its picture is written only at each frame, and its flat plane cut the
+  sloping banks in a straight edge (JackandBeans, Oct 19 2026). The mist
+  is now drawn on the water's and the shore's own triangles instead.
 
 ## 1.1.1
 
