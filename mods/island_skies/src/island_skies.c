@@ -2469,26 +2469,36 @@ static void fireflies(GObj* sky) {
     command(list, (0x64u << 24) | 0x00002Cu, 0);
 }
 
-// The mist's sheet: night_data's rings, laid flat under the eye at about the
-// water's height (the cart rides on the water), its picture kept with the
-// world as the sheet rides with the eye and drifting slowly on the clock,
-// its thickness the mist's at this instant and its color the fog's, a little
-// lighter. Drawn right after the water, as the fireflies are, so the water
-// does not paint over it.
-#define MIST_BELOW 36.0f        // how far under the eye the sheet lies
-#define MIST_ALPHA 150.0f       // the sheet's alpha at full mist, where its corners are full
+// The mist's sheet: night_data's rings, laid flat just over the water, its
+// picture kept with the world as the sheet rides with the eye and drifting
+// slowly on the clock, its thickness the mist's at this instant and its
+// color the fog's, a little lighter. Drawn right after the water, as the
+// fireflies are, so the water does not paint over it. Where the course's
+// water is flat (the River) the sheet lies at the water's own recorded
+// height; where it is not (the Valley's rapids and falls) it lies a set
+// way under the eye, which rides on the water. The first cut hung it 36
+// under the eye everywhere, which stood it over the River's water, and it
+// veiled the logs and the banks' feet (JackandBeans, Oct 18 2026).
+#define MIST_OVER 3.0f          // how far over a flat water the sheet lies
+#define MIST_BELOW 60.0f        // how far under the eye it lies where the water is not flat
+#define MIST_ALPHA 120.0f       // the sheet's alpha at full mist, where its corners are full
 static void mist_at(GObj* sky, f32 share) {
     Gfx** list = &MAIN_GFX_POS[1];
     DObj* eye = sky->data.dobj;
     u32 ticks = ticks_of(night);
     Mtx* mtx = &mist_mtx[glow_turn];
     f32 per = 32.0f / NIGHT_MIST_TILE;      // texels a unit
+    f32 y;
     s32 us, ut;
 
     if (eye == NULL || *list == NULL) {
         return;
     }
-    place(mtx, eye->position.v.x, eye->position.v.y - MIST_BELOW, eye->position.v.z);
+    y = eye->position.v.y - MIST_BELOW;
+    if (flow_y_n > 0 && (flow_y_max - flow_y_min) < 12.0f) {
+        y = flow_y_max + MIST_OVER;
+    }
+    place(mtx, eye->position.v.x, y, eye->position.v.z);
     // The tile's origin moves against the eye, so the picture stays with the
     // world, and on with the clock, a texel every two seconds or so, so that
     // it drifts.
@@ -2506,10 +2516,12 @@ static void mist_at(GObj* sky, f32 share) {
     command(list, (0x64u << 24) | 0x00000Du, 1);
     gSPDisplayList((*list)++, night_mist_end);
     command(list, (0x64u << 24) | 0x00002Cu, 0);
-    if (!mist_said && on_the_ride) {
+    // Said once a ride, past the intro's own camera, so the eye's height is
+    // the ride's, and the water's record has had its frames.
+    if (!mist_said && on_the_ride && ticks >= 600) {
         mist_said = 1;
-        recomp_printf("[island skies] the mist stands at %d of 100 at tick %u; the eye at %d, the water from %d to %d\n",
-                      (s32) (share * 100.0f), ticks, (s32) eye->position.v.y, (s32) flow_y_min, (s32) flow_y_max);
+        recomp_printf("[island skies] the mist stands at %d of 100 at tick %u; the eye at %d, the sheet at %d, the water from %d to %d (%u corners)\n",
+                      (s32) (share * 100.0f), ticks, (s32) eye->position.v.y, (s32) y, (s32) flow_y_min, (s32) flow_y_max, flow_y_n);
     }
 }
 
@@ -4064,8 +4076,9 @@ static void lights_toward_day(void) {
 // The fog and the background in force: the day's, or under weather the
 // overcast's, so the far land and the sky's lid meet the flat sky; in a
 // cave both are the hour's own with no weather in them. At dawn on a course
-// with a mist, the fog draws in and pales by the mist's share.
-#define MIST_FOG_DROP 18.0f         // how much nearer the fog begins at full mist (the rain's is 6, the snow's 10)
+// with a mist, the fog draws in a little and pales by the mist's share.
+#define MIST_FOG_DROP 8.0f          // how much nearer the fog begins at full mist (the rain's is 6, the snow's 10)
+#define MIST_FOG_PALE 0.4f          // how far from the sky's horizon toward the pale the fog goes at full mist
 static void fog_apply(void) {
     WorldSetup* setup = (WorldSetup*) night->setup;
     s32 share = (s32) (nightness * 256.0f);
@@ -4098,16 +4111,22 @@ static void fog_apply(void) {
     }
     mist = mist_now();
     if (mist > 0.0f) {
-        // The dawn's mist: the fog draws in and goes pale, a warm gray.
-        static const u8 pale[3] = { 226, 212, 214 };
+        // The dawn's mist: the fog draws in a little and goes from the sky's
+        // own horizon color part of the way to a pale gray, so the far land
+        // fades into a lighter sky and not into white. The first cut pulled
+        // the fog most of the way to a near white and drew it in far, and the
+        // walls and the logs went white (JackandBeans, Oct 18 2026).
+        static const u8 pale[3] = { 204, 196, 204 };
 
         fmin -= (s32) (MIST_FOG_DROP * mist);
         for (k = 0; k < 3; k++) {
-            fog[k] = (u8) (fog[k] + (s32) ((f32) ((s32) pale[k] - fog[k]) * 0.8f * mist));
+            s32 to = sky_horizon[k] + (s32) ((f32) ((s32) pale[k] - sky_horizon[k]) * MIST_FOG_PALE);
+
+            fog[k] = (u8) (fog[k] + (s32) ((f32) (to - fog[k]) * mist));
         }
     }
     for (k = 0; k < 3; k++) {
-        mist_rgb[k] = (u8) (fog[k] + (255 - fog[k]) / 12);
+        mist_rgb[k] = (u8) (fog[k] + (255 - fog[k]) / 6);
     }
     setFogColor(fog[0], fog[1], fog[2]);
     setFogDistance((u16) fmin, (u16) fmax);     // the game reads the record's distances at the load alone

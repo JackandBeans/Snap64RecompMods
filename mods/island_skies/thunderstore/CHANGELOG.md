@@ -13,13 +13,17 @@
   to a little above it, where some hung high in the sky. Asked for by
   JackandBeans on Oct 18 2026, twice: the first cut still blinked too
   fast and too often.
-- A mist at dawn on the River and the Valley: the fog draws in and goes
-  a pale warm gray, and a sheet of it lies on the water, drifting, with
-  the banks standing out of it. It gathers through the night's last hour,
-  lies thickest as the sky pinks and lifts as the day comes under Live;
-  a ride at Dawn starts in it and sees it thin as the ride goes. Clear
-  weather only. Chosen by JackandBeans on Oct 18 2026 from a list of
-  what the mod still lacked.
+- A mist at dawn on the River and the Valley: the fog draws in a little
+  and goes from the sky's own horizon color part of the way to a pale
+  gray, so the far land fades into a lighter sky, and a sheet of it lies
+  on the water, drifting, with the banks standing out of it. It gathers
+  through the night's last hour, lies thickest as the sky pinks and lifts
+  as the day comes under Live; a ride at Dawn starts in it and sees it
+  thin as the ride goes. Clear weather only. Chosen by JackandBeans on
+  Oct 18 2026 from a list of what the mod still lacked. The first cut
+  pulled the fog most of the way to white and hung the sheet over the
+  water, and the walls and the logs went white (JackandBeans, Oct 18
+  2026).
 
 ## 1.1.1
 
