@@ -61,7 +61,16 @@
   band along the walls' feet and a line over a shallow. No mist lies
   under the water now: a shore corner under it is lifted to the water's
   level, the water's mist is drawn first and writes its depth, and the
-  shore's, pulled less, stays unseen wherever the two meet.
+  shore's, pulled less, stays unseen wherever the two meet. That cut kept
+  the intro's dashed line and glitched the mist on the grass as the cart
+  went (JackandBeans, Oct 20 2026): the water's mist, pulled toward the
+  eye, came through the lowest grass by the water as the view moved, and
+  the River's first stretch is in the record twice, so its mist was laid
+  twice. The shore's mist is now drawn as a decal on the land itself, at
+  the land's own depth and under each part's own matrix, pulled nowhere
+  and lifted nowhere, so it lies only where the land shows: not under the
+  water's mist, nor under the water, nor over what stands on the bank; and
+  a triangle whose corners the frame has drawn already is drawn no more.
 
 ## 1.1.1
 
