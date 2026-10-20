@@ -2289,6 +2289,7 @@ static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
 #define MIST_REACH1 420.0f      // and at which it is bare
 #define MIST_PULL 2.0f          // how far each corner is pulled toward the eye at least,
 #define MIST_PULL_SHARE 0.015f  // and as a share of its distance
+#define MIST_PULL_LAND 4.0f     // the shore's corners that much nearer again, so its mist and the water's never tie where they cross
 #define MIST_ALPHA 100.0f       // the mist's alpha at full mist, where its corners and its picture are full
 #define MIST_DRIFT_S 14400u     // ticks of one tile's drift along s (four minutes),
 #define MIST_DRIFT_T 18000u     // and along t (five)
@@ -2307,6 +2308,10 @@ static u8 mist_clip_ok;                 // read this frame
 static GObj* mist_cam;                  // the camera whose models the copies were set under
 static Mtx mist_world_mtx;              // the world's own frame, the copies' space
 static u8 mist_world_ok;
+static u8 mist_turn;                    // the set of copies written through a frame and drawn at its end
+static u16 mist_parts_last;             // the last drawn frame's parts and corners, for the log
+static u32 mist_corners_last;
+static u8 mist_sky_said;
 
 // The record grows as the course's models are first drawn: the copies that
 // came since the last misty draw have their floors reset, their water corners
@@ -2325,8 +2330,13 @@ static void mist_floors_keep(void) {
         }
     }
     if (grew) {
+        // Only the copies far from any water known so far look again: the
+        // rest keep their floors, so a block's water coming in moves no
+        // mist already lying and costs no frame.
         for (i = 0; i < mist_floor_n; i++) {
-            mist_floor[i] = MIST_UNKNOWN;
+            if (mist_near[i] > 60) {
+                mist_floor[i] = MIST_UNKNOWN;
+            }
         }
     }
     mist_floor_n = (u16) (glint_vtx_n < GLINT_VTX ? glint_vtx_n : GLINT_VTX);
@@ -2431,7 +2441,7 @@ static f32 mist_fog_at(f32 px, f32 py, f32 pz) {
 // it.
 static u32 mist_corner(u32 i, f32 m[4][4], const f32* eye, f32 base_s, f32 base_t, f32 drift_s, f32 drift_t, f32 per) {
     const Vtx* src = &glint_vtx[0][i];
-    Vtx* dst = &mist_vtx[glint_turn][i];
+    Vtx* dst = &mist_vtx[mist_turn][i];
     f32 x = src->v.ob[0], y = src->v.ob[1], z = src->v.ob[2];
     f32 px = x * m[0][0] + y * m[1][0] + z * m[2][0] + m[3][0];
     f32 py = x * m[0][1] + y * m[1][1] + z * m[2][1] + m[3][1];
@@ -2468,6 +2478,9 @@ static u32 mist_corner(u32 i, f32 m[4][4], const f32* eye, f32 base_s, f32 base_
     a *= g * (1.0f - fog);
     pull = d * MIST_PULL_SHARE;
     pull = (pull < MIST_PULL) ? MIST_PULL : pull;
+    if (!(glint_face[i] & 0x2000u)) {
+        pull += MIST_PULL_LAND;
+    }
     pull = (d > pull) ? pull / d : 1.0f;
     dst->v.ob[0] = (s16) (px + vx * pull);
     dst->v.ob[1] = (s16) (py + vy * pull);
@@ -2548,7 +2561,7 @@ static void mist_segment(s32 k, f32 m[4][4], const f32* eye) {
 // space, under the camera's view in force: the mist's modes, then each
 // part's loads and the triangles that carry mist.
 static void mist_draw(Gfx** list) {
-    Vtx* set = mist_vtx[glint_turn];
+    Vtx* set = mist_vtx[mist_turn];
     u16 slot_copy[64];
     u32 j, o, pending;
     s32 k, s, opened = 0;
@@ -2619,6 +2632,15 @@ static void mist_draw(Gfx** list) {
         command(list, (0x64u << 24) | 0x00000Du, 1);
         command(list, (0x64u << 24) | 0x00002Cu, 0);
     }
+    // The frame's books close with its draw, whatever the sky's place in the
+    // frame's order: the set turns, the camera is read again at the next
+    // frame's first misty model, and the count is kept for the log.
+    mist_parts_last = mist_parts_frame;
+    mist_corners_last = mist_corners_frame;
+    mist_parts_frame = 0;
+    mist_corners_frame = 0;
+    mist_clip_ok = 0;
+    mist_turn ^= 1;
 }
 
 // The water was just drawn: its commands, from where this model began, hold
@@ -2787,6 +2809,41 @@ static void mist_scan(void) {
                       (glint_vtx_n > GLINT_VTX - 64) ? " (the corners FULL)" : "",
                       (glint_seg_n >= GLINT_SEGS) ? " (the parts FULL)" : "",
                       (s32) mist_pool_n, mist_corners, (s32) mist_fog_min, (s32) mist_fog_max, mist_clip_ok ? "read" : "NOT read");
+        // The water's own triangles in the world, once, to see where they
+        // meet and where they overlap (the lines on the water, Oct 19 2026).
+        {
+            s32 k;
+
+            for (k = 0; k < glint_seg_n; k++) {
+                const GlintSeg* seg = &glint_seg[k];
+                u16 slot_copy[64];
+                u32 j, o;
+                s32 s;
+
+                for (s = 0; s < 64; s++) {
+                    slot_copy[s] = 0xFFFF;
+                }
+                for (j = seg->op0; j < (u32) seg->op0 + seg->op_n; j++) {
+                    o = glint_op[j];
+                    if (o & GLINT_LOAD) {
+                        u32 start = (o >> 12) & 0x3FFF, count = (o >> 6) & 0x3F, first = o & 63, v;
+
+                        for (v = 0; v < count && first + v < 64; v++) {
+                            slot_copy[first + v] = (u16) (start + v);
+                        }
+                    } else if (o & GLINT_FLOW) {
+                        u32 a = (o >> 16) & 0xFF, b = (o >> 8) & 0xFF, c = o & 0xFF;
+
+                        if (a < 64 && b < 64 && c < 64 && slot_copy[a] != 0xFFFF && slot_copy[b] != 0xFFFF && slot_copy[c] != 0xFFFF) {
+                            recomp_printf("[island skies] water %d: %d %d %d / %d %d %d / %d %d %d\n", k,
+                                          glint_world_x[slot_copy[a]], glint_world_y[slot_copy[a]], glint_world_z[slot_copy[a]],
+                                          glint_world_x[slot_copy[b]], glint_world_y[slot_copy[b]], glint_world_z[slot_copy[b]],
+                                          glint_world_x[slot_copy[c]], glint_world_y[slot_copy[c]], glint_world_z[slot_copy[c]]);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -3408,21 +3465,18 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
     sky_now = obj;
     glint_turn ^= 1;        // the record's two sets turn once a frame
     ember_turn ^= 1;
-    // The last frame's mist, said once a ride past the intro's own camera.
-    if (night != NULL && !mist_said_frame && on_the_ride && mist_corners_frame > 0 && ticks_of(night) >= 900) {
+    // The last drawn frame's mist, said once a ride past the intro's own camera.
+    if (night != NULL && !mist_said_frame && on_the_ride && mist_corners_last > 0 && ticks_of(night) >= 900) {
         mist_said_frame = 1;
         recomp_printf("[island skies] the mist in one frame: %d parts of the record's %d carried it, %u corners\n",
-                      (s32) mist_parts_frame, (s32) glint_seg_n, mist_corners_frame);
+                      (s32) mist_parts_last, (s32) glint_seg_n, mist_corners_last);
     }
-    mist_parts_frame = 0;
-    mist_corners_frame = 0;
-    mist_clip_ok = 0;           // the camera's matrices are read again at the frame's first misty model
-    {
-        s32 k;
-
-        for (k = 0; k < GLINT_SEGS; k++) {
-            mist_ready[k] = 0;
-        }
+    // The mist's books were once kept here, and a model drawn before the sky
+    // in a frame lost its mist for that frame; they close with the draw now
+    // (mist_draw). Said once if the sky does come after a misty model.
+    if (night != NULL && !mist_sky_said && mist_parts_frame > 0) {
+        mist_sky_said = 1;
+        recomp_printf("[island skies] the sky came after %d misty parts in one frame\n", (s32) mist_parts_frame);
     }
     {
         volatile s8* dir = (volatile s8*) (COURSE_LIGHT + 16);
@@ -3695,7 +3749,16 @@ RECOMP_HOOK_RETURN("omDrawAll") void night_cameras_end(void) {
 // camera is under the open sky. A blink frame (the shutter's black) is left
 // black.
 RECOMP_HOOK("mainCameraRender") void night_scene_begins(GObj* obj) {
+    s32 k;
+
     roof_blink = (*(volatile s32*) 0x80382DA0u > 0);       // MainCameraBlinkTimeout (app_level/player.c)
+    // The frame's mist starts clean: a part marked in a frame that drew
+    // none (a blink's) is not drawn from old copies.
+    for (k = 0; k < GLINT_SEGS; k++) {
+        mist_ready[k] = 0;
+    }
+    mist_parts_frame = 0;
+    mist_corners_frame = 0;
 }
 
 RECOMP_HOOK("renSpriteCameraRender") void night_ui_begins(GObj* ui) {
@@ -5556,6 +5619,9 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         mist_pool_n = 0;
         mist_cam = NULL;
         mist_clip_ok = 0;
+        mist_sky_said = 0;
+        mist_parts_last = 0;
+        mist_corners_last = 0;
         water_model = 0;
         glint_reset();
         sky_extent(by);

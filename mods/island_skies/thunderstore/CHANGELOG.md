@@ -47,7 +47,13 @@
   game folds into its projection, so the fog never reached it. The mist
   now stands in the world's own frame in a group of its own the port
   leaves still, writes its depth so that where two of its triangles lie
-  on one pixel the second blends no more, and takes the fog.
+  on one pixel the second blends no more, and takes the fog. With that
+  it looked better, with a little flickering and some lines left
+  (JackandBeans, Oct 19 2026): its frame's books now close with its own
+  draw rather than with the sky's, so a model drawn before the sky in a
+  frame keeps its mist; the shore's mist stands a hair nearer than the
+  water's, so the two never tie where they cross; and a block's water
+  coming into the record no longer moves the mist already lying.
 
 ## 1.1.1
 
