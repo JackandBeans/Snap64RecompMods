@@ -218,6 +218,7 @@ static f32 ride_minutes = -1.0f;     // the clock's minute the ride began at, fo
 static s32 ride_day = -1, ride_month;    // and its date: days since 2000, and the month
 static f32 cycle_minute = -1.0f;     // the minute last applied
 static u16 steep_shade[3] = { 110, 118, 160 };   // the steep faces' shade, 256 by day
+static const u8 snow_rock[3] = { 208, 212, 236 };   // a steep face under snow, over its dusting: a little darker and cooler (176, 184, 212 to Oct 20 2026, when it held no dusting)
 static u16 sky_orig_pic[2][64 * 32];  // the sky pictures as the cartridge has them (the day end of the blend)
 static u32 sky_orig_cn[2][64];        // the sky box's corner colors as the cartridge has them
 static u8 sky_orig_cn_kept[2];
@@ -569,8 +570,8 @@ static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
 
         // Under snow, the land's painted colors (much of the land's color is
         // painted, over gray pictures) go toward snow as far as the face's
-        // slope allows, and not at all where it stands steep: there the
-        // rock shows, darker and colder.
+        // slope allows, a dusting where it stands steep: there the rock
+        // shows through, a little darker and colder.
         if (snow_cover && !flowing && snow > 0) {
             snow_paint(color, toward, snow, (f32) ((volatile s16*) at)[1] + walk_node_y);
         }
@@ -588,11 +589,11 @@ static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
             color[1] = (u8) part(color[1], steep_shade[1]);
             color[2] = (u8) part(color[2], steep_shade[2]);
             if (snow_cover && !cave_face) {
-                // Rock in snow weather: darker and bluer at any hour, so the
-                // white above it reads as snow and not as paint.
-                color[0] = (u8) part(color[0], 176);
-                color[1] = (u8) part(color[1], 184);
-                color[2] = (u8) part(color[2], 212);
+                // Rock in snow weather: a little darker and bluer at any
+                // hour, so the white above it reads as snow and not as paint.
+                color[0] = (u8) part(color[0], snow_rock[0]);
+                color[1] = (u8) part(color[1], snow_rock[1]);
+                color[2] = (u8) part(color[2], snow_rock[2]);
             }
         }
     }
@@ -747,8 +748,13 @@ static s32 steep_face(u32 a, u32 b, u32 c) {
 }
 
 // How much snow a face holds, 0 to 256, by its slope: all of it on ground
-// within 32 degrees of flat, none past 66 degrees, and between the two a
-// snow line, where a hillside goes from white to its own rock.
+// within 32 degrees of flat, a dusting past 66 degrees, and between the two
+// a snow line, where a hillside goes from white to its dusted rock. The
+// dusting is what a wall holds in a snowfall, rime and the snow on its
+// ledges and in its cracks: it stays its own rock, lighter and cooler. (To
+// Oct 20 2026 a face past 66 degrees held none, and the Valley's wall
+// that Porygon hides in stood bare and brown in a white course.)
+#define SNOW_DUST 92            // the dusting, of 256
 static u32 snow_share_face(u32 a, u32 b, u32 c) {
     const volatile s16* A = (const volatile s16*) a;
     const volatile s16* B = (const volatile s16*) b;
@@ -767,7 +773,7 @@ static u32 snow_share_face(u32 a, u32 b, u32 c) {
     up = __builtin_sqrtf((ny * ny) / all);
     share = (up - 0.40f) / 0.45f;
     share = share < 0.0f ? 0.0f : share > 1.0f ? 1.0f : share;
-    return (u32) (share * 256.0f);
+    return SNOW_DUST + (u32) (share * (f32) (256 - SNOW_DUST));
 }
 
 // On a roofed course (the Tunnel), a block's corner is under the open sky
@@ -2285,8 +2291,8 @@ static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
 // against the water.
 #define MIST_NEAR 60.0f         // units from the eye within which the mist is nothing,
 #define MIST_FULL 520.0f        // and at which it is full
-#define MIST_FAR0 800.0f        // where it begins to thin again (1400 was "too much from a distance", Oct 20 2026),
-#define MIST_FAR1 1700.0f       // and where it is gone (2600 before)
+#define MIST_FAR0 700.0f        // where it begins to thin again (1400 was "too much from a distance", Oct 20 2026; 800 "still a little too much"),
+#define MIST_FAR1 1500.0f       // and where it is gone (2600, then 1700, before)
 #define MIST_FLOOR 3.0f         // units over the water near it up to which a corner is fully misted,
 #define MIST_RISE 26.0f         // and over how many more it clears
 #define MIST_REACH0 160.0f      // units across from the nearest water corner within which the shore is fully misted,
@@ -2294,7 +2300,7 @@ static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
 #define MIST_LIFT 2.0f          // how far over the water the water's mist stands
 #define MIST_CHAIN 8            // matrices a part is drawn under at most
 #define MIST_TRIS 2048          // the triangles a frame's draw tells apart
-#define MIST_ALPHA 100.0f       // the mist's alpha at full mist, where its corners and its picture are full
+#define MIST_ALPHA 90.0f        // the mist's alpha at full mist, where its corners and its picture are full (100 to cut 12)
 #define MIST_DRIFT_S 14400u     // ticks of one tile's drift along s (four minutes),
 #define MIST_DRIFT_T 18000u     // and along t (five)
 #define MIST_POOL 1024          // the water corners the floors are taken from
@@ -4482,9 +4488,9 @@ static void relight_record(void) {
                 c[1] = (u8) part(c[1], steep_shade[1]);
                 c[2] = (u8) part(c[2], steep_shade[2]);
                 if (snow_cover && !cave) {
-                    c[0] = (u8) part(c[0], 176);
-                    c[1] = (u8) part(c[1], 184);
-                    c[2] = (u8) part(c[2], 212);
+                    c[0] = (u8) part(c[0], snow_rock[0]);
+                    c[1] = (u8) part(c[1], snow_rock[1]);
+                    c[2] = (u8) part(c[2], snow_rock[2]);
                 }
             }
             color[0] = c[0];

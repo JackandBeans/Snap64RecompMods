@@ -82,8 +82,9 @@
   through the low grass by the water as the view moved and, where the
   water runs under a wall's foot, through the wall as a line along it.
   With that it "looks perfectly fine" near and was too much from a
-  distance (JackandBeans, Oct 20 2026): it now thins from 800 units out
-  and is gone at 1700, where it stood full to 1400 and went at 2600.
+  distance (JackandBeans, Oct 20 2026): it now thins from 700 units out
+  and is gone at 1500, where it stood full to 1400 and went at 2600, and
+  its full thickness is a tenth less.
 
 ## 1.1.1
 
@@ -135,10 +136,13 @@
   under Live three days in eight when the island is clear.
 - Snow lies as a blanket with form, in the console's own way: the painted
   colors go toward snow by the slope of each face, all of it on ground
-  within 32 degrees of flat, none past 66, and a snow line between, where
-  a hillside goes from white to its own rock; the snow's color turns with
-  the face, cool and a little darker away from the light, warm toward it;
-  rock faces stay rock, darker and bluer under snow at any hour; and the
+  within 32 degrees of flat, a dusting past 66, and a snow line between,
+  where a hillside goes from white to its dusted rock; the snow's color
+  turns with the face, cool and a little darker away from the light, warm
+  toward it; rock faces stay rock under their dusting, a little darker and
+  bluer under snow at any hour (to Oct 20 2026 a wall held no snow at all,
+  and the Valley's wall that Porygon hides in stood bare and brown in a
+  white course); and the
   land's pictures are lifted and compressed under the blanket rather than
   painted white, so the same picture reads as snow under a white face and
   as rock under a dark one. 1.0.x painted every face but the near-vertical
