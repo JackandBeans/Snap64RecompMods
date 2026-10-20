@@ -2285,8 +2285,8 @@ static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
 // against the water.
 #define MIST_NEAR 60.0f         // units from the eye within which the mist is nothing,
 #define MIST_FULL 520.0f        // and at which it is full
-#define MIST_FAR0 1400.0f       // where it begins to thin again, past the fog's own thinning,
-#define MIST_FAR1 2600.0f       // and where it is gone
+#define MIST_FAR0 800.0f        // where it begins to thin again (1400 was "too much from a distance", Oct 20 2026),
+#define MIST_FAR1 1700.0f       // and where it is gone (2600 before)
 #define MIST_FLOOR 3.0f         // units over the water near it up to which a corner is fully misted,
 #define MIST_RISE 26.0f         // and over how many more it clears
 #define MIST_REACH0 160.0f      // units across from the nearest water corner within which the shore is fully misted,

@@ -81,6 +81,9 @@
   instead of being pulled toward the eye, since the pulled mist came
   through the low grass by the water as the view moved and, where the
   water runs under a wall's foot, through the wall as a line along it.
+  With that it "looks perfectly fine" near and was too much from a
+  distance (JackandBeans, Oct 20 2026): it now thins from 800 units out
+  and is gone at 1700, where it stood full to 1400 and went at 2600.
 
 ## 1.1.1
 
