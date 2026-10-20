@@ -53,7 +53,15 @@
   draw rather than with the sky's, so a model drawn before the sky in a
   frame keeps its mist; the shore's mist stands a hair nearer than the
   water's, so the two never tie where they cross; and a block's water
-  coming into the record no longer moves the mist already lying.
+  coming into the record no longer moves the mist already lying. His
+  pictures of that cut showed a bright hairline along the water's edge
+  under the rock walls and a dashed line across the intro's water: the
+  river's bed within a unit under the water carried mist too, and that
+  mist, pulled nearer than the water's, showed through the water as a
+  band along the walls' feet and a line over a shallow. No mist lies
+  under the water now: a shore corner under it is lifted to the water's
+  level, the water's mist is drawn first and writes its depth, and the
+  shore's, pulled less, stays unseen wherever the two meet.
 
 ## 1.1.1
 

@@ -2284,12 +2284,11 @@ static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
 #define MIST_FAR1 2600.0f       // and where it is gone
 #define MIST_FLOOR 3.0f         // units over the water near it up to which a corner is fully misted,
 #define MIST_RISE 26.0f         // and over how many more it clears
-#define MIST_UNDER 1.0f         // units under that water past which a corner carries none (the river's bed)
 #define MIST_REACH0 160.0f      // units across from the nearest water corner within which the shore is fully misted,
 #define MIST_REACH1 420.0f      // and at which it is bare
 #define MIST_PULL 2.0f          // how far each corner is pulled toward the eye at least,
 #define MIST_PULL_SHARE 0.015f  // and as a share of its distance
-#define MIST_PULL_LAND 4.0f     // the shore's corners that much nearer again, so its mist and the water's never tie where they cross
+#define MIST_PULL_SHORE 0.5f    // the shore's pull as a share of the water's: where the two lie on one pixel the water's, drawn first, wins
 #define MIST_ALPHA 100.0f       // the mist's alpha at full mist, where its corners and its picture are full
 #define MIST_DRIFT_S 14400u     // ticks of one tile's drift along s (four minutes),
 #define MIST_DRIFT_T 18000u     // and along t (five)
@@ -2435,10 +2434,13 @@ static f32 mist_fog_at(f32 px, f32 py, f32 pz) {
 }
 
 // One copy for the mist, from its record and its part's matrix: its place in
-// the world pulled toward the eye, its s and t from that place, its alpha by
-// the eye's distance and by its height over the water near it, less the fog
-// there, and its color the mist's gone into the fog's as far as the fog has
-// it.
+// the world, a shore corner under the water lifted to the water's own level
+// (so no mist lies under the water: the bed's would show through it, as a
+// band along the walls' feet and a line over a shallow), pulled toward the
+// eye, the shore's less than the water's; its s and t from that place; its
+// alpha by the eye's distance and by its height over the water near it,
+// less the fog there; and its color the mist's gone into the fog's as far
+// as the fog has it.
 static u32 mist_corner(u32 i, f32 m[4][4], const f32* eye, f32 base_s, f32 base_t, f32 drift_s, f32 drift_t, f32 per) {
     const Vtx* src = &glint_vtx[0][i];
     Vtx* dst = &mist_vtx[mist_turn][i];
@@ -2446,11 +2448,20 @@ static u32 mist_corner(u32 i, f32 m[4][4], const f32* eye, f32 base_s, f32 base_
     f32 px = x * m[0][0] + y * m[1][0] + z * m[2][0] + m[3][0];
     f32 py = x * m[0][1] + y * m[1][1] + z * m[2][1] + m[3][1];
     f32 pz = x * m[0][2] + y * m[1][2] + z * m[2][2] + m[3][2];
-    f32 vx = eye[0] - px, vy = eye[1] - py, vz = eye[2] - pz;
-    f32 d = __builtin_sqrtf(vx * vx + vy * vy + vz * vz);
-    f32 a, g, h, fog, pull;
+    u32 water = glint_face[i] & 0x2000u;
+    f32 vx, vy, vz, d, a, g, h, fog, pull;
     s32 k;
 
+    if (mist_floor[i] == MIST_UNKNOWN) {
+        mist_floor_find(i, px, pz);
+    }
+    if (!water && py < (f32) mist_floor[i]) {
+        py = (f32) mist_floor[i];
+    }
+    vx = eye[0] - px;
+    vy = eye[1] - py;
+    vz = eye[2] - pz;
+    d = __builtin_sqrtf(vx * vx + vy * vy + vz * vz);
     if (d <= MIST_NEAR) {
         a = 0.0f;
     } else if (d < MIST_FULL) {
@@ -2462,24 +2473,17 @@ static u32 mist_corner(u32 i, f32 m[4][4], const f32* eye, f32 base_s, f32 base_
     } else {
         a = 0.0f;
     }
-    if (mist_floor[i] == MIST_UNKNOWN) {
-        mist_floor_find(i, px, pz);
-    }
     h = py - (f32) mist_floor[i];
-    if (h < -MIST_UNDER) {
-        g = 0.0f;
-    } else {
-        g = 1.0f - (h - MIST_FLOOR) / MIST_RISE;
-        g = g < 0.0f ? 0.0f : g > 1.0f ? 1.0f : g;
-    }
+    g = 1.0f - (h - MIST_FLOOR) / MIST_RISE;
+    g = g < 0.0f ? 0.0f : g > 1.0f ? 1.0f : g;
     h = 1.0f - ((f32) mist_near[i] * 4.0f - MIST_REACH0) / (MIST_REACH1 - MIST_REACH0);
     g *= h < 0.0f ? 0.0f : h > 1.0f ? 1.0f : h;
     fog = (a * g > 0.0f) ? mist_fog_at(px, py, pz) : 0.0f;
     a *= g * (1.0f - fog);
     pull = d * MIST_PULL_SHARE;
     pull = (pull < MIST_PULL) ? MIST_PULL : pull;
-    if (!(glint_face[i] & 0x2000u)) {
-        pull += MIST_PULL_LAND;
+    if (!water) {
+        pull *= MIST_PULL_SHORE;
     }
     pull = (d > pull) ? pull / d : 1.0f;
     dst->v.ob[0] = (s16) (px + vx * pull);
@@ -2557,40 +2561,21 @@ static void mist_segment(s32 k, f32 m[4][4], const f32* eye) {
     mist_parts_frame++;
 }
 
-// The parts marked this frame, drawn from their copies in the world's own
-// space, under the camera's view in force: the mist's modes, then each
-// part's loads and the triangles that carry mist.
-static void mist_draw(Gfx** list) {
-    Vtx* set = mist_vtx[mist_turn];
+// One pass of the draw over the parts marked this frame: each part's loads
+// and the triangles that carry mist, the water's or the shore's. The water's
+// pass goes first and writes its depth, so the shore's mist, pulled less,
+// loses to it wherever the two lie on one pixel, and the shore's corners
+// lifted to the water's level stay unseen under the water's own.
+static void mist_pass(Gfx** list, Vtx* set, u32 water) {
     u16 slot_copy[64];
     u32 j, o, pending;
-    s32 k, s, opened = 0;
+    s32 k, s;
 
     for (k = 0; k < glint_seg_n; k++) {
         const GlintSeg* seg = &glint_seg[k];
 
         if (!mist_ready[k]) {
             continue;
-        }
-        mist_ready[k] = 0;
-        if (!opened) {
-            opened = 1;
-            command(list, (0x64u << 24) | 0x00002Cu, 1);
-            // The copies stand in the world, so the world's own frame is
-            // loaded over whatever the scene's last object left on the
-            // stack, in a matrix group of the mist's own that the port
-            // leaves still between the game's frames, as the bolt's; under
-            // another object's group the mist went where that object's
-            // matrix glided.
-            if (!mist_world_ok) {
-                place(&mist_world_mtx, 0.0f, 0.0f, 0.0f);
-                mist_world_ok = 1;
-            }
-            command(list, (0x64u << 24) | 0x00000Cu, 0);
-            command(list, 0x00000001u, 0);
-            gSPMatrix((*list)++, &mist_world_mtx, G_MTX_PUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-            gSPDisplayList((*list)++, night_mist_begin);
-            gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u32) (MIST_ALPHA * mist_share));
         }
         for (s = 0; s < 64; s++) {
             slot_copy[s] = 0xFFFF;
@@ -2600,17 +2585,20 @@ static void mist_draw(Gfx** list) {
             o = glint_op[j];
             if (o & GLINT_LOAD) {
                 u32 start = (o >> 12) & 0x3FFF, count = (o >> 6) & 0x3F, first = o & 63, v;
+                u32 wanted = o & (water ? GLINT_USED : GLINT_LAND);
 
                 if (pending != 0xFFFFFFFFu) {
                     gSP1Triangle((*list)++, (pending >> 16) & 0xFF, (pending >> 8) & 0xFF, pending & 0xFF, 0);
                     pending = 0xFFFFFFFFu;
                 }
                 for (v = 0; v < count && first + v < 64; v++) {
-                    slot_copy[first + v] = (o & (GLINT_USED | GLINT_LAND)) ? (u16) (start + v) : 0xFFFF;
+                    slot_copy[first + v] = wanted ? (u16) (start + v) : 0xFFFF;
                 }
-                if (o & (GLINT_USED | GLINT_LAND)) {
+                if (wanted) {
                     gSPVertex((*list)++, &set[start], count, first);
                 }
+            } else if (((o & GLINT_FLOW) != 0) != (water != 0)) {
+                continue;
             } else if (!mist_tri(set, slot_copy, (o >> 16) & 0xFF, (o >> 8) & 0xFF, o & 0xFF)) {
                 continue;
             } else if (pending == 0xFFFFFFFFu) {
@@ -2625,7 +2613,41 @@ static void mist_draw(Gfx** list) {
             gSP1Triangle((*list)++, (pending >> 16) & 0xFF, (pending >> 8) & 0xFF, pending & 0xFF, 0);
         }
     }
-    if (opened) {
+}
+
+// The parts marked this frame, drawn from their copies in the world's own
+// space, under the camera's view in force: the mist's modes, then the
+// water's pass and the shore's.
+static void mist_draw(Gfx** list) {
+    Vtx* set = mist_vtx[mist_turn];
+    s32 k, any = 0;
+
+    for (k = 0; k < glint_seg_n; k++) {
+        if (mist_ready[k]) {
+            any = 1;
+        }
+    }
+    if (any) {
+        command(list, (0x64u << 24) | 0x00002Cu, 1);
+        // The copies stand in the world, so the world's own frame is loaded
+        // over whatever the scene's last object left on the stack, in a
+        // matrix group of the mist's own that the port leaves still between
+        // the game's frames, as the bolt's; under another object's group
+        // the mist went where that object's matrix glided.
+        if (!mist_world_ok) {
+            place(&mist_world_mtx, 0.0f, 0.0f, 0.0f);
+            mist_world_ok = 1;
+        }
+        command(list, (0x64u << 24) | 0x00000Cu, 0);
+        command(list, 0x00000001u, 0);
+        gSPMatrix((*list)++, &mist_world_mtx, G_MTX_PUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPDisplayList((*list)++, night_mist_begin);
+        gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u32) (MIST_ALPHA * mist_share));
+        mist_pass(list, set, 1);
+        mist_pass(list, set, 0);
+        for (k = 0; k < glint_seg_n; k++) {
+            mist_ready[k] = 0;
+        }
         gSPDisplayList((*list)++, night_mist_end);
         gDPSetAlphaCompare((*list)++, G_AC_NONE);     // as the game leaves it after its own cutouts
         gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
