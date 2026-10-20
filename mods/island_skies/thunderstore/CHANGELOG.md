@@ -40,6 +40,14 @@
   a bright veil with it (JackandBeans, Oct 19 2026, "extremely glitchy
   and choppy"): it is drawn after the whole scene now, under the camera's
   own matrices, without the edge smoothing, and fogged as the land is.
+  That cut still drew bright lines along the water's rows and glitched
+  (JackandBeans, Oct 19 2026): it was drawn under whatever matrix the
+  scene's last object had left, which the port glides between the game's
+  frames, and the reader of the camera's matrices looked for a view the
+  game folds into its projection, so the fog never reached it. The mist
+  now stands in the world's own frame in a group of its own the port
+  leaves still, writes its depth so that where two of its triangles lie
+  on one pixel the second blends no more, and takes the fog.
 
 ## 1.1.1
 

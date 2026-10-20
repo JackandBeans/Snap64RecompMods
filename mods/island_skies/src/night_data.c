@@ -114017,7 +114017,8 @@ Gfx night_mist_begin[] = {
     gsDPSetTextureLUT(G_TT_NONE),
     gsDPLoadTextureBlock(night_mist_pic, G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0, G_TX_WRAP, G_TX_WRAP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),
     gsDPSetCombineLERP(0, 0, 0, SHADE, TEXEL0, 0, SHADE, 0, 0, 0, 0, COMBINED, COMBINED, 0, PRIMITIVE, 0),
-    gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_XLU_SURF2),
+    gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_XLU_SURF2 | Z_UPD),
+    gsDPSetBlendColor(0, 0, 0, 1),
     gsSPEndDisplayList(),
 };
 Gfx night_mist_end[] = {

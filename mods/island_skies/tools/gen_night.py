@@ -486,7 +486,15 @@ def make_mist(w, h):
     w('    gsDPSetTextureLUT(G_TT_NONE),')
     w('    gsDPLoadTextureBlock(night_mist_pic, G_IM_FMT_I, G_IM_SIZ_8b, 32, 32, 0, G_TX_WRAP, G_TX_WRAP, 5, 5, G_TX_NOLOD, G_TX_NOLOD),')
     w('    gsDPSetCombineLERP(0, 0, 0, SHADE, TEXEL0, 0, SHADE, 0, 0, 0, 0, COMBINED, COMBINED, 0, PRIMITIVE, 0),')
-    w('    gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_XLU_SURF2),')
+    # Writing its depth with the see-through compare, which passes only
+    # nearer: where two of its triangles lie on one pixel (the water's quads
+    # overlap a little, the bank's foot crosses the water's edge), the
+    # second blends no more, so no bright seam. Nothing is drawn after it.
+    # A pixel with no mist at all (the picture's open water, the far fade)
+    # is dropped before its depth is written, so it hides no mist behind it:
+    # the alpha compare against a blend color of one, set with the mode word.
+    w('    gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_XLU_SURF2 | Z_UPD),')
+    w('    gsDPSetBlendColor(0, 0, 0, 1),')
     w('    gsSPEndDisplayList(),')
     w('};')
     w('Gfx night_mist_end[] = {')

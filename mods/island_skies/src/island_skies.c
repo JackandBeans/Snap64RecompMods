@@ -2305,6 +2305,8 @@ static u8 mist_ready[GLINT_SEGS];       // the parts whose copies carry mist thi
 static f32 mist_clip[4][4];             // the camera's view and projection as one, for the fog
 static u8 mist_clip_ok;                 // read this frame
 static GObj* mist_cam;                  // the camera whose models the copies were set under
+static Mtx mist_world_mtx;              // the world's own frame, the copies' space
+static u8 mist_world_ok;
 
 // The record grows as the course's models are first drawn: the copies that
 // came since the last misty draw have their floors reset, their water corners
@@ -2353,35 +2355,55 @@ static void mist_floor_find(u32 i, f32 px, f32 pz) {
 
 // The camera's projection and view, read from the game's own sub-list for
 // them (ren_D_8004B248 + 1), as one matrix from the world to the clip
-// space, for each corner's fog.
+// space, for each corner's fog. The game loads its perspective on the
+// projection stack and multiplies its look-at into it (sys/render.c,
+// renPrepareCameraMatrix: G_MTX_MUL | G_MTX_PROJECTION); a camera of the
+// other kinds loads its view on the model stack instead. Either is read.
+// The sub-list holds the port's own group packet before them.
 static void mist_clip_read(void) {
     u32 at = *(volatile u32*) 0x8004B248u;
-    f32 proj[4][4], view[4][4];
+    f32 proj[4][4], view[4][4], m[4][4], out[4][4];
     s32 have_p = 0, have_v = 0, n;
 
     mist_clip_ok = 0;
     if (at == 0) {
         return;
     }
-    for (n = 1; n < 8; n++) {
+    for (n = 1; n < 16; n++) {
         volatile u32* cmd = (volatile u32*) (at + 8 * n);
         u32 w0 = cmd[0], w1 = cmd[1];
 
         if ((w0 >> 24) == 0xDF) {
             break;
         }
-        if ((w0 >> 24) == 0xDA && w1 >= 0x80000000u) {
-            if (w0 & 4) {
-                read_mtx(proj, w1);
+        if ((w0 >> 24) != 0xDA) {
+            continue;
+        }
+        if (w1 < 0x00800000u) {
+            w1 |= 0x80000000u;      // the same memory by its physical address
+        } else if (w1 < 0x80000000u) {
+            continue;
+        }
+        read_mtx(m, w1);
+        if (w0 & 4) {               // the projection: loaded, or multiplied into the one loaded
+            if (w0 & 2) {
+                copy_mtx(proj, m);
                 have_p = 1;
-            } else if (w0 & 2) {
-                read_mtx(view, w1);
-                have_v = 1;
+            } else if (have_p) {
+                mul_mtx(out, m, proj);
+                copy_mtx(proj, out);
             }
+        } else if (w0 & 2) {        // a view loaded on the model stack
+            copy_mtx(view, m);
+            have_v = 1;
         }
     }
-    if (have_p && have_v) {
-        mul_mtx(mist_clip, view, proj);
+    if (have_p) {
+        if (have_v) {
+            mul_mtx(mist_clip, view, proj);
+        } else {
+            copy_mtx(mist_clip, proj);
+        }
         mist_clip_ok = 1;
     }
 }
@@ -2541,6 +2563,19 @@ static void mist_draw(Gfx** list) {
         if (!opened) {
             opened = 1;
             command(list, (0x64u << 24) | 0x00002Cu, 1);
+            // The copies stand in the world, so the world's own frame is
+            // loaded over whatever the scene's last object left on the
+            // stack, in a matrix group of the mist's own that the port
+            // leaves still between the game's frames, as the bolt's; under
+            // another object's group the mist went where that object's
+            // matrix glided.
+            if (!mist_world_ok) {
+                place(&mist_world_mtx, 0.0f, 0.0f, 0.0f);
+                mist_world_ok = 1;
+            }
+            command(list, (0x64u << 24) | 0x00000Cu, 0);
+            command(list, 0x00000001u, 0);
+            gSPMatrix((*list)++, &mist_world_mtx, G_MTX_PUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
             gSPDisplayList((*list)++, night_mist_begin);
             gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u32) (MIST_ALPHA * mist_share));
         }
@@ -2579,6 +2614,9 @@ static void mist_draw(Gfx** list) {
     }
     if (opened) {
         gSPDisplayList((*list)++, night_mist_end);
+        gDPSetAlphaCompare((*list)++, G_AC_NONE);     // as the game leaves it after its own cutouts
+        gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
+        command(list, (0x64u << 24) | 0x00000Du, 1);
         command(list, (0x64u << 24) | 0x00002Cu, 0);
     }
 }
@@ -2792,7 +2830,7 @@ static void mist_weather(void) {
             gDPSetOtherMode((*list)++,
                             G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
                             | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
-                            G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
+                            G_AC_THRESHOLD | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
             mist_draw(list);
         }
     }
@@ -2811,7 +2849,7 @@ static void mist_photo(GObj* cam) {
     gDPSetOtherMode((*list)++,
                     G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
                     | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
-                    G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
+                    G_AC_THRESHOLD | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
     mist_draw(list);
 }
 
