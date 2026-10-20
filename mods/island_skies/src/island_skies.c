@@ -905,6 +905,33 @@ static void light_corners(u32 word) {
     }
 }
 
+// The two-picture material is the courses' moving water (and the Volcano's
+// lava), and also the River's three shimmering panels of rock and grass, where
+// Porygon hides: set into the walls, they take the same combiner and a palette
+// of their own, loaded in the list after it. The water's palettes are blue,
+// or it has none (its pictures are full color); the lava's is red. A palette
+// that is neither, loaded under that combiner, is earth: the panel is land,
+// lit as the walls around it and snowed on as they are. (To Oct 20 2026 the
+// panels were water to the mod: no snow lay on them, and the rock panel
+// stood bare and brown in a white wall.) Read through all seven courses'
+// data: only those three panels pass.
+static s32 earthen_palette(u32 at, u32 n) {
+    u32 r = 0, g = 0, b = 0;
+    u32 i;
+
+    if ((at & 1) || n == 0 || n > 256 || unit_of(at) < 0 || unit_of(at + 2 * (n - 1)) < 0) {
+        return 0;
+    }
+    for (i = 0; i < n; i++) {
+        u32 t = ((const volatile u16*) at)[i];
+
+        r += (((t >> 11) & 31) * 255) / 31;
+        g += (((t >> 6) & 31) * 255) / 31;
+        b += (((t >> 1) & 31) * 255) / 31;
+    }
+    return b < g && r < 2 * g;
+}
+
 // Reads a display list of the course's own data and gives the night's light
 // to what colors it: the vertices loaded while lighting is off (their fourth
 // word is a color then, a normal otherwise), each as a triangle first uses
@@ -981,6 +1008,9 @@ static void walk(u32 list, s32 depth) {
             case 0xF0:      // G_LOADTLUT: a palette, and its entries
                 tlut_addr = tex_addr;
                 tlut_n = ((w1 >> 14) & 0x3FF) + 1;
+                if (flowing && earthen_palette(tlut_addr, tlut_n)) {
+                    flowing = 0;        // a panel of rock or grass, not water
+                }
                 break;
             case 0xF5:      // G_SETTILE, the drawing tile: the picture's format
                 if (((w1 >> 24) & 7) == 0) {

@@ -151,6 +151,14 @@
   wet and bare, the surf line (the Beach's sea); the record is lit again
   once, when the water's height is first known. On the Volcano snow is a
   dusting only, the ground warm, with the rock showing through.
+- The River's three shimmering panels where Porygon hides, two of rock
+  and one of grass, are land to the mod now: snow lies on them as on the
+  walls around them, and by night they take the walls' light. They share
+  the moving water's two-picture material, and to Oct 20 2026 the mod
+  took them for water, so the rock panel stood bare and brown in a white
+  wall (JackandBeans's picture). A panel is told from water by its own
+  palette, earth colored where the water's is blue or absent and the
+  lava's red; across the seven courses only those three panels have one.
 - The Tunnel takes the weather at both ends. Over the open-air start,
   rain, a storm or snow stands as one volume of the world, the slope's
   whole width, from the course's edge to the cave's mouth and a little
