@@ -71,6 +71,16 @@
   and lifted nowhere, so it lies only where the land shows: not under the
   water's mist, nor under the water, nor over what stands on the bank; and
   a triangle whose corners the frame has drawn already is drawn no more.
+  His pictures of a test build with the water's mist blue and the shore's
+  red showed the intro's line gone and no red at all: the renderer draws a
+  decal only within a tolerance of the depth it finds, and refused every
+  bit of the shore's. The shore's mist is now drawn through the very matrix
+  commands the game drew that part of the land with, so its depths come
+  out the same as the land's, and with a depth test that lets an equal
+  depth through; and the water's mist stands two units over the water
+  instead of being pulled toward the eye, since the pulled mist came
+  through the low grass by the water as the view moved and, where the
+  water runs under a wall's foot, through the wall as a line along it.
 
 ## 1.1.1
 
