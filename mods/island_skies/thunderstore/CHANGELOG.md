@@ -85,6 +85,19 @@
   distance (JackandBeans, Oct 20 2026): it now thins from 700 units out
   and is gone at 1500, where it stood full to 1400 and went at 2600, and
   its full thickness is a tenth less.
+- In snow every wall holds a dusting: a face steeper than 66 degrees,
+  which held no snow at all, is now its own rock, a little lighter and
+  cooler, and the snow line runs from white to dusted rock. The rock under
+  snow is a little less dark to match. Found by JackandBeans on Oct 20
+  2026: the walls stood bare in a white course.
+- The River's three shimmering panels where Porygon hides, two of rock
+  and one of grass, are land to the mod now: snow lies on them as on the
+  walls around them, and by night they take the walls' light. They share
+  the moving water's material, and the mod took them for water, so the
+  rock panel stood bare and brown in a white wall (JackandBeans's
+  picture, Oct 20 2026). A panel is told from water by its own palette,
+  earth colored where the water's is blue or absent and the lava's red;
+  across the seven courses only those three panels have one.
 
 ## 1.1.1
 
@@ -136,13 +149,10 @@
   under Live three days in eight when the island is clear.
 - Snow lies as a blanket with form, in the console's own way: the painted
   colors go toward snow by the slope of each face, all of it on ground
-  within 32 degrees of flat, a dusting past 66, and a snow line between,
-  where a hillside goes from white to its dusted rock; the snow's color
-  turns with the face, cool and a little darker away from the light, warm
-  toward it; rock faces stay rock under their dusting, a little darker and
-  bluer under snow at any hour (to Oct 20 2026 a wall held no snow at all,
-  and the Valley's wall that Porygon hides in stood bare and brown in a
-  white course); and the
+  within 32 degrees of flat, none past 66, and a snow line between, where
+  a hillside goes from white to its own rock; the snow's color turns with
+  the face, cool and a little darker away from the light, warm toward it;
+  rock faces stay rock, darker and bluer under snow at any hour; and the
   land's pictures are lifted and compressed under the blanket rather than
   painted white, so the same picture reads as snow under a white face and
   as rock under a dark one. 1.0.x painted every face but the near-vertical
@@ -151,14 +161,6 @@
   wet and bare, the surf line (the Beach's sea); the record is lit again
   once, when the water's height is first known. On the Volcano snow is a
   dusting only, the ground warm, with the rock showing through.
-- The River's three shimmering panels where Porygon hides, two of rock
-  and one of grass, are land to the mod now: snow lies on them as on the
-  walls around them, and by night they take the walls' light. They share
-  the moving water's two-picture material, and to Oct 20 2026 the mod
-  took them for water, so the rock panel stood bare and brown in a white
-  wall (JackandBeans's picture). A panel is told from water by its own
-  palette, earth colored where the water's is blue or absent and the
-  lava's red; across the seven courses only those three panels have one.
 - The Tunnel takes the weather at both ends. Over the open-air start,
   rain, a storm or snow stands as one volume of the world, the slope's
   whole width, from the course's edge to the cave's mouth and a little

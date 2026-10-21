@@ -752,8 +752,7 @@ static s32 steep_face(u32 a, u32 b, u32 c) {
 // a snow line, where a hillside goes from white to its dusted rock. The
 // dusting is what a wall holds in a snowfall, rime and the snow on its
 // ledges and in its cracks: it stays its own rock, lighter and cooler. (To
-// Oct 20 2026 a face past 66 degrees held none, and the Valley's wall
-// that Porygon hides in stood bare and brown in a white course.)
+// Oct 20 2026 a face past 66 degrees held none.)
 #define SNOW_DUST 92            // the dusting, of 256
 static u32 snow_share_face(u32 a, u32 b, u32 c) {
     const volatile s16* A = (const volatile s16*) a;
