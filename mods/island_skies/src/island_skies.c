@@ -3732,13 +3732,12 @@ static const Shower* shower_tonight(u32 date, f32 minute) {
     return NULL;
 }
 
-// Whether tonight has a meteor shower, drawn as the course's world is built
-// for the ride and kept for its photos' worlds (as Random's weather is):
-// under the clock, on the showers' own nights; on a fixed Night, one ride in
-// eight (SHOWER_ODDS), drawn from the clock as Random's weather is, with a
-// radiant of its own in the upper sky, 54 to 76 degrees up. His word, Oct 23
-// 2026: "cool if it happens sometimes not often".
-#define SHOWER_ODDS 32          // of 256: the fixed nights' rides that have one
+// Every clear night has a meteor shower (his word, Oct 23 2026: "keep it to
+// every night has the meteor shower"), drawn as the course's world is built
+// for the ride and kept for its photos' worlds (as Random's weather is): a
+// radiant of its own in the upper sky, 54 to 76 degrees up, from the clock
+// as Random's weather is; under the clock, on the showers' own nights, the
+// streaks come at that shower's pace and the details page names it.
 static void shower_draw(const Night* by) {
     s32 idx = (s32) (by - nights);
 
@@ -3754,19 +3753,16 @@ static void shower_draw(const Night* by) {
         roll ^= roll >> 15;
         roll *= 0x2C1B3C6Du;
         roll ^= roll >> 12;
-        shower_for[idx] = 0;
+        shower_for[idx] = !sunset && !daytime;
         shower_name = NULL;
         shower_span = 240;
         if (cycle) {
             const Shower* sh = shower_tonight(date, clock_minutes());
 
             if (sh != NULL) {
-                shower_for[idx] = 1;
                 shower_name = sh->name;
                 shower_span = sh->span;
             }
-        } else if (!sunset && !daytime && (roll & 0xFF) < SHOWER_ODDS) {
-            shower_for[idx] = 1;
         }
         shower_az = (f32) ((roll >> 8) & 0xFF) * (6.2831853f / 256.0f);
         shower_el = 0.94f + (f32) ((roll >> 16) & 0x3F) * 0.006f;
@@ -3787,9 +3783,9 @@ static void shower_draw(const Night* by) {
 // half-minutes that have one, where it begins and which way it runs come
 // from the world's clock, as the storm's strikes do, so a photo's night
 // has the star its instant had. It is drawn with a matrix group of its
-// own, so the port moves it smoothly between the game's frames. On a
-// shower's night (shower_draw) the streaks come every few seconds instead,
-// all from the radiant.
+// own, so the port moves it smoothly between the game's frames. On a clear
+// night (shower_draw) the streaks come every few seconds, all from the
+// radiant; the lone star below is what a night without a shower would have.
 #define STREAK_SPAN  1800       // ticks: thirty seconds
 #define STREAK_ODDS  150        // of 256: how many spans have a star
 #define STREAK_TICKS 48         // its life
@@ -5825,9 +5821,6 @@ static void ride_notice(void) {
     st_hm12(m);
     st_put(", ");
     st_sky(wx_code_now(), phase_name(m));
-    if (shower) {
-        st_put(", meteors");
-    }
     snap64_notice(STATUS_MOD_ID, notice_buf);
 }
 

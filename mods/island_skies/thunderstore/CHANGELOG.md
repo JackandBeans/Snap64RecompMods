@@ -102,14 +102,15 @@
   River and the Valley, in the fog and on the water. Simple and Live keep
   it on, as before. The Effects at Night row now says spray for the
   game's own water, since mist is the dawn's.
-- Meteor showers. Under Live, the peak nights of the year's seven showers
-  (the Quadrantids, the Lyrids, the Eta Aquariids, the Perseids, the
-  Orionids, the Leonids and the Geminids) have one: streaks every few
-  seconds from one point of the sky, each with its own length and
-  brightness, the radiant drawn for the ride and kept by its photos, and
-  the details page names the shower. On a fixed Night one clear ride in
-  eight has one. Asked for by JackandBeans on Oct 23 2026: sometimes, not
-  often.
+- A meteor shower on every clear night: streaks every few seconds from
+  one point of the sky, each with its own length and brightness, the
+  radiant drawn for the ride and kept by its photos. Under Live the peak
+  nights of the year's seven showers (the Quadrantids, the Lyrids, the Eta
+  Aquariids, the Perseids, the Orionids, the Leonids and the Geminids)
+  come at their own pace, thickest for the Geminids and the Perseids, and
+  the details page names the shower. The lone shooting star of 1.1.0 is
+  part of it. Asked for by JackandBeans on Oct 23 2026, first as a rare
+  thing, then, having seen it, for every night.
 
 ## 1.1.1
 
