@@ -7,11 +7,12 @@ The island's sky at any hour and in any weather. Night, sunset, dawn, a
 dusk that falls during the ride, or live: the island follows your own clock,
 day and night, under weather of its own that holds from one ride to
 the next and turns during a ride when its time comes. Stars that twinkle,
-a moon with its glint on the water, a shooting star now and then, the
-Volcano lit by its lava; rain, storms with lightning and snow that lies,
-on every course, and ash over the Volcano; at dawn a mist lies on the River
-and the Valley and lifts as the day comes. By day the island is exactly as
-the cartridge draws it, and photos keep the sky of their instant.
+a moon with its glint on the water, a shooting star now and then and a
+meteor shower on a rare night, the Volcano lit by its lava; rain, storms
+with lightning and snow that lies, on every course, and ash over the
+Volcano; at dawn a mist lies on the River and the Valley and lifts as the
+day comes. By day the island is exactly as the cartridge draws it, and
+photos keep the sky of their instant.
 
 ## Pictures
 
@@ -88,7 +89,8 @@ its details, then A again for its options. The first row is **Setup**:
   the fog and on the water and its banks, that thins as the ride goes;
   under Live it gathers through the night's last hour, lies thickest as
   the sky pinks, and lifts as the day comes. Rain and snow have their
-  own gray instead.
+  own gray instead. On a clear Night, one ride in eight has a meteor
+  shower: streaks every few seconds from one point of the sky.
 - **Live** is your clock and the island's own weather. Its only other
   rows are Sun, Latitude and Longitude, which set the sun's hours (see
   How Live works).
@@ -134,6 +136,13 @@ in the winter months the island's rain is snow, on every course. The
 Volcano adds its own: on three days in eight, ash from the eruption fills
 its clear hours.
 
+On the peak nights of the year's meteor showers, the Quadrantids (Jan 3),
+the Lyrids (Apr 22), the Eta Aquariids (May 5), the Perseids (Aug 12),
+the Orionids (Oct 21), the Leonids (Nov 17) and the Geminids (Dec 13), a
+clear night ride has the shower: streaks every few seconds from one point
+of the sky, each with its own length and brightness, thickest for the
+Geminids and the Perseids. The details page names the shower that night.
+
 The **Sun** row sets the hours by the sun instead: with **By latitude**
 the **Latitude** row (degrees north, minus for south) gives sunrise and
 sunset for today's date, with no internet, and makes the dawn and the dusk
@@ -153,9 +162,11 @@ to full and back, and south of the equator its lit side is the other one.
   Weather**: each course's own sky, clear, rain, a storm or snow; the
   Volcano can have ash as well; the Tunnel's falls over its open-air
   start, up to the cave's mouth, and again past the arch at its far end.
-- **Effects at Night**: splashes, dust and mist take the night's light, or
-  keep their day colors.
+- **Effects at Night**: splashes, dust and spray take the night's light,
+  or keep their day colors.
 - **Water Glow**: the moon's glint on the water and the River's fireflies.
+- **Dawn Mist**: at dawn on the River and the Valley, wisps on the water
+  and a paler, nearer fog, or the plain dawn.
 - **Moonlight on Pokémon**: the scene's light leans toward the moon, or
   stays where the game puts it.
 - **Night Sounds**: insects chirping in the dark on a clear night.

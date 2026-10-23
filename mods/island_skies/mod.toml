@@ -185,7 +185,7 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 [[manifest.config_options]]
 id = "effects"
 name = "Effects at Night"
-description = "Splashes, dust and mist take the night's light, or keep their day colors."
+description = "Splashes, dust and spray take the night's light, or keep their day colors."
 type = "Enum"
 options = [ "Day colors", "Night-lit" ]
 default = "Night-lit"
@@ -195,6 +195,15 @@ hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 id = "water_glow"
 name = "Water Glow"
 description = "The moon's glint on the water and the River's fireflies."
+type = "Enum"
+options = [ "On", "Off" ]
+default = "On"
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
+
+[[manifest.config_options]]
+id = "dawn_mist"
+name = "Dawn Mist"
+description = "At dawn on the River and the Valley, wisps on the water and a paler, nearer fog."
 type = "Enum"
 options = [ "On", "Off" ]
 default = "On"

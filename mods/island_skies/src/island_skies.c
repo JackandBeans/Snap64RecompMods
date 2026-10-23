@@ -204,6 +204,12 @@ static u8 glows_on = 1;          // the water glows are drawn,
 static u8 moonlight_on = 1;      // the key light leans toward the moon
 static u8 night_sounds_on = 1;   // the night's voices are heard
 static u8 lightning = 1;         // a storm's lightning: 0 full, 1 gentle (the flash dimmed to two fifths), 2 none
+static u8 mist_on = 1;           // the dawn's mist is drawn (Dawn Mist, on unless Custom says)
+static u8 shower;                // a meteor shower tonight: the ride's draw (shower_draw)
+static u8 shower_for[8], shower_drawn[8];   // each course's draw, kept for its photos' worlds
+static f32 shower_az, shower_el; // the radiant: where the streaks run from, around and up
+static u32 shower_span = 240;    // ticks between the shower's streaks, by the shower's strength
+static const char* shower_name;  // the shower's name, for the log and the page
 static f32 moon_light = 1.0f;    // how much of the moon is lit: 0.3 at new to 1 at full, for its glint
 static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
@@ -479,6 +485,7 @@ static void roof_sky_draw(Gfx** list, u32 oc, Mtx* mtx);
 static void roof_volume_draw(Gfx** list, s32 heard);
 static void storm_sky_at(Gfx** list, f32 ex, f32 ey, f32 ez);
 static void shooting_star_at(Gfx** list, f32 ex, f32 ey, f32 ez);
+static f32 clock_minutes(void);
 
 #define SNOW_R 236
 #define SNOW_G 240
@@ -3688,6 +3695,91 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
     }
 }
 
+// The year's strong meteor showers, each the night that begins on its date
+// (the evening of the peak), and the ticks between its streaks here, by its
+// strength: the Perseids and the Geminids a streak every four seconds or so,
+// the Lyrids and the Leonids every eight.
+typedef struct Shower {
+    u8 month, day;
+    u16 span;
+    const char* name;
+} Shower;
+
+static const Shower showers[] = {
+    { 1, 3, 240, "the Quadrantids" },
+    { 4, 22, 480, "the Lyrids" },
+    { 5, 5, 300, "the Eta Aquariids" },
+    { 8, 12, 240, "the Perseids" },
+    { 10, 21, 420, "the Orionids" },
+    { 11, 17, 480, "the Leonids" },
+    { 12, 13, 200, "the Geminids" },
+};
+
+// The shower whose night this is, by the clock's date and minute: the night
+// that begins on the peak's date, from noon that day to noon the next. NULL
+// when none.
+static const Shower* shower_tonight(u32 date, f32 minute) {
+    u32 month = (date >> 8) & 0xFF, day = date & 0xFF;
+    u32 i;
+
+    for (i = 0; i < sizeof(showers) / sizeof(showers[0]); i++) {
+        const Shower* sh = &showers[i];
+
+        if (month == sh->month && ((day == sh->day && minute >= 720.0f) || (day == (u32) sh->day + 1 && minute < 720.0f))) {
+            return sh;
+        }
+    }
+    return NULL;
+}
+
+// Whether tonight has a meteor shower, drawn as the course's world is built
+// for the ride and kept for its photos' worlds (as Random's weather is):
+// under the clock, on the showers' own nights; on a fixed Night, one ride in
+// eight (SHOWER_ODDS), drawn from the clock as Random's weather is, with a
+// radiant of its own in the upper sky, 54 to 76 degrees up. His word, Oct 23
+// 2026: "cool if it happens sometimes not often".
+#define SHOWER_ODDS 32          // of 256: the fixed nights' rides that have one
+static void shower_draw(const Night* by) {
+    s32 idx = (s32) (by - nights);
+
+    if (idx < 0 || idx >= 8) {
+        shower = 0;
+        return;
+    }
+    if (on_the_ride || !shower_drawn[idx]) {
+        u32 t = snap64_local_time();
+        u32 date = snap64_local_date();
+        u32 roll = t * 2246822519u + date * 3266489917u + (u32) idx * 668265263u;
+
+        roll ^= roll >> 15;
+        roll *= 0x2C1B3C6Du;
+        roll ^= roll >> 12;
+        shower_for[idx] = 0;
+        shower_name = NULL;
+        shower_span = 240;
+        if (cycle) {
+            const Shower* sh = shower_tonight(date, clock_minutes());
+
+            if (sh != NULL) {
+                shower_for[idx] = 1;
+                shower_name = sh->name;
+                shower_span = sh->span;
+            }
+        } else if (!sunset && !daytime && (roll & 0xFF) < SHOWER_ODDS) {
+            shower_for[idx] = 1;
+        }
+        shower_az = (f32) ((roll >> 8) & 0xFF) * (6.2831853f / 256.0f);
+        shower_el = 0.94f + (f32) ((roll >> 16) & 0x3F) * 0.006f;
+        shower_drawn[idx] = 1;
+        if (on_the_ride && shower_for[idx]) {
+            recomp_printf("[island skies] a meteor shower tonight%s%s: the radiant %d degrees around, %d up; a streak every %u ticks\n",
+                          shower_name != NULL ? ", " : "", shower_name != NULL ? shower_name : "",
+                          (s32) (shower_az * 57.29578f), (s32) (shower_el * 57.29578f), shower_span);
+        }
+    }
+    shower = shower_for[idx];
+}
+
 // A shooting star: now and then, in a clear night, a streak crosses the upper
 // sky in four fifths of a second -- about fourteen degrees along a great
 // circle, down and across, away from the moon -- the soft dot stretched
@@ -3695,7 +3787,9 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
 // half-minutes that have one, where it begins and which way it runs come
 // from the world's clock, as the storm's strikes do, so a photo's night
 // has the star its instant had. It is drawn with a matrix group of its
-// own, so the port moves it smoothly between the game's frames.
+// own, so the port moves it smoothly between the game's frames. On a
+// shower's night (shower_draw) the streaks come every few seconds instead,
+// all from the radiant.
 #define STREAK_SPAN  1800       // ticks: thirty seconds
 #define STREAK_ODDS  150        // of 256: how many spans have a star
 #define STREAK_TICKS 48         // its life
@@ -3713,6 +3807,69 @@ static void shooting_star_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
         return;
     }
     ticks = ticks_of(night);
+    if (shower) {
+        // A shower's night: a streak most spans of a few seconds, each
+        // starting 11 to 40 degrees from the radiant and running straight
+        // away from it along the great circle through both, as a real
+        // shower's do; the longer and brighter ones vary a little.
+        f32 r[3], u[3], rho, psi, cr, sr, bright;
+
+        span = ticks / shower_span;
+        if (span == 0) {
+            return;
+        }
+        mix = (span + 0x3C6EF372u) * 0x9E3779B1u;
+        mix ^= mix >> 15;
+        mix *= 0x85EBCA77u;
+        mix ^= mix >> 13;
+        if ((mix & 0xFF) >= 208) {
+            return;         // a span in five has none
+        }
+        when = span * shower_span + ((mix >> 8) % (shower_span - STREAK_TICKS));
+        if (ticks < when || ticks >= when + STREAK_TICKS) {
+            return;
+        }
+        age = ticks - when;
+        az = shower_az;
+        el = shower_el;
+        ce = tcos(el);
+        r[0] = ce * tcos(az);
+        r[1] = tsin(el);
+        r[2] = ce * tsin(az);
+        if (r[0] * relight_dir[0] + r[1] * relight_dir[1] + r[2] * relight_dir[2] > 0.9f) {
+            az += 1.5707963f;       // a quarter turn off the moon
+            r[0] = ce * tcos(az);
+            r[2] = ce * tsin(az);
+        }
+        len = __builtin_sqrtf(r[0] * r[0] + r[2] * r[2]);
+        if (len < 0.05f) {
+            return;
+        }
+        e[0] = -r[2] / len;
+        e[1] = 0.0f;
+        e[2] = r[0] / len;
+        n[0] = r[1] * e[2] - r[2] * e[1];
+        n[1] = r[2] * e[0] - r[0] * e[2];
+        n[2] = r[0] * e[1] - r[1] * e[0];
+        psi = (f32) ((mix >> 16) & 0xFF) * (6.2831853f / 256.0f);
+        rho = 0.2f + (f32) ((mix >> 24) & 0x3F) * (0.5f / 63.0f);
+        cs = tcos(psi);
+        sn = tsin(psi);
+        cr = tcos(rho);
+        sr = tsin(rho);
+        for (k = 0; k < 3; k++) {
+            u[k] = e[k] * cs + n[k] * sn;
+            d[k] = r[k] * cr + u[k] * sr;          // where it begins
+            m[k] = u[k] * cr - r[k] * sr;          // and its way: straight from the radiant
+        }
+        bright = 0.6f + (f32) ((mix >> 4) & 0xF) / 37.5f;        // 0.6 to 1
+        th = STREAK_ARC * (0.7f + (f32) ((mix >> 12) & 0xF) / 30.0f) * ((f32) age / (f32) STREAK_TICKS) - 0.054f;
+        alpha = ((age < 6) ? (f32) age / 6.0f : (age < 30) ? 1.0f : (f32) (STREAK_TICKS - age) / 18.0f) * bright;
+        if (streak_logged != when) {
+            streak_logged = when;
+        }
+        goto place;
+    }
     span = ticks / STREAK_SPAN;
     if (span == 0) {
         return;         // none in the ride's first half-minute
@@ -3765,6 +3922,8 @@ static void shooting_star_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     // The streak's center along the great circle (the head leads it by half the
     // streak's length) and its heading there; small angles, so a short series.
     th = STREAK_ARC * ((f32) age / (f32) STREAK_TICKS) - 0.054f;
+    alpha = (age < 6) ? (f32) age / 6.0f : (age < 30) ? 1.0f : (f32) (STREAK_TICKS - age) / 18.0f;
+place:
     cs = 1.0f - th * th * 0.5f + th * th * th * th / 24.0f;
     sn = th - th * th * th / 6.0f;
     for (k = 0; k < 3; k++) {
@@ -3774,7 +3933,6 @@ static void shooting_star_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     n[0] = c[1] * t[2] - c[2] * t[1];
     n[1] = c[2] * t[0] - c[0] * t[2];
     n[2] = c[0] * t[1] - c[1] * t[0];
-    alpha = (age < 6) ? (f32) age / 6.0f : (age < 30) ? 1.0f : (f32) (STREAK_TICKS - age) / 18.0f;
     streak_turn ^= 1;
     mtx = &streak_mtx[streak_turn];
     place_frame(mtx, ex + c[0] * STREAK_DIST, ey + c[1] * STREAK_DIST, ez + c[2] * STREAK_DIST, t, n, c);
@@ -4565,7 +4723,7 @@ static f32 ease(f32 w) {
 static f32 mist_now(void) {
     f32 m = cycle_minute, w;
 
-    if (night == NULL || m < 0.0f || !(night->setup == NIGHT_RIVER_SETUP || night->setup == NIGHT_VALLEY_SETUP)) {
+    if (night == NULL || !mist_on || m < 0.0f || !(night->setup == NIGHT_RIVER_SETUP || night->setup == NIGHT_VALLEY_SETUP)) {
         return 0.0f;
     }
     if (m < m_dawn0 - MIST_GATHER || m >= m_day0) {
@@ -5602,6 +5760,15 @@ static void status_tick(void) {
                 st_hm12(at >= 1440.0f ? at - 1440.0f : at);
                 st_put(".");
             }
+            {
+                const Shower* sh = shower_tonight(snap64_local_date(), m);
+
+                if (sh != NULL) {
+                    st_put(" A meteor shower tonight, ");
+                    st_put(sh->name);
+                    st_put(".");
+                }
+            }
         } else {
             st_put(". Sunrise ");
             st_hm12(m_rise);
@@ -5658,6 +5825,9 @@ static void ride_notice(void) {
     st_hm12(m);
     st_put(", ");
     st_sky(wx_code_now(), phase_name(m));
+    if (shower) {
+        st_put(", meteors");
+    }
     snap64_notice(STATUS_MOD_ID, notice_buf);
 }
 
@@ -5745,6 +5915,11 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         moonlight_on = simple_setup() || (recomp_get_config_u32("moonlight") == 0);
         night_sounds_on = simple_setup() || (recomp_get_config_u32("night_sounds") == 0);
         lightning = (u8) (simple_setup() ? 1 : recomp_get_config_u32("lightning"));     // Gentle unless Custom says
+        mist_on = simple_setup() || (recomp_get_config_u32("dawn_mist") == 0);
+        if (!mist_on) {
+            misty = 0;
+        }
+        shower_draw(by);
     }
     weather_palettes_keep(by);      // the cycle's three ends, for both weathers
     sun_hours_apply();

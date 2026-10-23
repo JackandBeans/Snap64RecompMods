@@ -98,6 +98,18 @@
   picture, Oct 20 2026). A panel is told from water by its own palette,
   earth colored where the water's is blue or absent and the lava's red;
   across the seven courses only those three panels have one.
+- Custom has a **Dawn Mist** row, On or Off: the mist at dawn on the
+  River and the Valley, in the fog and on the water. Simple and Live keep
+  it on, as before. The Effects at Night row now says spray for the
+  game's own water, since mist is the dawn's.
+- Meteor showers. Under Live, the peak nights of the year's seven showers
+  (the Quadrantids, the Lyrids, the Eta Aquariids, the Perseids, the
+  Orionids, the Leonids and the Geminids) have one: streaks every few
+  seconds from one point of the sky, each with its own length and
+  brightness, the radiant drawn for the ride and kept by its photos, and
+  the details page names the shower. On a fixed Night one clear ride in
+  eight has one. Asked for by JackandBeans on Oct 23 2026: sometimes, not
+  often.
 
 ## 1.1.1
 
