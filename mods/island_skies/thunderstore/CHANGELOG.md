@@ -114,13 +114,13 @@
 - A photo keeps the sky it was taken under. The game draws a saved photo's
   world afresh each time, and the mod made it the rows' sky, so with Time
   at Night every photo in the album had turned to night (JackandBeans,
-  Oct 23 2026). Now the shutter writes the hour, the weather and, under
-  Live, the ride's first minute into two bytes of the photo's record that
-  the game leaves empty and saves with it, and the photo is drawn under
-  that sky whatever the rows say, in the album and in Oak's review. A
-  photo from before has no such note and follows the rows, as before. The
-  moon's phase in a photo is by the day it is looked at, not the day it
-  was taken.
+  Oct 23 2026). Now the shutter writes the hour, the weather of that
+  instant and, under Live, the ride's first minute into two bytes of the
+  photo's record that the game leaves empty and saves with it, and the
+  photo is drawn under that sky whatever the rows say, in the album and
+  in Oak's review. A photo from before has no such note and follows the
+  rows, as before. The moon's phase in a photo is by the day it is looked
+  at, not the day it was taken.
 
 ## 1.1.1
 

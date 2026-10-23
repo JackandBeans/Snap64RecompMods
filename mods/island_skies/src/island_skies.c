@@ -1350,6 +1350,7 @@ static void moon_glint(void);
 static void embers(void);
 static void cycle_tick(void);
 static void status_tick(void);
+static u16 shutter_stamp(void);
 static void roof_tick(void);
 static u32 weather_live(const Night* by);
 static void weather_flags_set(u32 code);
@@ -3780,7 +3781,7 @@ static void shower_draw(const Night* by) {
                           (s32) (shower_az * 57.29578f), (s32) (shower_el * 57.29578f), shower_span);
         }
     }
-    shower = shower_for[idx];
+    shower = stamped ? (!sunset && !daytime) : shower_for[idx];     // a stamped photo's night has its shower
 }
 
 // A shooting star: now and then, in a clear night, a streak crosses the upper
@@ -4313,9 +4314,10 @@ RECOMP_HOOK("func_8009D65C") void night_photo_begins(PhotoData* photo) {
 RECOMP_HOOK("func_8009C604") void night_photo_taken(PhotoData* photo) {
     if (photo != NULL && on_the_ride) {
         volatile u8* bytes = (volatile u8*) photo;
+        u16 stamp = shutter_stamp();
 
-        bytes[2] = (u8) (world_stamp >> 8);
-        bytes[3] = (u8) (world_stamp & 0xFF);
+        bytes[2] = (u8) (stamp >> 8);
+        bytes[3] = (u8) (stamp & 0xFF);
     }
 }
 
@@ -4380,6 +4382,16 @@ static u16 stamp_of(u32 weather) {
     u32 m = (cycle && ride_minutes >= 0.0f) ? ((u32) (ride_minutes / 2.0f) & 0x3FF) : 0;
 
     return (u16) ((mode << 13) | ((weather & 7) << 10) | m);
+}
+
+// The stamp at the shutter: the ride's, with the weather of the instant
+// under Live, whose weather can turn during a ride (the half of a turn
+// that is nearer).
+static u16 shutter_stamp(void) {
+    if (night != NULL && cycle && !stamped && setup_of() == 1 && night->weather != NULL) {
+        return stamp_of(wx_share < 0.5f ? wx_from : wx_to);
+    }
+    return world_stamp;
 }
 
 // The hour and the weather a stamp says, in place of the rows' (night_of),
