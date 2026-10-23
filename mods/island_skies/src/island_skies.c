@@ -388,6 +388,13 @@ static u8 lit;                   // the walker's reading of G_LIGHTING
 static u8 flowing;               // the walker's reading of the material: the one that flows
 static u32 slots[64];            // the walker's vertex buffer: where each painted vertex came from
 static f32 photo_clock;          // the world's clock as a photo recorded it
+static u16 photo_stamp;          // the sky the photo being drawn was taken under (stamp_of), 0 when it has none
+static u16 world_stamp;          // the stamp the world now standing was built under
+static u8 stamped;               // that world is a stamped photo's: its weather holds, whatever the rows say
+static u32 stamp_weather;        // the stamp's weather, for the world being built
+static u8 stamp_weather_set;
+static u32 world_weather;        // the weather the ride's world was built under, for its photos' stamps
+#define PHOTO_LEVEL 0x800AC0F0u  // the course the game's photo world stands for (D_800AC0F0), -1 for none
 static u8 tinted[MAP_BYTES];     // one bit per 8 bytes: this vertex or command is done
 static u8 walked[MAP_BYTES];     // one bit per 8 bytes: the model that starts here is done
 static Gfx* entry_pos[4];        // where the four command lists stood as a model began
@@ -4277,10 +4284,38 @@ RECOMP_HOOK_RETURN("score_Render") void night_scoring_ends(void) {
 }
 
 // A photo is about to be redrawn: its record holds the world's clock at the
-// instant it was taken.
+// instant it was taken, and the mod's stamp of the sky it was taken under
+// (stamp_of). The game builds a photo's world once and keeps it for the
+// photos of the same course; when the world standing was built under
+// another sky than this photo's, it is made to build the world afresh, as
+// it does for a photo of another course.
 RECOMP_HOOK("func_8009D65C") void night_photo_begins(PhotoData* photo) {
     if (photo != NULL) {
+        const volatile u8* bytes = (const volatile u8*) photo;
+        u16 stamp = (u16) (((u32) bytes[2] << 8) | bytes[3]);
+
         photo_clock = photo->unk_04.f32;
+        photo_stamp = stamp;
+        if (stamp != world_stamp && photo->levelID >= 0 && *(volatile s32*) PHOTO_LEVEL == photo->levelID) {
+            *(volatile s32*) PHOTO_LEVEL = 0x7F;
+        }
+    }
+}
+
+// The shutter. The game fills a photo's record in steps; the last of them
+// (func_8009C604, the effects) is given the ride's stamp in the two bytes
+// of the record the game leaves empty (PhotoData 0x02), which are saved
+// with the photo in the album. So the album and Professor Oak's review
+// draw a photo under the sky it was taken under, whatever the rows say
+// by then (JackandBeans, Oct 23 2026: with Time at Night every saved photo
+// had turned to night). A photo from before has no stamp and follows the
+// rows, as every photo did.
+RECOMP_HOOK("func_8009C604") void night_photo_taken(PhotoData* photo) {
+    if (photo != NULL && on_the_ride) {
+        volatile u8* bytes = (volatile u8*) photo;
+
+        bytes[2] = (u8) (world_stamp >> 8);
+        bytes[3] = (u8) (world_stamp & 0xFF);
     }
 }
 
@@ -4320,6 +4355,53 @@ static f32 clock_minutes(void) {
     u32 second = t & 0xFF;
 
     return (f32) (hour * 60 + minute) + (f32) second / 60.0f;
+}
+
+// The course's night, by its set-up record; NULL for a course with no sky.
+static const Night* night_for(WorldSetup* setup) {
+    u32 i;
+
+    for (i = 0; i < sizeof(nights) / sizeof(nights[0]); i++) {
+        if ((u32) setup == nights[i].setup) {
+            return &nights[i];
+        }
+    }
+    return NULL;
+}
+
+// A photo's stamp: the sky a ride's world was built under, in sixteen bits.
+//   15-13  the hour: 1 the clock, 2 Night, 3 Sunset, 4 Dawn, 5 Dusk, 6 Day;
+//          0 is no stamp
+//   12-10  the weather, WX_CLEAR to WX_ASH
+//    9-0   under the clock, the ride's first minute of the day in halves;
+//          a photo's own instant adds its clock (mode_minutes)
+static u16 stamp_of(u32 weather) {
+    u32 mode = cycle ? 1 : daytime ? 6 : dusk ? 5 : dawn ? 4 : sunset ? 3 : 2;
+    u32 m = (cycle && ride_minutes >= 0.0f) ? ((u32) (ride_minutes / 2.0f) & 0x3FF) : 0;
+
+    return (u16) ((mode << 13) | ((weather & 7) << 10) | m);
+}
+
+// The hour and the weather a stamp says, in place of the rows' (night_of),
+// for a photo's world. Whether the mod has a night to make of it: a Day
+// under clear weather is the cartridge's own.
+static s32 stamp_apply(u16 stamp, const Night* by) {
+    u32 mode = (stamp >> 13) & 7;
+    u32 wx = (stamp >> 10) & 7;
+
+    cycle = (mode == 1);
+    daytime = (mode == 6);
+    dusk = (mode == 5);
+    dawn = (mode == 4);
+    sunset = (mode == 3 || mode == 4 || mode == 5);
+    misty = dawn && (by->setup == NIGHT_RIVER_SETUP || by->setup == NIGHT_VALLEY_SETUP);
+    day_weather_set = 0;
+    if (cycle) {
+        ride_minutes = (f32) ((stamp & 0x3FF) * 2);
+    }
+    stamp_weather = (wx > WX_ASH) ? WX_CLEAR : wx;
+    stamp_weather_set = 1;
+    return !(daytime && stamp_weather == WX_CLEAR);
 }
 
 // The time of day the options ask for a course: in Simple set-up the one
@@ -5793,7 +5875,7 @@ static void status_tick(void) {
 // The weather over the course now, as a WX_ code: under Live the side of
 // the turn the course is on, else what the flags say.
 static u32 wx_code_now(void) {
-    if (setup_of() == 1 && night != NULL && night->weather != NULL) {
+    if (setup_of() == 1 && !stamped && night != NULL && night->weather != NULL) {
         return wx_share < 0.5f ? wx_from : wx_to;
     }
     return storming ? WX_STORM : snowing ? WX_SNOW : (raining || ashing) ? WX_RAIN : WX_CLEAR;
@@ -5847,7 +5929,7 @@ static void cycle_tick(void) {
         return;
     }
     m = mode_minutes();
-    if (cycle) {
+    if (cycle && !stamped) {
         turning = weather_tick();       // the island's weather moves with the clock
     }
     if (!turning && m >= m_day0 && m < m_day1 && cycle_minute >= m_day0 && cycle_minute < m_day1) {
@@ -5866,6 +5948,17 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
 
     on_the_ride = ((u32) pokemon_enters != PHOTO_WORLD_CALLBACK);
     by = night_of(setup);
+    stamped = 0;
+    stamp_weather_set = 0;
+    if (!on_the_ride && photo_stamp != 0) {
+        // A stamped photo's world: the sky it was taken under (night_photo_begins).
+        const Night* sky = night_for(setup);
+
+        if (sky != NULL) {
+            by = stamp_apply(photo_stamp, sky) ? sky : NULL;
+            stamped = 1;
+        }
+    }
     night = by;
     thunder_span = 0xFFFFFFFFu;
     thunder_at = body_at = echo_at = 0;
@@ -5875,6 +5968,8 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     chirp_said = 0;
     if (by == NULL) {
         set_light(NULL);
+        // The cartridge's own day on a course with a sky, or a course without one.
+        world_stamp = on_the_ride ? ((night_for(setup) != NULL) ? stamp_of(WX_CLEAR) : 0) : photo_stamp;
         return;
     }
     if (ROOFED(by)) {
@@ -5884,10 +5979,12 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     // The lights and the sky in force. A rainy night is overcast and a little
     // darker; nothing of it shows a star or the moon.
     {
-        u32 weather = day_weather_set ? day_weather : weather_of(by);     // a Day load's is night_of's draw
+        u32 weather = stamp_weather_set ? stamp_weather : day_weather_set ? day_weather : weather_of(by);     // a Day load's is night_of's draw
 
         day_weather_set = 0;
-        if (!(setup_of() == 1 && by->weather != NULL)) {
+        stamp_weather_set = 0;
+        world_weather = weather;
+        if (stamped || !(setup_of() == 1 && by->weather != NULL)) {
             wx_from = wx_to = weather;      // one weather for the ride
             wx_share = 1.0f;
             wx_turn_minute = -1.0f;
@@ -5975,6 +6072,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
                 wx_today(&ride_day, &ride_month);
             }
             moment_apply(m);
+            world_stamp = on_the_ride ? stamp_of(world_weather) : photo_stamp;      // what the ride's photos are stamped with
         }
         recomp_printf("[island skies] the %s was loaded: %s%s\n", by->option,
                       cycle ? "the clock's hour" : daytime ? "by day" : dusk ? "the sun is setting" : dawn ? "the sun rises" : sunset ? "the sun sets" : "night falls",

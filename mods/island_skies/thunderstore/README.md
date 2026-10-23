@@ -98,7 +98,10 @@ its details, then A again for its options. The first row is **Setup**:
   switches.
 
 A change on the page takes effect as the next ride starts; a ride under
-way keeps the sky it started with.
+way keeps the sky it started with. A photo keeps the sky it was taken
+under: the album and Professor Oak's review show it at its own hour and
+weather, whatever the rows say by then. Photos taken before 1.1.2 carry
+no such note and follow the rows, as they always did.
 
 Under Live, or with a course on Your clock, the mod's details page
 (Options > Mods, Island Skies) says what it is doing right now: the hour
