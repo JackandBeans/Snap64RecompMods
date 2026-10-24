@@ -5,8 +5,9 @@ display_name = "Island Skies"
 description = """
 The island's sky at any hour and in any weather: night, sunset, dawn, a \
 dusk that falls during the ride, or live by your own clock, under weather \
-of the island's own. Stars, the moon and its glint on the water, shooting \
-stars, the Volcano's embers; rain, storms, snow and ash. Photos keep the \
+of the island's own. Stars, the moon and its glint on the water, meteor \
+showers, an aurora on some nights, the Volcano's embers; rain, storms, \
+snow and ash. Photos keep the \
 sky of their instant. Simple is three rows; Live adds only the sun's; \
 Custom gives each course its own hour and weather.
 
@@ -207,6 +208,15 @@ description = "At dawn on the River and the Valley, wisps on the water and a pal
 type = "Enum"
 options = [ "On", "Off" ]
 default = "On"
+hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
+
+[[manifest.config_options]]
+id = "aurora"
+name = "Aurora"
+description = "Curtains of light low in the sky on clear nights: some nights, every night, or never."
+type = "Enum"
+options = [ "Some nights", "Every night", "Off" ]
+default = "Some nights"
 hidden_from = { id = "setup", matches = [ "Simple", "Live" ] }
 
 [[manifest.config_options]]

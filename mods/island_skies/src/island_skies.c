@@ -210,6 +210,8 @@ static u8 shower_for[8], shower_drawn[8];   // each course's draw, kept for its 
 static f32 shower_az, shower_el; // the radiant: where the streaks run from, around and up
 static u32 shower_span = 240;    // ticks between the shower's streaks, by the shower's strength
 static const char* shower_name;  // the shower's name, for the log and the page
+static u8 aurora;                // an aurora tonight: the ride's draw (aurora_draw), or a stamped photo's note
+static u8 aurora_for[8], aurora_drawn[8];   // each course's draw, kept for its photos' worlds
 static f32 moon_light = 1.0f;    // how much of the moon is lit: 0.3 at new to 1 at full, for its glint
 static u8 sunset;                // the time chosen is the sunset, not the night
 static u8 dawn;                  // and that sunset is a dawn (the sun across the sky)
@@ -493,6 +495,10 @@ static void roof_volume_draw(Gfx** list, s32 heard);
 static void storm_sky_at(Gfx** list, f32 ex, f32 ey, f32 ez);
 static void shooting_star_at(Gfx** list, f32 ex, f32 ey, f32 ez);
 static f32 clock_minutes(void);
+static f32 sky_sin(f32 x);
+static f32 sky_cos(f32 x);
+static u32 setup_of(void);
+static u8 simple_setup(void);
 
 #define SNOW_R 236
 #define SNOW_G 240
@@ -3784,6 +3790,7 @@ static void shower_draw(const Night* by) {
     shower = stamped ? (!sunset && !daytime) : shower_for[idx];     // a stamped photo's night has its shower
 }
 
+
 // A shooting star: now and then, in a clear night, a streak crosses the upper
 // sky in four fifths of a second -- about fourteen degrees along a great
 // circle, down and across, away from the moon -- the soft dot stretched
@@ -3961,12 +3968,184 @@ static void shooting_star(void) {
     }
 }
 
+// An aurora: on some clear nights (aurora_draw) two curtains of light stand
+// low in the sky a quarter turn around from where the sun sets, the pole's
+// side (the other side south of the equator under Live), green at the foot
+// and violet at the top. Rays brighten and fade across them, their feet
+// waver, they stand taller where they are brighter, and the whole breathes
+// over forty seconds; the stars show through. They are drawn as the N64
+// drew such things and as the mod draws its horizon glow: strips of colored
+// corners, no picture, blended over the sky's drum, at the sprites' distance
+// around the eye in a matrix group of their own, as the shooting star is.
+// Their corners are rewritten every frame from the world's clock, so a
+// photo's night has the curtains its instant had. They come up and go with
+// the stars (star_fade), and a cloudy sky hides them.
+#define AURORA_LAYERS 2
+#define AURORA_COLS   25
+#define AURORA_ROWS   5
+#define AURORA_DIST   1400.0f
+#define AURORA_ALPHA  150.0f
+#define AURORA_GFX    (8 + AURORA_LAYERS * (AURORA_COLS - 1) * AURORA_ROWS + 4)
+
+typedef struct AuroraLayer {
+    f32 turn;                   // its middle, radians around from the pole's side
+    f32 half;                   // half its width, radians
+    f32 foot;                   // the elevation of its foot, radians
+    f32 rows[AURORA_ROWS];      // each row's height over the foot, radians, at full height
+    f32 strength;               // its alpha against the main curtain's
+    u32 phase[4];               // where its waves start
+} AuroraLayer;
+
+static const AuroraLayer aurora_layers[AURORA_LAYERS] = {
+    // The main curtain: 120 degrees wide, its foot six up, 36 tall.
+    { 0.0f, 1.0472f, 0.1047f, { 0.0f, 0.0524f, 0.1571f, 0.3491f, 0.6283f }, 1.0f, { 0x0000u, 0x4000u, 0x8000u, 0xC000u } },
+    // A fainter veil behind it, higher and a little around.
+    { 0.3840f, 0.7854f, 0.2618f, { 0.0f, 0.0698f, 0.2094f, 0.4189f, 0.6981f }, 0.5f, { 0x2A00u, 0xE000u, 0x5000u, 0x9800u } },
+};
+static const u8 aurora_row_w[AURORA_ROWS] = { 120, 255, 170, 80, 0 };     // the alpha by row: a firm foot, fading up
+static const u8 aurora_row_color[AURORA_ROWS][3] = {
+    { 170, 255, 200 }, { 80, 240, 120 }, { 60, 200, 150 }, { 120, 110, 220 }, { 150, 60, 190 },
+};
+static Vtx aurora_vtx[2][AURORA_LAYERS][AURORA_COLS * AURORA_ROWS];     // two sets, turned once a frame
+static Gfx aurora_list[2][AURORA_GFX];
+static Mtx aurora_mtx[2];
+static u8 aurora_turn, aurora_lists_built;
+static f32 aurora_pole[2];       // the pole's side, around: x and z
+
+// Where the curtains stand for this course: a quarter turn around from the
+// sunset's sun (which shares the moon's side), the other way south of the
+// equator under Live.
+static void aurora_place(const Night* by) {
+    f32 sx = (f32) by->sun[0], sz = (f32) by->sun[2];
+    f32 len = __builtin_sqrtf(sx * sx + sz * sz);
+    s32 lat = (setup_of() == 1) ? sun_latitude() : 999;
+    f32 side = (lat != 999 && lat < 0) ? -1.0f : 1.0f;
+
+    if (len < 1.0f) {
+        sx = 1.0f;
+        sz = 0.0f;
+        len = 1.0f;
+    }
+    aurora_pole[0] = -(sz / len) * side;
+    aurora_pole[1] = (sx / len) * side;
+}
+
+// The two lists, one a vertex set: the strips' states (the horizon glow's,
+// with the lighting, the fog and the culling off as the rain's list has
+// them, since these come after the sky's own drawing), then each layer's
+// columns as pairs of rows, and the texture switch back on.
+static void aurora_lists_build(void) {
+    s32 set, layer, c, r;
+
+    for (set = 0; set < 2; set++) {
+        Gfx* g = aurora_list[set];
+
+        gDPPipeSync(g++);
+        gDPSetCycleType(g++, G_CYC_1CYCLE);
+        gSPGeometryMode(g++, G_LIGHTING | G_CULL_BACK | G_CULL_FRONT | G_FOG | G_TEXTURE_GEN, G_ZBUFFER | G_SHADE);
+        gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
+        gDPSetCombineLERP(g++, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE);
+        gDPSetRenderMode(g++, G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2);
+        for (layer = 0; layer < AURORA_LAYERS; layer++) {
+            for (c = 0; c < AURORA_COLS - 1; c++) {
+                gSPVertex(g++, &aurora_vtx[set][layer][c * AURORA_ROWS], 2 * AURORA_ROWS, 0);
+                for (r = 0; r < AURORA_ROWS - 1; r++) {
+                    gSP2Triangles(g++, r, r + 1, AURORA_ROWS + r + 1, 0, r, AURORA_ROWS + r + 1, AURORA_ROWS + r, 0);
+                }
+            }
+        }
+        gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+        gSPEndDisplayList(g++);
+    }
+    aurora_lists_built = 1;
+}
+
+// The corners for this frame, from the world's clock: each column's place
+// around, its ray (three waves along the curtain, none in step), its foot's
+// waver and its height, and from them each row's corner on the dome, its
+// color and its alpha.
+static void aurora_state(const Night* by, s32 set) {
+    u32 t = ticks_of(by);
+    s32 breath = 178 + ((s32) night_sine[((t * 27u + 0x3000u) >> 8) & 0xFF] * 77) / 127;     // 101 to 255, over forty seconds
+    s32 layer, c, r, k;
+
+    for (layer = 0; layer < AURORA_LAYERS; layer++) {
+        const AuroraLayer* lay = &aurora_layers[layer];
+        f32 scale = AURORA_ALPHA * lay->strength * ((f32) breath / 255.0f) * ((f32) star_fade / 255.0f);
+
+        for (c = 0; c < AURORA_COLS; c++) {
+            f32 u = (f32) (2 * c - (AURORA_COLS - 1)) / (f32) (AURORA_COLS - 1);     // -1 at one end, 1 at the other
+            f32 a = lay->turn + lay->half * u;
+            f32 ca = sky_cos(a), sa = sky_sin(a);
+            f32 dx = aurora_pole[0] * ca - aurora_pole[1] * sa;
+            f32 dz = aurora_pole[0] * sa + aurora_pole[1] * ca;
+            s32 w1 = night_sine[((lay->phase[0] + (u32) c * 0x1800u + t * 150u) >> 8) & 0xFF];
+            s32 w2 = night_sine[((lay->phase[1] + (u32) c * 0x2C00u - t * 230u) >> 8) & 0xFF];
+            s32 w3 = night_sine[((lay->phase[2] + (u32) c * 0x0900u + t * 61u) >> 8) & 0xFF];
+            s32 w4 = night_sine[((lay->phase[3] + (u32) c * 0x0E00u + t * 45u) >> 8) & 0xFF];
+            f32 ray = 0.5f + ((f32) w1 * 0.26f + (f32) w2 * 0.16f + (f32) w3 * 0.08f) / 127.0f;
+            f32 edge = 0.5f + 0.5f * sky_cos(3.14159265f * u);        // the curtain thins to its ends
+            f32 tall, foot, alpha;
+
+            ray = ray < 0.0f ? 0.0f : ray > 1.0f ? 1.0f : ray;
+            tall = 0.8f + 0.4f * ray;
+            foot = lay->foot + 0.0436f * ((f32) w4 / 127.0f);
+            alpha = scale * edge * (0.3f + 0.7f * ray);
+            for (r = 0; r < AURORA_ROWS; r++) {
+                Vtx* p = &aurora_vtx[set][layer][c * AURORA_ROWS + r];
+                f32 el = foot + lay->rows[r] * tall;
+                f32 ce = sky_cos(el);
+
+                p->v.ob[0] = (s16) (AURORA_DIST * ce * dx);
+                p->v.ob[1] = (s16) (AURORA_DIST * sky_sin(el));
+                p->v.ob[2] = (s16) (AURORA_DIST * ce * dz);
+                for (k = 0; k < 3; k++) {
+                    p->v.cn[k] = aurora_row_color[r][k];
+                }
+                p->v.cn[3] = (u8) (alpha * (f32) aurora_row_w[r] / 255.0f);
+            }
+        }
+    }
+}
+
+static void aurora_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
+    Mtx* mtx;
+
+    if (!aurora || (sunset && !cycle) || raining || snowing || storming || scoring || star_fade == 0) {
+        return;         // under the clock the stars' fade brings them up and takes them down
+    }
+    if (!aurora_lists_built) {
+        aurora_lists_build();
+    }
+    aurora_turn ^= 1;
+    aurora_state(night, aurora_turn);
+    mtx = &aurora_mtx[aurora_turn];
+    place(mtx, ex, ey, ez);
+    // Its own matrix group, as the shooting star's: pushed, not interpolated.
+    command(list, (0x64u << 24) | 0x00000Cu, 0);
+    command(list, 0x00000001u, 0);
+    gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
+    gSPDisplayList((*list)++, aurora_list[aurora_turn]);
+    gSPDisplayList((*list)++, night_rain_end);
+    gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
+    command(list, (0x64u << 24) | 0x00000Du, 1);
+}
+
+static void aurora_curtains(void) {
+    if (sky_now != NULL && sky_now->data.dobj != NULL) {
+        DObj* eye = sky_now->data.dobj;
+
+        aurora_at(&MAIN_GFX_POS[0], eye->position.v.x, eye->position.v.y, eye->position.v.z);
+    }
+}
+
 RECOMP_HOOK_RETURN("drawSkyBox1Cycle") void night_sky_ends(void) {
     if (night != NULL) {
         if (storming && !scoring) {
             storm_sky();
         }
         if (night->sky != NULL) {
+            aurora_curtains();      // behind the streaks
             shooting_star();
         }
         extended_addresses(0);
@@ -4375,13 +4554,14 @@ static const Night* night_for(WorldSetup* setup) {
 //   15-13  the hour: 1 the clock, 2 Night, 3 Sunset, 4 Dawn, 5 Dusk, 6 Day;
 //          0 is no stamp
 //   12-10  the weather, WX_CLEAR to WX_ASH
-//    9-0   under the clock, the ride's first minute of the day in halves;
+//    9-1   under the clock, the ride's first minute of the day in quarters;
 //          a photo's own instant adds its clock (mode_minutes)
+//      0   an aurora stood that night (aurora_draw)
 static u16 stamp_of(u32 weather) {
     u32 mode = cycle ? 1 : daytime ? 6 : dusk ? 5 : dawn ? 4 : sunset ? 3 : 2;
-    u32 m = (cycle && ride_minutes >= 0.0f) ? ((u32) (ride_minutes / 2.0f) & 0x3FF) : 0;
+    u32 m = (cycle && ride_minutes >= 0.0f) ? ((u32) (ride_minutes / 4.0f) & 0x1FF) : 0;
 
-    return (u16) ((mode << 13) | ((weather & 7) << 10) | m);
+    return (u16) ((mode << 13) | ((weather & 7) << 10) | (m << 1) | (aurora ? 1 : 0));
 }
 
 // The stamp at the shutter: the ride's, with the weather of the instant
@@ -4409,7 +4589,7 @@ static s32 stamp_apply(u16 stamp, const Night* by) {
     misty = dawn && (by->setup == NIGHT_RIVER_SETUP || by->setup == NIGHT_VALLEY_SETUP);
     day_weather_set = 0;
     if (cycle) {
-        ride_minutes = (f32) ((stamp & 0x3FF) * 2);
+        ride_minutes = (f32) (((stamp >> 1) & 0x1FF) * 4);
     }
     stamp_weather = (wx > WX_ASH) ? WX_CLEAR : wx;
     stamp_weather_set = 1;
@@ -5859,6 +6039,9 @@ static void status_tick(void) {
                     st_put(".");
                 }
             }
+            if (night != NULL && on_the_ride && aurora) {
+                st_put(" An aurora tonight.");       // the ride's draw: from the sunset's start to the dawn's end
+            }
         } else {
             st_put(". Sunrise ");
             st_hm12(m_rise);
@@ -5915,6 +6098,9 @@ static void ride_notice(void) {
     st_hm12(m);
     st_put(", ");
     st_sky(wx_code_now(), phase_name(m));
+    if (aurora) {
+        st_put(", an aurora");
+    }
     snap64_notice(STATUS_MOD_ID, notice_buf);
 }
 
@@ -5950,6 +6136,62 @@ static void cycle_tick(void) {
     moment_apply(m);
 }
 
+// Whether tonight has an aurora, drawn as the ride's world is built and kept
+// for its photos' worlds. Under Live it is the latitude's: most nights beyond
+// 55 degrees north or south, one in two to 45, one in five to 35, one in
+// twelve to 25, one in forty nearer the equator, and one in three with Fixed
+// hours; drawn from the night's own date, so it holds past midnight, and
+// said from the sunset's start to the dawn's end. On a fixed hour one ride
+// in three, or as Custom's Aurora row says. The Tunnel has none: its sky is
+// a sliver over each end. A stamped photo's night has what its note says
+// (stamp_of).
+static void aurora_draw(const Night* by) {
+    s32 idx = (s32) (by - nights);
+
+    if (idx < 0 || idx >= 8 || ROOFED(by)) {
+        aurora = 0;
+        return;
+    }
+    if (on_the_ride || !aurora_drawn[idx]) {
+        u32 t = snap64_local_time();
+        u32 date = snap64_local_date();
+        u32 odds, roll;
+        u8 tonight;
+
+        if (setup_of() == 1) {
+            s32 lat = sun_latitude();
+            s32 far = lat < 0 ? -lat : lat;
+
+            odds = (lat == 999) ? 85 : far >= 55 ? 224 : far >= 45 ? 128 : far >= 35 ? 51 : far >= 25 ? 21 : 6;
+            if ((t >> 16) < 12) {
+                date -= 1;      // a night past midnight is still last evening's
+            }
+            roll = date * 3266489917u + (u32) idx * 668265263u + 0x5BD1E995u;
+        } else {
+            u32 pick = simple_setup() ? 0 : recomp_get_config_u32("aurora");    // 0 some nights, 1 every night, 2 off
+
+            odds = (pick == 1) ? 256 : (pick == 2) ? 0 : 85;
+            roll = t * 2246822519u + date * 3266489917u + (u32) idx * 668265263u + 0x5BD1E995u;
+        }
+        roll ^= roll >> 15;
+        roll *= 0x2C1B3C6Du;
+        roll ^= roll >> 12;
+        if (cycle) {
+            f32 m = clock_minutes();
+
+            tonight = (m >= m_day1 || m < m_dawn1);      // from the sunset's start to the dawn's end
+        } else {
+            tonight = !daytime && (!sunset || dusk);
+        }
+        aurora_for[idx] = (u8) (tonight && (roll & 0xFF) < odds);
+        aurora_drawn[idx] = 1;
+        if (on_the_ride && aurora_for[idx]) {
+            recomp_printf("[island skies] an aurora tonight\n");
+        }
+    }
+    aurora = stamped ? (u8) (photo_stamp & 1) : aurora_for[idx];
+}
+
 // A course's world is about to be built, for the ride or for a photo. For a
 // course with a night: make its data night, unless this load of it already
 // is.
@@ -5962,6 +6204,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     by = night_of(setup);
     stamped = 0;
     stamp_weather_set = 0;
+    aurora = 0;
     if (!on_the_ride && photo_stamp != 0) {
         // A stamped photo's world: the sky it was taken under (night_photo_begins).
         const Night* sky = night_for(setup);
@@ -6022,6 +6265,8 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             misty = 0;
         }
         shower_draw(by);
+        aurora_draw(by);
+        aurora_place(by);
     }
     weather_palettes_keep(by);      // the cycle's three ends, for both weathers
     sun_hours_apply();

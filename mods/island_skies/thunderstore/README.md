@@ -7,8 +7,8 @@ The island's sky at any hour and in any weather. Night, sunset, dawn, a
 dusk that falls during the ride, or live: the island follows your own clock,
 day and night, under weather of its own that holds from one ride to
 the next and turns during a ride when its time comes. Stars that twinkle,
-a moon with its glint on the water, meteor showers on clear nights, the
-Volcano lit by its lava; rain, storms with lightning and snow that lies,
+a moon with its glint on the water, meteor showers on clear nights and an
+aurora on some of them, the Volcano lit by its lava; rain, storms with lightning and snow that lies,
 on every course, and ash over the Volcano; at dawn a mist lies on the River
 and the Valley and lifts as the day comes. By day the island is exactly as
 the cartridge draws it, and photos keep the sky of their instant.
@@ -90,7 +90,10 @@ its details, then A again for its options. The first row is **Setup**:
   the sky pinks, and lifts as the day comes. Rain and snow have their
   own gray instead. On a clear Night a meteor shower falls: streaks every
   few seconds from one point of the sky, each with its own length and
-  brightness.
+  brightness. On some nights, one ride in three, an aurora stands low in
+  the sky a quarter turn around from where the sun sets: two curtains of
+  green light, violet at their tops, whose rays brighten and fade and
+  whose feet waver, the stars showing through them.
 - **Live** is your clock and the island's own weather. Its only other
   rows are Sun, Latitude and Longitude, which set the sun's hours (see
   How Live works).
@@ -100,7 +103,8 @@ its details, then A again for its options. The first row is **Setup**:
 A change on the page takes effect as the next ride starts; a ride under
 way keeps the sky it started with. A photo keeps the sky it was taken
 under: the album and Professor Oak's review show it at its own hour and
-weather, whatever the rows say by then. Photos taken before 1.1.2 carry
+weather, with its aurora if the night had one, whatever the rows say by
+then. Photos taken before 1.1.2 carry
 no such note and follow the rows, as they always did.
 
 Under Live, or with a course on Your clock, the mod's details page
@@ -146,6 +150,13 @@ Perseids (Aug 12), the Orionids (Oct 21), the Leonids (Nov 17) and the
 Geminids (Dec 13), the streaks come at that shower's pace, thickest for
 the Geminids and the Perseids, and the details page names the shower.
 
+An aurora comes by the latitude. With **By latitude** it stands most
+nights beyond 55 degrees north or south, one night in two to 45, one in
+five to 35, one in twelve to 25, and about one in forty nearer the
+equator; south of the equator it stands on the other side. With Fixed
+hours it is one night in three. A night that has it has it all night,
+past midnight, and the details page says so.
+
 The **Sun** row sets the hours by the sun instead: with **By latitude**
 the **Latitude** row (degrees north, minus for south) gives sunrise and
 sunset for today's date, with no internet, and makes the dawn and the dusk
@@ -170,6 +181,8 @@ to full and back, and south of the equator its lit side is the other one.
 - **Water Glow**: the moon's glint on the water and the River's fireflies.
 - **Dawn Mist**: at dawn on the River and the Valley, wisps on the water
   and a paler, nearer fog, or the plain dawn.
+- **Aurora**: curtains of light low in the sky on clear nights, some
+  nights (one ride in three), every night, or never. The Tunnel has none.
 - **Moonlight on Pokémon**: the scene's light leans toward the moon, or
   stays where the game puts it.
 - **Night Sounds**: insects chirping in the dark on a clear night.

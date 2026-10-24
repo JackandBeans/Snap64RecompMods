@@ -115,12 +115,26 @@
   world afresh each time, and the mod made it the rows' sky, so with Time
   at Night every photo in the album had turned to night (JackandBeans,
   Oct 23 2026). Now the shutter writes the hour, the weather of that
-  instant and, under Live, the ride's first minute into two bytes of the
-  photo's record that the game leaves empty and saves with it, and the
-  photo is drawn under that sky whatever the rows say, in the album and
-  in Oak's review. A photo from before has no such note and follows the
+  instant, whether an aurora stood and, under Live, the ride's first
+  minute into two bytes of the photo's record that the game leaves empty
+  and saves with it, and the photo is drawn under that sky whatever the
+  rows say, in the album and in Oak's review. A photo from before has no such note and follows the
   rows, as before. The moon's phase in a photo is by the day it is looked
   at, not the day it was taken.
+- An aurora on some clear nights: two curtains of light low in the sky a
+  quarter turn around from where the sun sets, green at the foot and
+  violet at the top, their rays brightening and fading across them, their
+  feet wavering, taller where they are brighter, the whole breathing over
+  forty seconds, with the stars showing through. They are drawn as the
+  horizon's glow is, strips of colored corners and no picture, in the
+  N64's own way, and move by the world's clock, so a photo's night has
+  the curtains its instant had. On a fixed hour one ride in three has
+  one; under Live the latitude decides, most nights beyond 55 degrees
+  north or south and about one in forty near the equator, the same all
+  night and on the other side south of the equator; Custom has an
+  **Aurora** row, Some nights, Every night or Off. The Tunnel has none.
+  Chosen by JackandBeans on Oct 23 2026 from three ways to make the night
+  sky more interesting.
 
 ## 1.1.1
 
