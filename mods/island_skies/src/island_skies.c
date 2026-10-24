@@ -3973,43 +3973,55 @@ static void shooting_star(void) {
 // An aurora: on some clear nights (aurora_draw) two curtains of light stand
 // low in the sky a quarter turn around from where the sun sets, the pole's
 // side (the other side south of the equator under Live). Each is a band of
-// light, bright at a sharp foot that folds along the curtain, with a thin
-// rose fringe under the foot and fine rays rising from it, fading up
+// light, bright at a sharp foot that arcs and folds along the curtain, with
+// a thin rose fringe under the foot and fine rays rising from it, fading up
 // through green to a violet top. The rays are a small picture (aurora_pic:
-// 128 by 8, light only, drawn once from eighteen soft streaks of their own
-// widths, heights and strengths over a floor that is strongest at the
-// foot), laid along each curtain two and a half times over and slid along
-// it a little every frame, so the rays drift smoothly at any frame rate;
-// two waves of light, thirty and fifty degrees long, travel along the
-// curtain and the rays brighten and fade as they pass; a quick faint
-// shimmer; the whole breathes over forty seconds. The curtains' corners
-// themselves move only slowly (the foot's folds and the height drift over
-// a minute or so), so nothing of them jumps between the game's frames.
-// They are drawn as the N64 drew such things: strips of colored corners
-// under a tiny picture, their light ADDED to the sky (the horizon glow's
-// blend, night_glow_begin), so the stars show through undimmed. They are
-// drawn within the sky's own list, after the stars and the moon (the sky's
-// spare slot runs aurora_hook: the sky's list, then the curtains'), so the
-// port glides them between the game's frames as it does the stars. (A
-// group of the mod's own drawn after the sky, as the shooting star is,
-// moved only at the game's frame rate and stuttered as the view turned:
-// JackandBeans, Oct 23 2026. The first cut, broad soft swells laid over
-// the sky, read as a green haze: the same night. The third drew the rays
-// from the strips alone, two degrees wide, with waves a few degrees long
-// driving each strip's height and light; they jumped from strip to strip
-// and read as a choppy wave: JackandBeans, Oct 24 2026.) Their corners are
-// rewritten every frame from the world's clock, so a photo's night has the
-// curtains its instant had. They come up and go with the stars
-// (star_fade), and a cloudy sky hides them.
+// 256 by 4, light only, drawn once from thirty-six soft streaks of their
+// own widths, heights and strengths over a floor that is strongest at the
+// foot), laid along each curtain two and a half times over; two waves of
+// light, thirty and fifty degrees long, travel along the curtain and the
+// rays brighten and fade as they pass; a quick faint shimmer; the whole
+// breathes over forty seconds.
+// HOW IT MOVES. The port's renderer draws the display's frames between the
+// game's by gliding what it can pair between two of the game's frames: a
+// matrix group it knows, and a picture's tile while the tile scrolls at a
+// steady pace (the River's and the Valley's water; render_patch.c). It
+// never glides corners or picture coordinates, which the game rebuilds. So
+// the rays slide by the TILE: each layer's tile is moved a quarter of a
+// texel every frame of the game (the one steady pace there is), and the
+// renderer carries it between frames at the display's rate. The curtains'
+// corners themselves move only slowly (the foot's folds and the height
+// drift over a few minutes, well under a pixel a frame), the light's waves
+// live in the corners' alpha, and the whole is drawn within the sky's own
+// list, after the stars and the moon (the sky's spare slot runs
+// aurora_hook: the sky's list, then the curtains'), under the drum's own
+// matrix group, which the port glides as it does the stars. One list and
+// one set of corners, rewritten in place each frame as the stars' colors
+// are: what changes in a frame is too small to show if a frame reads half
+// of it. (A group of the mod's own drawn after the sky, as the shooting
+// star is, moved only at the game's frame rate and stuttered as the view
+// turned: JackandBeans, Oct 23 2026. The first cut, broad soft swells laid
+// over the sky, read as a green haze: the same night. The third drew the
+// rays from the strips alone, two degrees wide, with waves a few degrees
+// long driving each strip's height and light; they jumped from strip to
+// strip and read as a choppy wave. The fourth slid the picture by the
+// corners' coordinates, which the port does not glide, and moved at the
+// game's rate: JackandBeans, Oct 24 2026.) They are drawn as the N64 drew
+// such things: strips of colored corners under a tiny picture, their light
+// ADDED to the sky (the horizon glow's blend, night_glow_begin), so the
+// stars show through undimmed. The corners are rewritten every frame from
+// the world's clock, so a photo's night has the curtains its instant had.
+// They come up and go with the stars (star_fade), and a cloudy sky hides
+// them.
 #define AURORA_LAYERS 2
 #define AURORA_COLS   49
 #define AURORA_ROWS   7
 #define AURORA_DIST   1400.0f
 #define AURORA_ALPHA  255.0f
-#define AURORA_PIC_W  128
-#define AURORA_PIC_H  8
-#define AURORA_RAYS   18
-#define AURORA_GFX    (28 + AURORA_LAYERS * (AURORA_COLS - 1) * AURORA_ROWS)
+#define AURORA_PIC_W  256
+#define AURORA_PIC_H  4
+#define AURORA_RAYS   36
+#define AURORA_GFX    (32 + AURORA_LAYERS * (AURORA_COLS - 1) * AURORA_ROWS)
 // The glow's adding blend (gen_night.py's RM_GLOW) without its depth test,
 // as the sky's drum is drawn: what is drawn brightens what is behind it by
 // its own alpha and hides nothing.
@@ -4022,29 +4034,30 @@ typedef struct AuroraLayer {
     f32 rows[AURORA_ROWS];      // each row's height over the foot, radians, at full height (the first below it)
     f32 strength;               // its alpha against the main curtain's
     s32 pic_col;                // the picture along the curtain: 32nds of a texel a column
-    s32 slide;                  // how far the picture slides a tick, 32nds of a texel in sixteenths (signed)
+    s32 slide;                  // which way its tile slides, a quarter of a texel a frame: 1 or -1
     u32 phase[4];               // where its waves start: the light's, the folds', the height's and the shimmer's, the fixed warp's
 } AuroraLayer;
 
 static const AuroraLayer aurora_layers[AURORA_LAYERS] = {
-    // The main curtain: 96 degrees wide, its foot eight up, 25 tall at full height; the picture forty degrees long, sliding two texels a second.
-    { 0.0f, 0.8378f, 0.1396f, { -0.0209f, 0.0f, 0.0262f, 0.0873f, 0.1745f, 0.2967f, 0.4363f }, 1.0f, 205, 17,
+    // The main curtain: 96 degrees wide, its foot eight up, 25 tall at full height; the picture forty degrees long.
+    { 0.0f, 0.8378f, 0.1396f, { -0.0209f, 0.0f, 0.0262f, 0.0873f, 0.1745f, 0.2967f, 0.4363f }, 1.0f, 410, 1,
       { 0x0000u, 0x4000u, 0x8000u, 0xC000u } },
     // A fainter curtain behind it, higher, a little around, with folds of its own; its picture slides the other way.
-    { 0.3142f, 0.6109f, 0.2443f, { -0.0262f, 0.0f, 0.0349f, 0.1047f, 0.2007f, 0.3316f, 0.4712f }, 0.6f, 150, -11,
+    { 0.3142f, 0.6109f, 0.2443f, { -0.0262f, 0.0f, 0.0349f, 0.1047f, 0.2007f, 0.3316f, 0.4712f }, 0.6f, 366, -1,
       { 0x2A00u, 0xE000u, 0x5000u, 0x9800u } },
 };
 static const u8 aurora_row_w[AURORA_ROWS] = { 45, 255, 235, 160, 95, 40, 0 };     // the alpha by row: a rose fringe, a bright sharp foot, fading up
 static const u8 aurora_row_color[AURORA_ROWS][3] = {
     { 255, 70, 130 }, { 210, 255, 215 }, { 120, 255, 140 }, { 70, 235, 150 }, { 110, 150, 210 }, { 150, 80, 220 }, { 160, 60, 200 },
 };
-static const s16 aurora_row_t[AURORA_ROWS] = { 0, 0, 32, 80, 128, 176, 224 };    // each row's line of the picture, 32nds of a texel (the fringe shares the foot's)
+static const s16 aurora_row_t[AURORA_ROWS] = { 0, 0, 16, 40, 64, 88, 112 };     // each row's line of the picture, 32nds of a texel (the fringe shares the foot's)
 static u8 aurora_pic[AURORA_PIC_H][AURORA_PIC_W] __attribute__((aligned(16)));
-static Vtx aurora_vtx[2][AURORA_LAYERS][AURORA_COLS * AURORA_ROWS];     // two sets, turned once a frame
-static Gfx aurora_list[2][AURORA_GFX];
+static Vtx aurora_vtx[AURORA_LAYERS][AURORA_COLS * AURORA_ROWS];
+static Gfx aurora_list[AURORA_GFX];
+static Gfx* aurora_tile[AURORA_LAYERS];     // each layer's tile command in the list, rewritten each frame
 static Gfx aurora_none[] = { gsSPEndDisplayList() };
 static Gfx aurora_hook[] = { gsSPDisplayList(aurora_none), gsSPDisplayList(aurora_none), gsSPEndDisplayList() };     // the sky's own list, then the curtains (spare_point)
-static u8 aurora_turn, aurora_lists_built;
+static u8 aurora_lists_built;
 static f32 aurora_pole[2];       // the pole's side, around: x and z
 static u32 aurora_seed;
 
@@ -4073,8 +4086,8 @@ static f32 aurora_roll(void) {
     return (f32) (aurora_seed >> 8) / 16777216.0f;
 }
 
-// The picture: light only, 128 texels along the curtain (it repeats) by 8
-// up it (the foot at the first line). Eighteen soft streaks, one to each
+// The picture: light only, 256 texels along the curtain (it repeats) by 4
+// up it (the foot at the first line). Thirty-six soft streaks, one to each
 // stretch of seven texels, of their own half-widths (a texel and a half to
 // five), strengths and heights (the shorter ones fade out partway up, the
 // tallest reach the top), over a floor that is strongest at the foot, so
@@ -4129,44 +4142,44 @@ static void aurora_pic_build(void) {
     }
 }
 
-// The two lists, one a vertex set: the strips' states (the picture, loaded
-// as the night's own pictures are; the sky's own combiner, picture times
-// shade; the horizon glow's adding blend), each layer's columns as pairs of
-// rows, then the sky's own states back, as the generator's
-// night_sprites_end puts them.
+// The list: the strips' states (the picture, loaded as the night's own
+// pictures are; the sky's own combiner, picture times shade; the horizon
+// glow's adding blend), then each layer's tile (its slide, set each frame)
+// and its columns as pairs of rows, then the sky's own states back, as the
+// generator's night_sprites_end puts them.
 static void aurora_lists_build(void) {
-    s32 set, layer, c, r;
+    Gfx* g = aurora_list;
+    s32 layer, c, r;
 
     aurora_pic_build();
-    for (set = 0; set < 2; set++) {
-        Gfx* g = aurora_list[set];
-
+    gDPPipeSync(g++);
+    gDPSetTextureLUT(g++, G_TT_NONE);
+    gDPSetTextureFilter(g++, G_TF_BILERP);
+    gDPLoadTextureBlock(g++, aurora_pic, G_IM_FMT_I, G_IM_SIZ_8b, AURORA_PIC_W, AURORA_PIC_H, 0,
+                        G_TX_WRAP | G_TX_NOMIRROR, G_TX_CLAMP | G_TX_NOMIRROR, 8, 2, G_TX_NOLOD, G_TX_NOLOD);
+    gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+    gDPSetCombineMode(g++, G_CC_MODULATEIA, G_CC_MODULATEIA);
+    gDPSetRenderMode(g++, AURORA_RM(1), AURORA_RM(2));
+    gSPClearGeometryMode(g++, G_CULL_BACK | G_CULL_FRONT);
+    for (layer = 0; layer < AURORA_LAYERS; layer++) {
         gDPPipeSync(g++);
-        gDPSetTextureLUT(g++, G_TT_NONE);
-        gDPSetTextureFilter(g++, G_TF_BILERP);
-        gDPLoadTextureBlock(g++, aurora_pic, G_IM_FMT_I, G_IM_SIZ_8b, AURORA_PIC_W, AURORA_PIC_H, 0,
-                            G_TX_WRAP | G_TX_NOMIRROR, G_TX_CLAMP | G_TX_NOMIRROR, 7, 3, G_TX_NOLOD, G_TX_NOLOD);
-        gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
-        gDPSetCombineMode(g++, G_CC_MODULATEIA, G_CC_MODULATEIA);
-        gDPSetRenderMode(g++, AURORA_RM(1), AURORA_RM(2));
-        gSPClearGeometryMode(g++, G_CULL_BACK | G_CULL_FRONT);
-        for (layer = 0; layer < AURORA_LAYERS; layer++) {
-            for (c = 0; c < AURORA_COLS - 1; c++) {
-                gSPVertex(g++, &aurora_vtx[set][layer][c * AURORA_ROWS], 2 * AURORA_ROWS, 0);
-                for (r = 0; r < AURORA_ROWS - 1; r++) {
-                    gSP2Triangles(g++, r, r + 1, AURORA_ROWS + r + 1, 0, r, AURORA_ROWS + r + 1, AURORA_ROWS + r, 0);
-                }
+        aurora_tile[layer] = g;
+        gDPSetTileSize(g++, G_TX_RENDERTILE, 0, 0, (AURORA_PIC_W - 1) << 2, (AURORA_PIC_H - 1) << 2);
+        for (c = 0; c < AURORA_COLS - 1; c++) {
+            gSPVertex(g++, &aurora_vtx[layer][c * AURORA_ROWS], 2 * AURORA_ROWS, 0);
+            for (r = 0; r < AURORA_ROWS - 1; r++) {
+                gSP2Triangles(g++, r, r + 1, AURORA_ROWS + r + 1, 0, r, AURORA_ROWS + r + 1, AURORA_ROWS + r, 0);
             }
         }
-        gDPPipeSync(g++);
-        gDPSetRenderMode(g++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
-        g->words.w0 = 0xFC121824u;          // the sky's combiner: picture times shade
-        g->words.w1 = 0xFF33FFFFu;
-        g++;
-        gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
-        gSPSetGeometryMode(g++, G_CULL_BACK);
-        gSPEndDisplayList(g++);
     }
+    gDPPipeSync(g++);
+    gDPSetRenderMode(g++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
+    g->words.w0 = 0xFC121824u;          // the sky's combiner: picture times shade
+    g->words.w1 = 0xFF33FFFFu;
+    g++;
+    gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+    gSPSetGeometryMode(g++, G_CULL_BACK);
+    gSPEndDisplayList(g++);
     aurora_lists_built = 1;
 }
 
@@ -4176,17 +4189,19 @@ static f32 aurora_wave(u32 phase) {
     return sky_sin((f32) (phase & 0xFFFFu) * 9.58738e-5f);
 }
 
-// The corners for this frame, from the world's clock: each column's place
-// around; the picture's slide along the curtain (its own pace each layer,
-// a texel and a bit a second; a fixed slow warp along the curtain keeps
-// the picture's repeats from matching); its light from two waves along the
-// curtain, thirty and fifty degrees long, traveling against each other,
-// raised so the bright stretches stand out, and a quick faint shimmer; the
-// foot's arc, highest at its middle, and its folds (two slow waves, two degrees and one
-// deep, drifting over a minute and over half of one) and the height (a
-// quarter either way over a minute and a half); and from them each row's
-// corner on the dome, its line of the picture, its color and its alpha.
-static void aurora_state(const Night* by, s32 set) {
+// The corners for this frame, from the world's clock: each layer's tile
+// slid a quarter of a texel a frame its own way (the pace the port glides;
+// it wraps once a repeat of the picture, where one frame is not glided);
+// each column's place around; a fixed slow warp along the curtain, which
+// keeps the picture's repeats from matching; its light from two waves
+// along the curtain, thirty and fifty degrees long, traveling against each
+// other, raised so the bright stretches stand out, and a quick faint
+// shimmer; the foot's arc, highest at its middle, and its folds (two slow
+// waves, two degrees and one deep, drifting over three minutes and over
+// two) and the height (a quarter either way over four minutes); and from
+// them each row's corner on the dome, its line of the picture, its color
+// and its alpha.
+static void aurora_state(const Night* by) {
     u32 t = ticks_of(by);
     f32 breath = 0.9f + 0.1f * aurora_wave(t * 27u + 0x3000u);       // over forty seconds
     s32 layer, c, r, k;
@@ -4194,9 +4209,10 @@ static void aurora_state(const Night* by, s32 set) {
     for (layer = 0; layer < AURORA_LAYERS; layer++) {
         const AuroraLayer* lay = &aurora_layers[layer];
         f32 scale = AURORA_ALPHA * lay->strength * breath * ((f32) star_fade / 255.0f);
-        s32 slid = ((s32) (t & 0xFFFFFu) * lay->slide) / 16;
+        u32 frame = t >> 1;                                                      // two ticks a frame
+        u32 uls = (lay->slide > 0 ? frame : (0u - frame)) & (AURORA_PIC_W * 4 - 1);     // quarter texels, within one repeat
 
-        slid = ((slid % (AURORA_PIC_W * 32)) + AURORA_PIC_W * 32) % (AURORA_PIC_W * 32);     // within one repeat of the picture
+        gDPSetTileSize(aurora_tile[layer], G_TX_RENDERTILE, uls, 0, uls + ((AURORA_PIC_W - 1) << 2), (AURORA_PIC_H - 1) << 2);
         for (c = 0; c < AURORA_COLS; c++) {
             f32 u = (f32) (2 * c - (AURORA_COLS - 1)) / (f32) (AURORA_COLS - 1);     // -1 at one end, 1 at the other
             f32 a = lay->turn + lay->half * u;
@@ -4206,9 +4222,9 @@ static void aurora_state(const Night* by, s32 set) {
             u32 cu = (u32) c;
             f32 b1 = aurora_wave(lay->phase[0] + cu * 0x1000u - t * 55u);              // thirty degrees long, twenty seconds a wave
             f32 b2 = aurora_wave(lay->phase[0] + 0x6000u + cu * 0x0950u + t * 33u);    // fifty degrees, thirty-three seconds, the other way
-            f32 f1 = aurora_wave(lay->phase[1] + cu * 0x0800u + t * 18u);              // the folds: sixty degrees long, a minute
-            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x12B6u - t * 31u);    // twenty-seven degrees, thirty-five seconds, the other way
-            f32 h1 = aurora_wave(lay->phase[2] + cu * 0x0AABu + t * 12u);              // the height: forty-eight degrees long, a minute and a half
+            f32 f1 = aurora_wave(lay->phase[1] + cu * 0x0800u + t * 6u);               // the folds: sixty degrees long, three minutes
+            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x12B6u - t * 9u);     // twenty-seven degrees, two minutes, the other way
+            f32 h1 = aurora_wave(lay->phase[2] + cu * 0x0AABu + t * 5u);               // the height: forty-eight degrees long, four minutes
             f32 shimmer = aurora_wave(lay->phase[2] + 0x8000u + cu * 0x0555u + t * 683u);     // under two seconds
             f32 warp = aurora_wave(lay->phase[3] + cu * 0x0800u);                       // fixed
             f32 mix = 0.5f + 0.5f * (0.6f * b1 + 0.4f * b2);
@@ -4217,12 +4233,12 @@ static void aurora_state(const Night* by, s32 set) {
             f32 tall = 0.85f + 0.25f * h1;
             f32 foot = lay->foot + 0.03f * (1.0f - u * u) + 0.035f * f1 + 0.02f * f2;     // an arc, highest at its middle, with the folds on it
             f32 alpha;
-            s32 s = (s32) ((f32) lay->pic_col * ((f32) c + 1.2f * warp)) + slid;
+            s32 s = (s32) ((f32) lay->pic_col * ((f32) c + 1.2f * warp));
 
             edge = edge > 1.0f ? 1.0f : edge;
             alpha = scale * edge * bright * (1.0f + 0.12f * shimmer);
             for (r = 0; r < AURORA_ROWS; r++) {
-                Vtx* p = &aurora_vtx[set][layer][c * AURORA_ROWS + r];
+                Vtx* p = &aurora_vtx[layer][c * AURORA_ROWS + r];
                 f32 el = foot + lay->rows[r] * tall;
                 f32 ce = sky_cos(el);
                 f32 al = alpha * (f32) aurora_row_w[r] / 255.0f;
@@ -4242,10 +4258,10 @@ static void aurora_state(const Night* by, s32 set) {
     }
 }
 
-// Each frame, before the sky is drawn: the curtains' corners for the frame
-// in the set the renderer is not reading, and the hook's second command
-// pointed at that set's list, or at nothing when the night has no aurora,
-// the hour or the weather hides it, or the game is measuring a photo.
+// Each frame, before the sky is drawn: the curtains' corners and tiles for
+// the frame, and the hook's second command pointed at their list, or at
+// nothing when the night has no aurora, the hour or the weather hides it,
+// or the game is measuring a photo.
 static void aurora_frame(void) {
     Gfx* show = aurora_none;
 
@@ -4253,9 +4269,8 @@ static void aurora_frame(void) {
         if (!aurora_lists_built) {
             aurora_lists_build();
         }
-        aurora_turn ^= 1;
-        aurora_state(night, aurora_turn);
-        show = aurora_list[aurora_turn];
+        aurora_state(night);
+        show = aurora_list;
     }
     gSPDisplayList(&aurora_hook[1], show);
 }
@@ -5687,6 +5702,65 @@ static void sun_hours_apply(void) {
 // The moon's phase by the date: its age from the new moon of January 6, 2000,
 // 18:14 UTC, over the synodic month; one of eight pictures. South of the
 // equator the lit side is the other one.
+// The moon's picture for tonight, made from the generator's phase picture:
+// the dark side is left mostly see-through, so the halo and the sky show
+// through it and only a faint disc remains (the earth's shine), where the
+// generator's picture painted it solid at a sixth of the light and it blotted
+// the halo out as a black patch (JackandBeans, Oct 24 2026); and the
+// terminator is softened over a texel and a half, since at the moon's size
+// on a large display the generator's half-texel edge showed as a stair.
+// Each texel's lit share is its light against the full moon's at the same
+// place (the two share the face, seas, craters and grain alike).
+static u16 moon_face[32 * 32] __attribute__((aligned(8)));
+
+static void moon_face_make(u32 k) {
+    const u16* pic = night_moon_phases[k];
+    const u16* full = night_moon_phases[4];
+    static f32 lit[32 * 32];
+    s32 x, y;
+
+    for (y = 0; y < 32 * 32; y++) {
+        f32 f = (f32) (full[y] >> 8);
+        f32 w = f > 0.0f ? (((f32) (pic[y] >> 8) / f) - 0.16f) / 0.84f : 1.0f;
+
+        lit[y] = w < 0.0f ? 0.0f : w > 1.0f ? 1.0f : w;
+    }
+    for (y = 0; y < 32; y++) {
+        for (x = 0; x < 32; x++) {
+            s32 i = y * 32 + x;
+            f32 wsum = 0.0f, isum = 0.0f, n = 0.0f, lo = 1.0f, hi = 0.0f;
+            f32 w, light, a;
+            s32 dx, dy;
+
+            for (dy = -1; dy <= 1; dy++) {
+                for (dx = -1; dx <= 1; dx++) {
+                    s32 xx = x + dx, yy = y + dy;
+                    f32 wt;
+
+                    if (xx < 0 || xx > 31 || yy < 0 || yy > 31) {
+                        continue;
+                    }
+                    wt = (f32) ((2 - (dx < 0 ? -dx : dx)) * (2 - (dy < 0 ? -dy : dy)));     // 4 at the middle, 2 beside, 1 at a corner
+                    wsum += wt * lit[yy * 32 + xx];
+                    isum += wt * (f32) (pic[yy * 32 + xx] >> 8);
+                    n += wt;
+                    lo = lit[yy * 32 + xx] < lo ? lit[yy * 32 + xx] : lo;
+                    hi = lit[yy * 32 + xx] > hi ? lit[yy * 32 + xx] : hi;
+                }
+            }
+            if (hi - lo > 0.05f) {          // on the terminator: the softened light and share
+                w = wsum / n;
+                light = isum / n;
+            } else {
+                w = lit[i];
+                light = (f32) (pic[i] >> 8);
+            }
+            a = (f32) (pic[i] & 0xFF) * (0.25f + 0.75f * w);
+            moon_face[i] = (u16) (((u32) (light + 0.5f) << 8) | (u32) (a + 0.5f));
+        }
+    }
+}
+
 static void moon_phase_apply(void) {
     static const char* const names[8] = { "new", "a waxing crescent", "at first quarter", "waxing gibbous",
                                           "full", "waning gibbous", "at last quarter", "a waning crescent" };
@@ -5707,7 +5781,8 @@ static void moon_phase_apply(void) {
     if (lat != 999 && lat < 0) {
         k = (8 - k) & 7;                // the southern sky: the lit side mirrored
     }
-    night_use_moon[0].words.w1 = (u32) night_moon_phases[k];
+    moon_face_make(k);
+    night_use_moon[0].words.w1 = (u32) moon_face;
     recomp_printf("[island skies] the moon is %u days old, %s\n", (u32) age, names[k]);
 }
 

@@ -121,6 +121,11 @@
   rows say, in the album and in Oak's review. A photo from before has no such note and follows the
   rows, as before. The moon's phase in a photo is by the day it is looked
   at, not the day it was taken.
+- The moon's dark side is mostly see-through, a faint disc with the halo
+  and the sky showing through it, and its terminator is softer. It was
+  painted solid at a sixth of the light and blotted the halo out as a
+  black patch, and its half-texel edge showed as a stair at the moon's
+  size on a large display (JackandBeans, Oct 24 2026).
 - An aurora on some clear nights: two curtains of light low in the sky a
   quarter turn around from where the sun sets, each a band bright at a
   sharp foot that arcs and folds along the curtain, with a thin rose
@@ -139,7 +144,12 @@
   the sky's own list now, with the stars, and glide as they do. The
   third drew the rays from the strips alone, two degrees wide, and its
   waves jumped from strip to strip (JackandBeans, Oct 24 2026); the
-  picture came with the fourth. On a fixed hour one ride in three has
+  picture came with the fourth, which slid it by the corners' picture
+  coordinates, and the port, which glides only matrices and a steadily
+  scrolling picture tile between the game's frames, showed that slide at
+  the game's rate (JackandBeans, the same night); the fifth slides the
+  tile, a quarter of a texel a frame, as the River's water scrolls, and
+  moves the corners only slowly. On a fixed hour one ride in three has
   one; under Live the latitude decides, most nights beyond 55 degrees
   north or south and about one in forty near the equator, the same all
   night and on the other side south of the equator; Custom has an
