@@ -499,6 +499,7 @@ static f32 sky_sin(f32 x);
 static f32 sky_cos(f32 x);
 static u32 setup_of(void);
 static u8 simple_setup(void);
+static void aurora_frame(void);
 
 #define SNOW_R 236
 #define SNOW_G 240
@@ -3677,6 +3678,7 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
         if (night->twinkle != NULL) {
             twinkle(night);         // at every hour: the fade makes them dark by day
         }
+        aurora_frame();             // the curtains' corners for this frame, or none
         extended_addresses(1);
         if (scoring) {
             return;         // no weather in the pass that measures a photo
@@ -3972,50 +3974,57 @@ static void shooting_star(void) {
 // low in the sky a quarter turn around from where the sun sets, the pole's
 // side (the other side south of the equator under Live). Each is a row of
 // narrow rays two degrees wide, bright at a sharp foot that folds along
-// the curtain and fading up through green to a violet top; the rays
-// brighten, fade and drift sideways, some nearly out, the curtain stands
-// taller where it is brighter, and the whole breathes over forty seconds.
-// They are drawn as the N64 drew such things and as the mod draws its
-// horizon glow: strips of colored corners, no picture, their light ADDED
-// to the sky (the glow's blend, night_glow_begin), so the stars show
-// through undimmed, at the sprites' distance around the eye in a matrix
-// group of their own, as the shooting star is. Their corners are rewritten
-// every frame from the world's clock, so a photo's night has the curtains
-// its instant had. They come up and go with the stars (star_fade), and a
-// cloudy sky hides them. (The first cut, broad soft swells laid over the
-// sky, read as a green haze: JackandBeans, Oct 23 2026.)
+// the curtain, with a thin rose fringe under the foot, fading up through
+// green to a violet top; the rays brighten, fade, flicker and drift
+// sideways, some nearly out, the curtain stands taller where it is
+// brighter, and the whole breathes over forty seconds. They are drawn as
+// the N64 drew such things and as the mod draws its horizon glow: strips
+// of colored corners, no picture, their light ADDED to the sky (the glow's
+// blend, night_glow_begin), so the stars show through undimmed. They are
+// drawn within the sky's own list, after the stars and the moon (the sky's
+// spare slot runs aurora_hook: the sky's list, then the curtains'), so the
+// port glides them between the game's frames as it does the stars. (A
+// group of the mod's own drawn after the sky, as the shooting star is,
+// moved only at the game's frame rate and stuttered as the view turned:
+// JackandBeans, Oct 23 2026. The first cut, broad soft swells laid over
+// the sky, read as a green haze: JackandBeans, the same night.) Their
+// corners are rewritten every frame from the world's clock, so a photo's
+// night has the curtains its instant had. They come up and go with the
+// stars (star_fade), and a cloudy sky hides them.
 #define AURORA_LAYERS 2
 #define AURORA_COLS   49
-#define AURORA_ROWS   5
+#define AURORA_ROWS   6
 #define AURORA_DIST   1400.0f
 #define AURORA_ALPHA  215.0f
-#define AURORA_GFX    (8 + AURORA_LAYERS * (AURORA_COLS - 1) * AURORA_ROWS + 4)
-// The glow's adding blend (gen_night.py's RM_GLOW): what is drawn brightens
-// what is behind it by its own alpha and hides nothing.
-#define AURORA_RM(clk) (Z_CMP | IM_RD | CVG_DST_FULL | ZMODE_XLU | FORCE_BL | GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_1))
+#define AURORA_GFX    (12 + AURORA_LAYERS * (AURORA_COLS - 1) * AURORA_ROWS)
+// The glow's adding blend (gen_night.py's RM_GLOW) without its depth test,
+// as the sky's drum is drawn: what is drawn brightens what is behind it by
+// its own alpha and hides nothing.
+#define AURORA_RM(clk) (IM_RD | CVG_DST_FULL | ZMODE_XLU | FORCE_BL | GBL_c##clk(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_1))
 
 typedef struct AuroraLayer {
     f32 turn;                   // its middle, radians around from the pole's side
     f32 half;                   // half its width, radians
     f32 foot;                   // the elevation of its foot, radians
-    f32 rows[AURORA_ROWS];      // each row's height over the foot, radians, at full height
+    f32 rows[AURORA_ROWS];      // each row's height over the foot, radians, at full height (the first below it)
     f32 strength;               // its alpha against the main curtain's
     u32 phase[4];               // where its waves start
 } AuroraLayer;
 
 static const AuroraLayer aurora_layers[AURORA_LAYERS] = {
     // The main curtain: 96 degrees wide (two a ray), its foot eight up, 24 tall at full height.
-    { 0.0f, 0.8378f, 0.1396f, { 0.0f, 0.0262f, 0.0873f, 0.2094f, 0.4189f }, 1.0f, { 0x0000u, 0x4000u, 0x8000u, 0xC000u } },
+    { 0.0f, 0.8378f, 0.1396f, { -0.0209f, 0.0f, 0.0262f, 0.0873f, 0.2094f, 0.4189f }, 1.0f, { 0x0000u, 0x4000u, 0x8000u, 0xC000u } },
     // A fainter curtain behind it, higher, a little around, with folds of its own.
-    { 0.3142f, 0.6109f, 0.2443f, { 0.0f, 0.0349f, 0.1047f, 0.2443f, 0.4712f }, 0.6f, { 0x2A00u, 0xE000u, 0x5000u, 0x9800u } },
+    { 0.3142f, 0.6109f, 0.2443f, { -0.0262f, 0.0f, 0.0349f, 0.1047f, 0.2443f, 0.4712f }, 0.6f, { 0x2A00u, 0xE000u, 0x5000u, 0x9800u } },
 };
-static const u8 aurora_row_w[AURORA_ROWS] = { 235, 200, 120, 50, 0 };     // the alpha by row: a bright sharp foot, fading up
+static const u8 aurora_row_w[AURORA_ROWS] = { 70, 235, 200, 120, 50, 0 };      // the alpha by row: a rose fringe, a bright sharp foot, fading up
 static const u8 aurora_row_color[AURORA_ROWS][3] = {
-    { 215, 255, 220 }, { 100, 255, 140 }, { 70, 220, 150 }, { 140, 90, 230 }, { 160, 60, 200 },
+    { 255, 90, 150 }, { 215, 255, 220 }, { 100, 255, 140 }, { 70, 220, 150 }, { 140, 90, 230 }, { 160, 60, 200 },
 };
 static Vtx aurora_vtx[2][AURORA_LAYERS][AURORA_COLS * AURORA_ROWS];     // two sets, turned once a frame
 static Gfx aurora_list[2][AURORA_GFX];
-static Mtx aurora_mtx[2];
+static Gfx aurora_none[] = { gsSPEndDisplayList() };
+static Gfx aurora_hook[] = { gsSPDisplayList(aurora_none), gsSPDisplayList(aurora_none), gsSPEndDisplayList() };     // the sky's own list, then the curtains (spare_point)
 static u8 aurora_turn, aurora_lists_built;
 static f32 aurora_pole[2];       // the pole's side, around: x and z
 
@@ -4038,9 +4047,8 @@ static void aurora_place(const Night* by) {
 }
 
 // The two lists, one a vertex set: the strips' states (the horizon glow's,
-// with the lighting, the fog and the culling off as the rain's list has
-// them, since these come after the sky's own drawing), then each layer's
-// columns as pairs of rows, and the texture switch back on.
+// with the adding blend), each layer's columns as pairs of rows, then the
+// sky's own states back, as the generator's night_sprites_end puts them.
 static void aurora_lists_build(void) {
     s32 set, layer, c, r;
 
@@ -4048,11 +4056,10 @@ static void aurora_lists_build(void) {
         Gfx* g = aurora_list[set];
 
         gDPPipeSync(g++);
-        gDPSetCycleType(g++, G_CYC_1CYCLE);
-        gSPGeometryMode(g++, G_LIGHTING | G_CULL_BACK | G_CULL_FRONT | G_FOG | G_TEXTURE_GEN, G_ZBUFFER | G_SHADE);
         gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
         gDPSetCombineLERP(g++, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE);
         gDPSetRenderMode(g++, AURORA_RM(1), AURORA_RM(2));
+        gSPClearGeometryMode(g++, G_CULL_BACK | G_CULL_FRONT);
         for (layer = 0; layer < AURORA_LAYERS; layer++) {
             for (c = 0; c < AURORA_COLS - 1; c++) {
                 gSPVertex(g++, &aurora_vtx[set][layer][c * AURORA_ROWS], 2 * AURORA_ROWS, 0);
@@ -4061,7 +4068,13 @@ static void aurora_lists_build(void) {
                 }
             }
         }
+        gDPPipeSync(g++);
+        gDPSetRenderMode(g++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
+        g->words.w0 = 0xFC121824u;          // the sky's combiner: picture times shade
+        g->words.w1 = 0xFF33FFFFu;
+        g++;
         gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+        gSPSetGeometryMode(g++, G_CULL_BACK);
         gSPEndDisplayList(g++);
     }
     aurora_lists_built = 1;
@@ -4069,11 +4082,11 @@ static void aurora_lists_build(void) {
 
 // The corners for this frame, from the world's clock: each column's place
 // around; its ray's light from three waves along the curtain (nine, five
-// and twenty-eight degrees long, drifting at their own paces) and a fixed
-// unevenness of its own, squared so that the bright rays stand out and the
-// dark ones nearly go; the foot's folds (two slow waves, six degrees deep)
-// and the height, taller where brighter; and from them each row's corner
-// on the dome, its color and its alpha.
+// and twenty-eight degrees long, drifting at their own paces), a quick
+// small flicker and a fixed unevenness of its own, squared so that the
+// bright rays stand out and the dark ones nearly go; the foot's folds (two
+// slow waves, six degrees deep) and the height, taller where brighter; and
+// from them each row's corner on the dome, its color and its alpha.
 static void aurora_state(const Night* by, s32 set) {
     u32 t = ticks_of(by);
     s32 breath = 178 + ((s32) night_sine[((t * 27u + 0x3000u) >> 8) & 0xFF] * 77) / 127;     // 101 to 255, over forty seconds
@@ -4093,9 +4106,10 @@ static void aurora_state(const Night* by, s32 set) {
             s32 w1 = night_sine[((lay->phase[0] + (u32) c * 0x3800u + t * 95u) >> 8) & 0xFF];
             s32 w2 = night_sine[((lay->phase[1] + (u32) c * 0x6200u - t * 170u) >> 8) & 0xFF];
             s32 w3 = night_sine[((lay->phase[2] + (u32) c * 0x1200u + t * 40u) >> 8) & 0xFF];
+            s32 w4 = night_sine[((lay->phase[2] + 0x8000u + (u32) c * 0x4A00u + t * 700u) >> 8) & 0xFF];
             s32 f1 = night_sine[((lay->phase[3] + (u32) c * 0x0C00u + t * 23u) >> 8) & 0xFF];
             s32 f2 = night_sine[((lay->phase[3] + 0x4000u + (u32) c * 0x2000u - t * 51u) >> 8) & 0xFF];
-            f32 ray = 0.5f + ((f32) w1 * 0.30f + (f32) w2 * 0.22f + (f32) w3 * 0.18f) / 127.0f
+            f32 ray = 0.5f + ((f32) w1 * 0.30f + (f32) w2 * 0.22f + (f32) w3 * 0.18f + (f32) w4 * 0.08f) / 127.0f
                       + ((f32) (col >> 24) / 255.0f - 0.5f) * 0.3f;
             f32 edge = 1.3f * (0.5f + 0.5f * sky_cos(3.14159265f * u));      // the curtain thins to its ends
             f32 tall, foot, alpha;
@@ -4123,35 +4137,22 @@ static void aurora_state(const Night* by, s32 set) {
     }
 }
 
-static void aurora_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
-    Mtx* mtx;
+// Each frame, before the sky is drawn: the curtains' corners for the frame
+// in the set the renderer is not reading, and the hook's second command
+// pointed at that set's list, or at nothing when the night has no aurora,
+// the hour or the weather hides it, or the game is measuring a photo.
+static void aurora_frame(void) {
+    Gfx* show = aurora_none;
 
-    if (!aurora || (sunset && !cycle) || raining || snowing || storming || scoring || star_fade == 0) {
-        return;         // under the clock the stars' fade brings them up and takes them down
+    if (night != NULL && aurora && !(sunset && !cycle) && !raining && !snowing && !storming && !scoring && star_fade != 0) {
+        if (!aurora_lists_built) {
+            aurora_lists_build();
+        }
+        aurora_turn ^= 1;
+        aurora_state(night, aurora_turn);
+        show = aurora_list[aurora_turn];
     }
-    if (!aurora_lists_built) {
-        aurora_lists_build();
-    }
-    aurora_turn ^= 1;
-    aurora_state(night, aurora_turn);
-    mtx = &aurora_mtx[aurora_turn];
-    place(mtx, ex, ey, ez);
-    // Its own matrix group, as the shooting star's: pushed, not interpolated.
-    command(list, (0x64u << 24) | 0x00000Cu, 0);
-    command(list, 0x00000001u, 0);
-    gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-    gSPDisplayList((*list)++, aurora_list[aurora_turn]);
-    gSPDisplayList((*list)++, night_rain_end);
-    gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
-    command(list, (0x64u << 24) | 0x00000Du, 1);
-}
-
-static void aurora_curtains(void) {
-    if (sky_now != NULL && sky_now->data.dobj != NULL) {
-        DObj* eye = sky_now->data.dobj;
-
-        aurora_at(&MAIN_GFX_POS[0], eye->position.v.x, eye->position.v.y, eye->position.v.z);
-    }
+    gSPDisplayList(&aurora_hook[1], show);
 }
 
 RECOMP_HOOK_RETURN("drawSkyBox1Cycle") void night_sky_ends(void) {
@@ -4160,7 +4161,6 @@ RECOMP_HOOK_RETURN("drawSkyBox1Cycle") void night_sky_ends(void) {
             storm_sky();
         }
         if (night->sky != NULL) {
-            aurora_curtains();      // behind the streaks
             shooting_star();
         }
         extended_addresses(0);
@@ -5116,8 +5116,10 @@ static void spare_point(Gfx* list) {
         spare[0] = 0xE7000000u;
         spare[1] = 0;
     } else {
+        // The slot runs the hook: the sky's list, then the aurora's (aurora_frame).
+        gSPDisplayList(&aurora_hook[0], list);
         spare[0] = 0xDE000000u;
-        spare[1] = (u32) list;
+        spare[1] = (u32) aurora_hook;
     }
 }
 

@@ -130,7 +130,13 @@
   the horizon's glow is, strips of colored corners and no picture, in the
   N64's own way, and move by the world's clock, so a photo's night has
   the curtains its instant had. The first cut, broad soft swells laid
-  over the sky, read as a green haze (JackandBeans, Oct 23 2026). On a fixed hour one ride in three has
+  over the sky, read as a green haze (JackandBeans, Oct 23 2026). The
+  second was drawn after the sky in a group of its own, which the port
+  moves only at the game's frame rate, and it stuttered as the view
+  turned (JackandBeans, the same night); the curtains are drawn within
+  the sky's own list now, with the stars, and glide as they do. A thin
+  rose fringe under the foot and a quick flicker in the rays came with
+  that cut. On a fixed hour one ride in three has
   one; under Live the latitude decides, most nights beyond 55 degrees
   north or south and about one in forty near the equator, the same all
   night and on the other side south of the equator; Custom has an
