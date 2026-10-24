@@ -92,9 +92,9 @@ its details, then A again for its options. The first row is **Setup**:
   few seconds from one point of the sky, each with its own length and
   brightness. On some nights, one ride in three, an aurora stands low in
   the sky a quarter turn around from where the sun sets: two curtains of
-  narrow rays, bright at a folded foot with a rose fringe under it and
-  green rising to violet, that brighten, fade, flicker and drift, the
-  stars showing through them.
+  light, each a bright band at a folded foot with a rose fringe under it
+  and fine rays rising from it, green to violet, that drift, brighten,
+  fade and shimmer, the stars showing through them.
 - **Live** is your clock and the island's own weather. Its only other
   rows are Sun, Latitude and Longitude, which set the sun's hours (see
   How Live works).

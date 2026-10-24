@@ -122,21 +122,24 @@
   rows, as before. The moon's phase in a photo is by the day it is looked
   at, not the day it was taken.
 - An aurora on some clear nights: two curtains of light low in the sky a
-  quarter turn around from where the sun sets, each a row of narrow rays
-  bright at a sharp foot that folds along the curtain, green rising to a
-  violet top, the rays brightening, fading and drifting, taller where
-  they are brighter, the whole breathing over forty seconds, their light
-  added to the sky so the stars show through undimmed. They are drawn as
-  the horizon's glow is, strips of colored corners and no picture, in the
-  N64's own way, and move by the world's clock, so a photo's night has
-  the curtains its instant had. The first cut, broad soft swells laid
+  quarter turn around from where the sun sets, each a band bright at a
+  sharp foot that arcs and folds along the curtain, with a thin rose
+  fringe under it, and fine rays rising from the band, green to a violet
+  top, that drift along it, brighten and fade as slow waves of light
+  pass, and shimmer, the whole breathing over forty seconds, their light
+  added to the sky so the stars show through undimmed. They are drawn in
+  the N64's own way, strips of colored corners under a tiny picture of
+  the rays (128 by 8, light only, drawn once by the mod) that slides
+  along the curtains, and move by the world's clock, so a photo's night
+  has the curtains its instant had. The first cut, broad soft swells laid
   over the sky, read as a green haze (JackandBeans, Oct 23 2026). The
   second was drawn after the sky in a group of its own, which the port
   moves only at the game's frame rate, and it stuttered as the view
   turned (JackandBeans, the same night); the curtains are drawn within
-  the sky's own list now, with the stars, and glide as they do. A thin
-  rose fringe under the foot and a quick flicker in the rays came with
-  that cut. On a fixed hour one ride in three has
+  the sky's own list now, with the stars, and glide as they do. The
+  third drew the rays from the strips alone, two degrees wide, and its
+  waves jumped from strip to strip (JackandBeans, Oct 24 2026); the
+  picture came with the fourth. On a fixed hour one ride in three has
   one; under Live the latitude decides, most nights beyond 55 degrees
   north or south and about one in forty near the equator, the same all
   night and on the other side south of the equator; Custom has an

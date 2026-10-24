@@ -3972,14 +3972,21 @@ static void shooting_star(void) {
 
 // An aurora: on some clear nights (aurora_draw) two curtains of light stand
 // low in the sky a quarter turn around from where the sun sets, the pole's
-// side (the other side south of the equator under Live). Each is a row of
-// narrow rays two degrees wide, bright at a sharp foot that folds along
-// the curtain, with a thin rose fringe under the foot, fading up through
-// green to a violet top; the rays brighten, fade, flicker and drift
-// sideways, some nearly out, the curtain stands taller where it is
-// brighter, and the whole breathes over forty seconds. They are drawn as
-// the N64 drew such things and as the mod draws its horizon glow: strips
-// of colored corners, no picture, their light ADDED to the sky (the glow's
+// side (the other side south of the equator under Live). Each is a band of
+// light, bright at a sharp foot that folds along the curtain, with a thin
+// rose fringe under the foot and fine rays rising from it, fading up
+// through green to a violet top. The rays are a small picture (aurora_pic:
+// 128 by 8, light only, drawn once from eighteen soft streaks of their own
+// widths, heights and strengths over a floor that is strongest at the
+// foot), laid along each curtain two and a half times over and slid along
+// it a little every frame, so the rays drift smoothly at any frame rate;
+// two waves of light, thirty and fifty degrees long, travel along the
+// curtain and the rays brighten and fade as they pass; a quick faint
+// shimmer; the whole breathes over forty seconds. The curtains' corners
+// themselves move only slowly (the foot's folds and the height drift over
+// a minute or so), so nothing of them jumps between the game's frames.
+// They are drawn as the N64 drew such things: strips of colored corners
+// under a tiny picture, their light ADDED to the sky (the horizon glow's
 // blend, night_glow_begin), so the stars show through undimmed. They are
 // drawn within the sky's own list, after the stars and the moon (the sky's
 // spare slot runs aurora_hook: the sky's list, then the curtains'), so the
@@ -3987,16 +3994,22 @@ static void shooting_star(void) {
 // group of the mod's own drawn after the sky, as the shooting star is,
 // moved only at the game's frame rate and stuttered as the view turned:
 // JackandBeans, Oct 23 2026. The first cut, broad soft swells laid over
-// the sky, read as a green haze: JackandBeans, the same night.) Their
-// corners are rewritten every frame from the world's clock, so a photo's
-// night has the curtains its instant had. They come up and go with the
-// stars (star_fade), and a cloudy sky hides them.
+// the sky, read as a green haze: the same night. The third drew the rays
+// from the strips alone, two degrees wide, with waves a few degrees long
+// driving each strip's height and light; they jumped from strip to strip
+// and read as a choppy wave: JackandBeans, Oct 24 2026.) Their corners are
+// rewritten every frame from the world's clock, so a photo's night has the
+// curtains its instant had. They come up and go with the stars
+// (star_fade), and a cloudy sky hides them.
 #define AURORA_LAYERS 2
 #define AURORA_COLS   49
-#define AURORA_ROWS   6
+#define AURORA_ROWS   7
 #define AURORA_DIST   1400.0f
-#define AURORA_ALPHA  215.0f
-#define AURORA_GFX    (12 + AURORA_LAYERS * (AURORA_COLS - 1) * AURORA_ROWS)
+#define AURORA_ALPHA  255.0f
+#define AURORA_PIC_W  128
+#define AURORA_PIC_H  8
+#define AURORA_RAYS   18
+#define AURORA_GFX    (28 + AURORA_LAYERS * (AURORA_COLS - 1) * AURORA_ROWS)
 // The glow's adding blend (gen_night.py's RM_GLOW) without its depth test,
 // as the sky's drum is drawn: what is drawn brightens what is behind it by
 // its own alpha and hides nothing.
@@ -4008,25 +4021,32 @@ typedef struct AuroraLayer {
     f32 foot;                   // the elevation of its foot, radians
     f32 rows[AURORA_ROWS];      // each row's height over the foot, radians, at full height (the first below it)
     f32 strength;               // its alpha against the main curtain's
-    u32 phase[4];               // where its waves start
+    s32 pic_col;                // the picture along the curtain: 32nds of a texel a column
+    s32 slide;                  // how far the picture slides a tick, 32nds of a texel in sixteenths (signed)
+    u32 phase[4];               // where its waves start: the light's, the folds', the height's and the shimmer's, the fixed warp's
 } AuroraLayer;
 
 static const AuroraLayer aurora_layers[AURORA_LAYERS] = {
-    // The main curtain: 96 degrees wide (two a ray), its foot eight up, 24 tall at full height.
-    { 0.0f, 0.8378f, 0.1396f, { -0.0209f, 0.0f, 0.0262f, 0.0873f, 0.2094f, 0.4189f }, 1.0f, { 0x0000u, 0x4000u, 0x8000u, 0xC000u } },
-    // A fainter curtain behind it, higher, a little around, with folds of its own.
-    { 0.3142f, 0.6109f, 0.2443f, { -0.0262f, 0.0f, 0.0349f, 0.1047f, 0.2443f, 0.4712f }, 0.6f, { 0x2A00u, 0xE000u, 0x5000u, 0x9800u } },
+    // The main curtain: 96 degrees wide, its foot eight up, 25 tall at full height; the picture forty degrees long, sliding two texels a second.
+    { 0.0f, 0.8378f, 0.1396f, { -0.0209f, 0.0f, 0.0262f, 0.0873f, 0.1745f, 0.2967f, 0.4363f }, 1.0f, 205, 17,
+      { 0x0000u, 0x4000u, 0x8000u, 0xC000u } },
+    // A fainter curtain behind it, higher, a little around, with folds of its own; its picture slides the other way.
+    { 0.3142f, 0.6109f, 0.2443f, { -0.0262f, 0.0f, 0.0349f, 0.1047f, 0.2007f, 0.3316f, 0.4712f }, 0.6f, 150, -11,
+      { 0x2A00u, 0xE000u, 0x5000u, 0x9800u } },
 };
-static const u8 aurora_row_w[AURORA_ROWS] = { 70, 235, 200, 120, 50, 0 };      // the alpha by row: a rose fringe, a bright sharp foot, fading up
+static const u8 aurora_row_w[AURORA_ROWS] = { 45, 255, 235, 160, 95, 40, 0 };     // the alpha by row: a rose fringe, a bright sharp foot, fading up
 static const u8 aurora_row_color[AURORA_ROWS][3] = {
-    { 255, 90, 150 }, { 215, 255, 220 }, { 100, 255, 140 }, { 70, 220, 150 }, { 140, 90, 230 }, { 160, 60, 200 },
+    { 255, 70, 130 }, { 210, 255, 215 }, { 120, 255, 140 }, { 70, 235, 150 }, { 110, 150, 210 }, { 150, 80, 220 }, { 160, 60, 200 },
 };
+static const s16 aurora_row_t[AURORA_ROWS] = { 0, 0, 32, 80, 128, 176, 224 };    // each row's line of the picture, 32nds of a texel (the fringe shares the foot's)
+static u8 aurora_pic[AURORA_PIC_H][AURORA_PIC_W] __attribute__((aligned(16)));
 static Vtx aurora_vtx[2][AURORA_LAYERS][AURORA_COLS * AURORA_ROWS];     // two sets, turned once a frame
 static Gfx aurora_list[2][AURORA_GFX];
 static Gfx aurora_none[] = { gsSPEndDisplayList() };
 static Gfx aurora_hook[] = { gsSPDisplayList(aurora_none), gsSPDisplayList(aurora_none), gsSPEndDisplayList() };     // the sky's own list, then the curtains (spare_point)
 static u8 aurora_turn, aurora_lists_built;
 static f32 aurora_pole[2];       // the pole's side, around: x and z
+static u32 aurora_seed;
 
 // Where the curtains stand for this course: a quarter turn around from the
 // sunset's sun (which shares the moon's side), the other way south of the
@@ -4046,18 +4066,88 @@ static void aurora_place(const Night* by) {
     aurora_pole[1] = (sx / len) * side;
 }
 
-// The two lists, one a vertex set: the strips' states (the horizon glow's,
-// with the adding blend), each layer's columns as pairs of rows, then the
-// sky's own states back, as the generator's night_sprites_end puts them.
+// The next of a fixed run of numbers, 0 to 1: the rays' places and shapes
+// are the same every night; the nights differ by their waves and slide.
+static f32 aurora_roll(void) {
+    aurora_seed = aurora_seed * 1664525u + 1013904223u;
+    return (f32) (aurora_seed >> 8) / 16777216.0f;
+}
+
+// The picture: light only, 128 texels along the curtain (it repeats) by 8
+// up it (the foot at the first line). Eighteen soft streaks, one to each
+// stretch of seven texels, of their own half-widths (a texel and a half to
+// five), strengths and heights (the shorter ones fade out partway up, the
+// tallest reach the top), over a floor that is strongest at the foot, so
+// the lower border is a continuous band of light and the rays stand apart
+// above it. A texel holds the square root of its light: the picture
+// multiplies both the color and the alpha, and the adding blend multiplies
+// those again.
+static void aurora_pic_build(void) {
+    f32 at[AURORA_RAYS], wide[AURORA_RAYS], strong[AURORA_RAYS], high[AURORA_RAYS];
+    s32 k, x, r;
+
+    aurora_seed = 0x5EED1234u;
+    for (k = 0; k < AURORA_RAYS; k++) {
+        at[k] = ((f32) k + 0.15f + 0.7f * aurora_roll()) * ((f32) AURORA_PIC_W / (f32) AURORA_RAYS);
+        wide[k] = 1.6f + 3.4f * aurora_roll();
+        strong[k] = 0.35f + 0.65f * aurora_roll();
+        high[k] = 0.55f + 0.8f * aurora_roll();
+    }
+    for (r = 0; r < AURORA_PIC_H; r++) {
+        f32 v = (f32) r / (f32) (AURORA_PIC_H - 1);
+        f32 floor = 0.9f - 0.8f * v;
+
+        for (x = 0; x < AURORA_PIC_W; x++) {
+            f32 rays = 0.0f, light;
+
+            for (k = 0; k < AURORA_RAYS; k++) {
+                f32 d = (f32) x - at[k];
+                f32 g;
+
+                if (d > (f32) (AURORA_PIC_W / 2)) {
+                    d -= (f32) AURORA_PIC_W;
+                }
+                if (d < -(f32) (AURORA_PIC_W / 2)) {
+                    d += (f32) AURORA_PIC_W;
+                }
+                if (d < 0.0f) {
+                    d = -d;
+                }
+                if (d >= wide[k]) {
+                    continue;
+                }
+                g = (v - high[k] + 0.35f) / 0.35f;      // 0 below where the ray fades, 1 past it
+                g = g < 0.0f ? 0.0f : g > 1.0f ? 1.0f : g;
+                rays += strong[k] * (0.5f + 0.5f * sky_cos(3.14159265f * d / wide[k])) * (1.0f - g * g * (3.0f - 2.0f * g));
+            }
+            if (rays > 1.0f) {
+                rays = 1.0f;
+            }
+            light = floor + (1.0f - floor) * rays;
+            aurora_pic[r][x] = (u8) (255.0f * __builtin_sqrtf(light) + 0.5f);
+        }
+    }
+}
+
+// The two lists, one a vertex set: the strips' states (the picture, loaded
+// as the night's own pictures are; the sky's own combiner, picture times
+// shade; the horizon glow's adding blend), each layer's columns as pairs of
+// rows, then the sky's own states back, as the generator's
+// night_sprites_end puts them.
 static void aurora_lists_build(void) {
     s32 set, layer, c, r;
 
+    aurora_pic_build();
     for (set = 0; set < 2; set++) {
         Gfx* g = aurora_list[set];
 
         gDPPipeSync(g++);
-        gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
-        gDPSetCombineLERP(g++, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE);
+        gDPSetTextureLUT(g++, G_TT_NONE);
+        gDPSetTextureFilter(g++, G_TF_BILERP);
+        gDPLoadTextureBlock(g++, aurora_pic, G_IM_FMT_I, G_IM_SIZ_8b, AURORA_PIC_W, AURORA_PIC_H, 0,
+                            G_TX_WRAP | G_TX_NOMIRROR, G_TX_CLAMP | G_TX_NOMIRROR, 7, 3, G_TX_NOLOD, G_TX_NOLOD);
+        gSPTexture(g++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+        gDPSetCombineMode(g++, G_CC_MODULATEIA, G_CC_MODULATEIA);
         gDPSetRenderMode(g++, AURORA_RM(1), AURORA_RM(2));
         gSPClearGeometryMode(g++, G_CULL_BACK | G_CULL_FRONT);
         for (layer = 0; layer < AURORA_LAYERS; layer++) {
@@ -4080,58 +4170,73 @@ static void aurora_lists_build(void) {
     aurora_lists_built = 1;
 }
 
+// A wave: the sine of a phase in 65536ths of a turn, smoothly (the night's
+// table has 256 steps, which would show as the waves crawl).
+static f32 aurora_wave(u32 phase) {
+    return sky_sin((f32) (phase & 0xFFFFu) * 9.58738e-5f);
+}
+
 // The corners for this frame, from the world's clock: each column's place
-// around; its ray's light from three waves along the curtain (nine, five
-// and twenty-eight degrees long, drifting at their own paces), a quick
-// small flicker and a fixed unevenness of its own, squared so that the
-// bright rays stand out and the dark ones nearly go; the foot's folds (two
-// slow waves, six degrees deep) and the height, taller where brighter; and
-// from them each row's corner on the dome, its color and its alpha.
+// around; the picture's slide along the curtain (its own pace each layer,
+// a texel and a bit a second; a fixed slow warp along the curtain keeps
+// the picture's repeats from matching); its light from two waves along the
+// curtain, thirty and fifty degrees long, traveling against each other,
+// raised so the bright stretches stand out, and a quick faint shimmer; the
+// foot's arc, highest at its middle, and its folds (two slow waves, two degrees and one
+// deep, drifting over a minute and over half of one) and the height (a
+// quarter either way over a minute and a half); and from them each row's
+// corner on the dome, its line of the picture, its color and its alpha.
 static void aurora_state(const Night* by, s32 set) {
     u32 t = ticks_of(by);
-    s32 breath = 178 + ((s32) night_sine[((t * 27u + 0x3000u) >> 8) & 0xFF] * 77) / 127;     // 101 to 255, over forty seconds
+    f32 breath = 0.9f + 0.1f * aurora_wave(t * 27u + 0x3000u);       // over forty seconds
     s32 layer, c, r, k;
 
     for (layer = 0; layer < AURORA_LAYERS; layer++) {
         const AuroraLayer* lay = &aurora_layers[layer];
-        f32 scale = AURORA_ALPHA * lay->strength * ((f32) breath / 255.0f) * ((f32) star_fade / 255.0f);
+        f32 scale = AURORA_ALPHA * lay->strength * breath * ((f32) star_fade / 255.0f);
+        s32 slid = ((s32) (t & 0xFFFFFu) * lay->slide) / 16;
 
+        slid = ((slid % (AURORA_PIC_W * 32)) + AURORA_PIC_W * 32) % (AURORA_PIC_W * 32);     // within one repeat of the picture
         for (c = 0; c < AURORA_COLS; c++) {
             f32 u = (f32) (2 * c - (AURORA_COLS - 1)) / (f32) (AURORA_COLS - 1);     // -1 at one end, 1 at the other
             f32 a = lay->turn + lay->half * u;
             f32 ca = sky_cos(a), sa = sky_sin(a);
             f32 dx = aurora_pole[0] * ca - aurora_pole[1] * sa;
             f32 dz = aurora_pole[0] * sa + aurora_pole[1] * ca;
-            u32 col = (u32) (c + layer * 64) * 2654435761u;
-            s32 w1 = night_sine[((lay->phase[0] + (u32) c * 0x3800u + t * 95u) >> 8) & 0xFF];
-            s32 w2 = night_sine[((lay->phase[1] + (u32) c * 0x6200u - t * 170u) >> 8) & 0xFF];
-            s32 w3 = night_sine[((lay->phase[2] + (u32) c * 0x1200u + t * 40u) >> 8) & 0xFF];
-            s32 w4 = night_sine[((lay->phase[2] + 0x8000u + (u32) c * 0x4A00u + t * 700u) >> 8) & 0xFF];
-            s32 f1 = night_sine[((lay->phase[3] + (u32) c * 0x0C00u + t * 23u) >> 8) & 0xFF];
-            s32 f2 = night_sine[((lay->phase[3] + 0x4000u + (u32) c * 0x2000u - t * 51u) >> 8) & 0xFF];
-            f32 ray = 0.5f + ((f32) w1 * 0.30f + (f32) w2 * 0.22f + (f32) w3 * 0.18f + (f32) w4 * 0.08f) / 127.0f
-                      + ((f32) (col >> 24) / 255.0f - 0.5f) * 0.3f;
+            u32 cu = (u32) c;
+            f32 b1 = aurora_wave(lay->phase[0] + cu * 0x1000u - t * 55u);              // thirty degrees long, twenty seconds a wave
+            f32 b2 = aurora_wave(lay->phase[0] + 0x6000u + cu * 0x0950u + t * 33u);    // fifty degrees, thirty-three seconds, the other way
+            f32 f1 = aurora_wave(lay->phase[1] + cu * 0x0800u + t * 18u);              // the folds: sixty degrees long, a minute
+            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x12B6u - t * 31u);    // twenty-seven degrees, thirty-five seconds, the other way
+            f32 h1 = aurora_wave(lay->phase[2] + cu * 0x0AABu + t * 12u);              // the height: forty-eight degrees long, a minute and a half
+            f32 shimmer = aurora_wave(lay->phase[2] + 0x8000u + cu * 0x0555u + t * 683u);     // under two seconds
+            f32 warp = aurora_wave(lay->phase[3] + cu * 0x0800u);                       // fixed
+            f32 mix = 0.5f + 0.5f * (0.6f * b1 + 0.4f * b2);
+            f32 bright = 0.5f + 0.5f * mix * __builtin_sqrtf(mix);
             f32 edge = 1.3f * (0.5f + 0.5f * sky_cos(3.14159265f * u));      // the curtain thins to its ends
-            f32 tall, foot, alpha;
+            f32 tall = 0.85f + 0.25f * h1;
+            f32 foot = lay->foot + 0.03f * (1.0f - u * u) + 0.035f * f1 + 0.02f * f2;     // an arc, highest at its middle, with the folds on it
+            f32 alpha;
+            s32 s = (s32) ((f32) lay->pic_col * ((f32) c + 1.2f * warp)) + slid;
 
-            ray = ray < 0.0f ? 0.0f : ray > 1.0f ? 1.0f : ray;
-            ray = ray * ray;
             edge = edge > 1.0f ? 1.0f : edge;
-            tall = 0.75f + 0.5f * ray;
-            foot = lay->foot + 0.07f * ((f32) f1 / 127.0f) + 0.035f * ((f32) f2 / 127.0f);
-            alpha = scale * edge * (0.06f + 0.94f * ray);
+            alpha = scale * edge * bright * (1.0f + 0.12f * shimmer);
             for (r = 0; r < AURORA_ROWS; r++) {
                 Vtx* p = &aurora_vtx[set][layer][c * AURORA_ROWS + r];
                 f32 el = foot + lay->rows[r] * tall;
                 f32 ce = sky_cos(el);
+                f32 al = alpha * (f32) aurora_row_w[r] / 255.0f;
 
                 p->v.ob[0] = (s16) (AURORA_DIST * ce * dx);
                 p->v.ob[1] = (s16) (AURORA_DIST * sky_sin(el));
                 p->v.ob[2] = (s16) (AURORA_DIST * ce * dz);
+                p->v.flag = 0;
+                p->v.tc[0] = (s16) s;
+                p->v.tc[1] = aurora_row_t[r];
                 for (k = 0; k < 3; k++) {
                     p->v.cn[k] = aurora_row_color[r][k];
                 }
-                p->v.cn[3] = (u8) (alpha * (f32) aurora_row_w[r] / 255.0f);
+                p->v.cn[3] = (u8) (al > 255.0f ? 255.0f : al);
             }
         }
     }
