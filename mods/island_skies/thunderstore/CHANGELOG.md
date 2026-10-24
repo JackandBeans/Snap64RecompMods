@@ -122,13 +122,15 @@
   rows, as before. The moon's phase in a photo is by the day it is looked
   at, not the day it was taken.
 - An aurora on some clear nights: two curtains of light low in the sky a
-  quarter turn around from where the sun sets, green at the foot and
-  violet at the top, their rays brightening and fading across them, their
-  feet wavering, taller where they are brighter, the whole breathing over
-  forty seconds, with the stars showing through. They are drawn as the
-  horizon's glow is, strips of colored corners and no picture, in the
+  quarter turn around from where the sun sets, each a row of narrow rays
+  bright at a sharp foot that folds along the curtain, green rising to a
+  violet top, the rays brightening, fading and drifting, taller where
+  they are brighter, the whole breathing over forty seconds, their light
+  added to the sky so the stars show through undimmed. They are drawn as
+  the horizon's glow is, strips of colored corners and no picture, in the
   N64's own way, and move by the world's clock, so a photo's night has
-  the curtains its instant had. On a fixed hour one ride in three has
+  the curtains its instant had. The first cut, broad soft swells laid
+  over the sky, read as a green haze (JackandBeans, Oct 23 2026). On a fixed hour one ride in three has
   one; under Live the latitude decides, most nights beyond 55 degrees
   north or south and about one in forty near the equator, the same all
   night and on the other side south of the equator; Custom has an
