@@ -155,7 +155,13 @@
   frame and then step two, as often as one frame in seven; the port never
   glides the corners or their colors, and the corners drifted a unit at a
   time. The sixth counts the slide from the clock rounded to whole ticks,
-  holds the corners still, and makes the shimmer slower and fainter. On a
+  holds the corners still, and makes the shimmer slower and fainter. The
+  world's clock starts over every few minutes, every seven on the Beach
+  and the Volcano, and the sixth's slide and light jumped there; the
+  seventh drifts each curtain's rays one way for half of the clock's round
+  and back for the other half, the two curtains turning a quarter round
+  apart, and turns each wave of light, the breath and the shimmer a whole
+  number of times in a round, so nothing jumps there. On a
   fixed hour one ride in three has one; under Live the latitude decides,
   most nights beyond 55 degrees
   north or south and about one in forty near the equator, the same all
