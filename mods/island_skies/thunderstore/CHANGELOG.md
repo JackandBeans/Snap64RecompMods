@@ -134,7 +134,7 @@
   pass, and shimmer, the whole breathing over forty seconds, their light
   added to the sky so the stars show through undimmed. They are drawn in
   the N64's own way, strips of colored corners under a tiny picture of
-  the rays (128 by 8, light only, drawn once by the mod) that slides
+  the rays (256 by 4, light only, drawn once by the mod) that slides
   along the curtains, and move by the world's clock, so a photo's night
   has the curtains its instant had. The first cut, broad soft swells laid
   over the sky, read as a green haze (JackandBeans, Oct 23 2026). The
@@ -147,10 +147,17 @@
   picture came with the fourth, which slid it by the corners' picture
   coordinates, and the port, which glides only matrices and a steadily
   scrolling picture tile between the game's frames, showed that slide at
-  the game's rate (JackandBeans, the same night); the fifth slides the
+  the game's rate (JackandBeans, the same night); the fifth slid the
   tile, a quarter of a texel a frame, as the River's water scrolls, and
-  moves the corners only slowly. On a fixed hour one ride in three has
-  one; under Live the latitude decides, most nights beyond 55 degrees
+  was still a little choppy (JackandBeans, Nov 1 2026). The port glides a
+  scroll only while every frame's step is the same, and on the Beach and
+  the Volcano the clock, cut down to whole ticks, could stand still for a
+  frame and then step two, as often as one frame in seven; the port never
+  glides the corners or their colors, and the corners drifted a unit at a
+  time. The sixth counts the slide from the clock rounded to whole ticks,
+  holds the corners still, and makes the shimmer slower and fainter. On a
+  fixed hour one ride in three has one; under Live the latitude decides,
+  most nights beyond 55 degrees
   north or south and about one in forty near the equator, the same all
   night and on the other side south of the equator; Custom has an
   **Aurora** row, Some nights, Every night or Off. The Tunnel has none.

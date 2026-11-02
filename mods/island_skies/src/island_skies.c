@@ -1796,6 +1796,24 @@ static u32 ticks_of(const Night* by) {
     return (u32) (clock / speed);
 }
 
+// The same time in whole ticks, rounded, for what must step by exactly two
+// ticks a frame (the aurora's slide). The clock is kept to thousandths
+// (block.c), and its quotient by the sky speed can come out a hair under
+// the whole tick, which ticks_of's truncation makes a tick less: on the
+// Beach and the Volcano (0.4), on a ride whose frames fall on even ticks,
+// one frame in seven stood still and the next stepped two, for the first
+// four and a half minutes.
+static u32 ticks_whole(const Night* by) {
+    WorldSetup* setup = (WorldSetup*) by->setup;
+    f32 clock = on_the_ride ? GlobalTimer : photo_clock;
+    f32 speed = setup->unk_10;
+
+    if (speed < 0.05f) {
+        speed = 1.0f;
+    }
+    return (u32) (clock / speed + 0.5f);
+}
+
 // The stars twinkle. Each group's brightness is its base, plus two slow
 // waves of different lengths so that it never quite repeats, plus -- for
 // some -- a brief swell now and then. Most groups are calm, some breathe, a
@@ -3980,33 +3998,41 @@ static void shooting_star(void) {
 // own widths, heights and strengths over a floor that is strongest at the
 // foot), laid along each curtain two and a half times over; two waves of
 // light, thirty and fifty degrees long, travel along the curtain and the
-// rays brighten and fade as they pass; a quick faint shimmer; the whole
-// breathes over forty seconds.
+// rays brighten and fade as they pass; a faint shimmer; the whole breathes
+// over forty seconds.
 // HOW IT MOVES. The port's renderer draws the display's frames between the
 // game's by gliding what it can pair between two of the game's frames: a
 // matrix group it knows, and a picture's tile while the tile scrolls at a
 // steady pace (the River's and the Valley's water; render_patch.c). It
-// never glides corners or picture coordinates, which the game rebuilds. So
-// the rays slide by the TILE: each layer's tile is moved a quarter of a
-// texel every frame of the game (the one steady pace there is), and the
-// renderer carries it between frames at the display's rate. The curtains'
-// corners themselves move only slowly (the foot's folds and the height
-// drift over a few minutes, well under a pixel a frame), the light's waves
-// live in the corners' alpha, and the whole is drawn within the sky's own
-// list, after the stars and the moon (the sky's spare slot runs
-// aurora_hook: the sky's list, then the curtains'), under the drum's own
-// matrix group, which the port glides as it does the stars. One list and
-// one set of corners, rewritten in place each frame as the stars' colors
-// are: what changes in a frame is too small to show if a frame reads half
-// of it. (A group of the mod's own drawn after the sky, as the shooting
-// star is, moved only at the game's frame rate and stuttered as the view
-// turned: JackandBeans, Oct 23 2026. The first cut, broad soft swells laid
-// over the sky, read as a green haze: the same night. The third drew the
-// rays from the strips alone, two degrees wide, with waves a few degrees
-// long driving each strip's height and light; they jumped from strip to
-// strip and read as a choppy wave. The fourth slid the picture by the
-// corners' coordinates, which the port does not glide, and moved at the
-// game's rate: JackandBeans, Oct 24 2026.) They are drawn as the N64 drew
+// never glides corners, picture coordinates or the corners' colors (the
+// sky's group leaves its corners to the game). So the rays slide by the
+// TILE: each layer's tile is moved a quarter of a texel every frame of the
+// game, and the renderer carries it between frames at the display's rate,
+// across the picture's repeat too, for as long as every frame's step is
+// the same; a frame that steps by none or by two is drawn where the game
+// put it, it and the one after (rt64_game_frame.cpp). The step is counted
+// from the world's clock in whole ticks, rounded (ticks_whole). The
+// curtains' corners stand still: a corner moves only by whole units, a
+// twenty-fifth of a degree, and a slow drift moves it one unit at a time
+// at the game's rate. The light's waves live in the corners' alpha and
+// change it by under a hundredth of its full light a frame. The whole is
+// drawn within the sky's own list, after the stars and the moon (the sky's
+// spare slot runs aurora_hook: the sky's list, then the curtains'), under
+// the drum's own matrix group, which the port glides as it does the stars.
+// One list and one set of corners, rewritten in place each frame as the
+// stars' colors are: what changes in a frame is too small to show if a
+// frame reads half of it. (A group of the mod's own drawn after the sky,
+// as the shooting star is, moved only at the game's frame rate and
+// stuttered as the view turned: JackandBeans, Oct 23 2026. The first cut,
+// broad soft swells laid over the sky, read as a green haze: the same
+// night. The third drew the rays from the strips alone, two degrees wide,
+// with waves a few degrees long driving each strip's height and light;
+// they jumped from strip to strip and read as a choppy wave. The fourth
+// slid the picture by the corners' coordinates, which the port does not
+// glide, and moved at the game's rate: JackandBeans, Oct 24 2026. The
+// fifth slid the tile by ticks_of's whole ticks, drifted the corners and
+// shimmered twelve in a hundred every second and a half, and was still a
+// little choppy: JackandBeans, Nov 1 2026.) They are drawn as the N64 drew
 // such things: strips of colored corners under a tiny picture, their light
 // ADDED to the sky (the horizon glow's blend, night_glow_begin), so the
 // stars show through undimmed. The corners are rewritten every frame from
@@ -4189,20 +4215,20 @@ static f32 aurora_wave(u32 phase) {
     return sky_sin((f32) (phase & 0xFFFFu) * 9.58738e-5f);
 }
 
-// The corners for this frame, from the world's clock: each layer's tile
-// slid a quarter of a texel a frame its own way (the pace the port glides;
-// it wraps once a repeat of the picture, where one frame is not glided);
-// each column's place around; a fixed slow warp along the curtain, which
-// keeps the picture's repeats from matching; its light from two waves
-// along the curtain, thirty and fifty degrees long, traveling against each
-// other, raised so the bright stretches stand out, and a quick faint
-// shimmer; the foot's arc, highest at its middle, and its folds (two slow
-// waves, two degrees and one deep, drifting over three minutes and over
-// two) and the height (a quarter either way over four minutes); and from
-// them each row's corner on the dome, its line of the picture, its color
-// and its alpha.
+// The corners for this frame, from the world's clock in whole ticks
+// (ticks_whole): each layer's tile slid a quarter of a texel a frame its
+// own way (the pace the port glides, across the picture's repeat too; the
+// clock itself starts over at 10000 of its units, block.c, and there the
+// slide jumps); each column's place around; a fixed slow warp along the
+// curtain, which keeps the picture's repeats from matching; its light from
+// two waves along the curtain, thirty and fifty degrees long, traveling
+// against each other, raised so the bright stretches stand out, and a
+// faint shimmer, five in a hundred over two and a half seconds; the foot's
+// arc, highest at its middle, and its folds (two waves, two degrees and
+// one deep) and the height, all held still; and from them each row's
+// corner on the dome, its line of the picture, its color and its alpha.
 static void aurora_state(const Night* by) {
-    u32 t = ticks_of(by);
+    u32 t = ticks_whole(by);
     f32 breath = 0.9f + 0.1f * aurora_wave(t * 27u + 0x3000u);       // over forty seconds
     s32 layer, c, r, k;
 
@@ -4222,10 +4248,10 @@ static void aurora_state(const Night* by) {
             u32 cu = (u32) c;
             f32 b1 = aurora_wave(lay->phase[0] + cu * 0x1000u - t * 55u);              // thirty degrees long, twenty seconds a wave
             f32 b2 = aurora_wave(lay->phase[0] + 0x6000u + cu * 0x0950u + t * 33u);    // fifty degrees, thirty-three seconds, the other way
-            f32 f1 = aurora_wave(lay->phase[1] + cu * 0x0800u + t * 6u);               // the folds: sixty degrees long, three minutes
-            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x12B6u - t * 9u);     // twenty-seven degrees, two minutes, the other way
-            f32 h1 = aurora_wave(lay->phase[2] + cu * 0x0AABu + t * 5u);               // the height: forty-eight degrees long, four minutes
-            f32 shimmer = aurora_wave(lay->phase[2] + 0x8000u + cu * 0x0555u + t * 683u);     // under two seconds
+            f32 f1 = aurora_wave(lay->phase[1] + cu * 0x0800u);                        // the folds: sixty degrees long, held still
+            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x12B6u);              // and twenty-seven
+            f32 h1 = aurora_wave(lay->phase[2] + cu * 0x0AABu);                        // the height: forty-eight degrees long, held still
+            f32 shimmer = aurora_wave(lay->phase[2] + 0x8000u + cu * 0x0555u + t * 455u);     // two and a half seconds
             f32 warp = aurora_wave(lay->phase[3] + cu * 0x0800u);                       // fixed
             f32 mix = 0.5f + 0.5f * (0.6f * b1 + 0.4f * b2);
             f32 bright = 0.5f + 0.5f * mix * __builtin_sqrtf(mix);
@@ -4236,7 +4262,7 @@ static void aurora_state(const Night* by) {
             s32 s = (s32) ((f32) lay->pic_col * ((f32) c + 1.2f * warp));
 
             edge = edge > 1.0f ? 1.0f : edge;
-            alpha = scale * edge * bright * (1.0f + 0.12f * shimmer);
+            alpha = scale * edge * bright * (1.0f + 0.05f * shimmer);
             for (r = 0; r < AURORA_ROWS; r++) {
                 Vtx* p = &aurora_vtx[layer][c * AURORA_ROWS + r];
                 f32 el = foot + lay->rows[r] * tall;
