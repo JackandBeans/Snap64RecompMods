@@ -161,7 +161,14 @@
   seventh drifts each curtain's rays one way for half of the clock's round
   and back for the other half, the two curtains turning a quarter round
   apart, and turns each wave of light, the breath and the shimmer a whole
-  number of times in a round, so nothing jumps there. On a
+  number of times in a round, so nothing jumps there. JackandBeans asked
+  the same night whether the look suited an N64 game and this one: the
+  game paints its sky with pictures 64 texels wide, six around the sky,
+  about a texel a degree, and the seventh's rays were six times finer,
+  on strips that drew 1,152 triangles a frame where the Beach's whole sky
+  drum has 28. The eighth draws nine broad soft rays to its picture where
+  there were thirty-six, on strips six degrees wide, 384 triangles, with
+  the same colors, waves and slide. On a
   fixed hour one ride in three has one; under Live the latitude decides,
   most nights beyond 55 degrees
   north or south and about one in forty near the equator, the same all

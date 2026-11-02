@@ -3986,7 +3986,7 @@ static void shooting_star(void) {
 // light, bright at a sharp foot that arcs and folds along the curtain, with
 // a thin rose fringe under the foot and fine rays rising from it, fading up
 // through green to a violet top. The rays are a small picture (aurora_pic:
-// 256 by 4, light only, drawn once from thirty-six soft streaks of their
+// 256 by 4, light only, drawn once from nine broad soft streaks of their
 // own widths, heights and strengths over a floor that is strongest at the
 // foot), laid along each curtain two and a half times over; two waves of
 // light, thirty and fifty degrees long, travel along the curtain and the
@@ -4031,21 +4031,25 @@ static void shooting_star(void) {
 // glide, and moved at the game's rate: JackandBeans, Oct 24 2026. The
 // fifth slid the tile by ticks_of's whole ticks, drifted the corners and
 // shimmered twelve in a hundred every second and a half, and was still a
-// little choppy: JackandBeans, Nov 1 2026.) They are drawn as the N64 drew
-// such things: strips of colored corners under a tiny picture, their light
-// ADDED to the sky (the horizon glow's blend, night_glow_begin), so the
-// stars show through undimmed. The corners are rewritten every frame from
-// the world's clock, so a photo's night has the curtains its instant had.
-// They come up and go with the stars (star_fade), and a cloudy sky hides
-// them.
+// little choppy: JackandBeans, Nov 1 2026. The seventh drew its rays six
+// times finer than the game's own sky pictures (64 by 32, six around the
+// sky, about a texel a degree) on strips two degrees wide, 1,152 triangles
+// a frame where the Beach's sky drum has 28; JackandBeans asked whether
+// that suited an N64 game and this one, the same night.) They are drawn as
+// the N64 drew such things: strips of colored corners under a tiny picture,
+// their light ADDED to the sky (the horizon glow's blend, night_glow_begin),
+// so the stars show through undimmed. The corners are rewritten every frame
+// from the world's clock, so a photo's night has the curtains its instant
+// had. They come up and go with the stars (star_fade), and a cloudy sky
+// hides them.
 #define AURORA_LAYERS 2
-#define AURORA_COLS   49
+#define AURORA_COLS   17
 #define AURORA_ROWS   7
 #define AURORA_DIST   1400.0f
 #define AURORA_ALPHA  255.0f
 #define AURORA_PIC_W  256
 #define AURORA_PIC_H  4
-#define AURORA_RAYS   36
+#define AURORA_RAYS   9
 #define AURORA_GFX    (32 + AURORA_LAYERS * (AURORA_COLS - 1) * AURORA_ROWS)
 // The glow's adding blend (gen_night.py's RM_GLOW) without its depth test,
 // as the sky's drum is drawn: what is drawn brightens what is behind it by
@@ -4066,10 +4070,10 @@ typedef struct AuroraLayer {
 
 static const AuroraLayer aurora_layers[AURORA_LAYERS] = {
     // The main curtain: 96 degrees wide, its foot eight up, 25 tall at full height; the picture forty degrees long.
-    { 0.0f, 0.8378f, 0.1396f, { -0.0209f, 0.0f, 0.0262f, 0.0873f, 0.1745f, 0.2967f, 0.4363f }, 1.0f, 410, 1, 0,
+    { 0.0f, 0.8378f, 0.1396f, { -0.0209f, 0.0f, 0.0262f, 0.0873f, 0.1745f, 0.2967f, 0.4363f }, 1.0f, 1230, 1, 0,
       { 0x0000u, 0x4000u, 0x8000u, 0xC000u } },
     // A fainter curtain behind it, higher, a little around, with folds of its own; its picture slides the other way, turning a quarter round later.
-    { 0.3142f, 0.6109f, 0.2443f, { -0.0262f, 0.0f, 0.0349f, 0.1047f, 0.2007f, 0.3316f, 0.4712f }, 0.6f, 366, -1, 2500,
+    { 0.3142f, 0.6109f, 0.2443f, { -0.0262f, 0.0f, 0.0349f, 0.1047f, 0.2007f, 0.3316f, 0.4712f }, 0.6f, 1098, -1, 2500,
       { 0x2A00u, 0xE000u, 0x5000u, 0x9800u } },
 };
 static const u8 aurora_row_w[AURORA_ROWS] = { 45, 255, 235, 160, 95, 40, 0 };     // the alpha by row: a rose fringe, a bright sharp foot, fading up
@@ -4113,14 +4117,16 @@ static f32 aurora_roll(void) {
 }
 
 // The picture: light only, 256 texels along the curtain (it repeats) by 4
-// up it (the foot at the first line). Thirty-six soft streaks, one to each
-// stretch of seven texels, of their own half-widths (a texel and a half to
-// five), strengths and heights (the shorter ones fade out partway up, the
+// up it (the foot at the first line). Nine soft streaks, one to each
+// stretch of twenty-eight texels, of their own half-widths (six texels to
+// twenty), strengths and heights (the shorter ones fade out partway up, the
 // tallest reach the top), over a floor that is strongest at the foot, so
 // the lower border is a continuous band of light and the rays stand apart
-// above it. A texel holds the square root of its light: the picture
-// multiplies both the color and the alpha, and the adding blend multiplies
-// those again.
+// above it. Its detail is about that of the game's own sky pictures; it
+// keeps 256 texels so that its slide, a quarter of a texel a frame, stays
+// slow. A texel holds the square root of its light: the picture multiplies
+// both the color and the alpha, and the adding blend multiplies those
+// again.
 static void aurora_pic_build(void) {
     f32 at[AURORA_RAYS], wide[AURORA_RAYS], strong[AURORA_RAYS], high[AURORA_RAYS];
     s32 k, x, r;
@@ -4128,7 +4134,7 @@ static void aurora_pic_build(void) {
     aurora_seed = 0x5EED1234u;
     for (k = 0; k < AURORA_RAYS; k++) {
         at[k] = ((f32) k + 0.15f + 0.7f * aurora_roll()) * ((f32) AURORA_PIC_W / (f32) AURORA_RAYS);
-        wide[k] = 1.6f + 3.4f * aurora_roll();
+        wide[k] = 6.4f + 13.6f * aurora_roll();
         strong[k] = 0.35f + 0.65f * aurora_roll();
         high[k] = 0.55f + 0.8f * aurora_roll();
     }
@@ -4285,20 +4291,21 @@ static void aurora_state(const Night* by) {
             f32 dx = aurora_pole[0] * ca - aurora_pole[1] * sa;
             f32 dz = aurora_pole[0] * sa + aurora_pole[1] * ca;
             u32 cu = (u32) c;
-            f32 b1 = aurora_wave(lay->phase[0] + cu * 0x1000u - wave1);                // thirty degrees long, twenty seconds a wave
-            f32 b2 = aurora_wave(lay->phase[0] + 0x6000u + cu * 0x0950u + wave2);      // fifty degrees, thirty-three seconds, the other way
-            f32 f1 = aurora_wave(lay->phase[1] + cu * 0x0800u);                        // the folds: sixty degrees long, held still
-            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x12B6u);              // and twenty-seven
-            f32 h1 = aurora_wave(lay->phase[2] + cu * 0x0AABu);                        // the height: forty-eight degrees long, held still
-            f32 shimmer = aurora_wave(lay->phase[2] + 0x8000u + cu * 0x0555u + shine);       // two and a half seconds
-            f32 warp = aurora_wave(lay->phase[3] + cu * 0x0800u);                       // fixed
+            // The waves' steps are by the column, six degrees on the main curtain.
+            f32 b1 = aurora_wave(lay->phase[0] + cu * 0x3000u - wave1);                // thirty degrees long, twenty seconds a wave
+            f32 b2 = aurora_wave(lay->phase[0] + 0x6000u + cu * 0x1BF0u + wave2);      // fifty degrees, thirty-three seconds, the other way
+            f32 f1 = aurora_wave(lay->phase[1] + cu * 0x1800u);                        // the folds: sixty degrees long, held still
+            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x3822u);              // and twenty-seven
+            f32 h1 = aurora_wave(lay->phase[2] + cu * 0x2001u);                        // the height: forty-eight degrees long, held still
+            f32 shimmer = aurora_wave(lay->phase[2] + 0x8000u + cu * 0x0FFFu + shine);       // two and a half seconds
+            f32 warp = aurora_wave(lay->phase[3] + cu * 0x1800u);                       // fixed
             f32 mix = 0.5f + 0.5f * (0.6f * b1 + 0.4f * b2);
             f32 bright = 0.5f + 0.5f * mix * __builtin_sqrtf(mix);
             f32 edge = 1.3f * (0.5f + 0.5f * sky_cos(3.14159265f * u));      // the curtain thins to its ends
             f32 tall = 0.85f + 0.25f * h1;
             f32 foot = lay->foot + 0.03f * (1.0f - u * u) + 0.035f * f1 + 0.02f * f2;     // an arc, highest at its middle, with the folds on it
             f32 alpha;
-            s32 s = (s32) ((f32) lay->pic_col * ((f32) c + 1.2f * warp));
+            s32 s = (s32) ((f32) lay->pic_col * ((f32) c + 0.4f * warp));      // the warp: two and a half degrees either way
 
             edge = edge > 1.0f ? 1.0f : edge;
             alpha = scale * edge * bright * (1.0f + 0.05f * shimmer);
