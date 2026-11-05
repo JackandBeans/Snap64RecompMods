@@ -128,9 +128,9 @@
   size on a large display (JackandBeans, Oct 24 2026).
 - An aurora on some clear nights: two curtains of light low in the sky a
   quarter turn around from where the sun sets, each a band bright at a
-  sharp foot that arcs and folds along the curtain, with a thin rose
-  fringe under it, and fine rays rising from the band, green to a violet
-  top, that drift along it, brighten and fade as slow waves of light
+  foot that arcs and folds along the curtain, with a soft rose glow under
+  its brightest stretches, and broad rays rising from the band, green to a
+  violet top, that drift along it, brighten and fade as slow waves of light
   pass, and shimmer, the whole breathing over forty seconds, their light
   added to the sky so the stars show through undimmed. They are drawn in
   the N64's own way, strips of colored corners under a tiny picture of
@@ -168,7 +168,13 @@
   on strips that drew 1,152 triangles a frame where the Beach's whole sky
   drum has 28. The eighth draws nine broad soft rays to its picture where
   there were thirty-six, on strips six degrees wide, 384 triangles, with
-  the same colors, waves and slide. On a
+  the same colors, waves and slide. JackandBeans's picture of it (Nov 4
+  2026) showed its thin rose fringe running the whole foot and tracing the
+  strips' corners like an outline, the sharpest where a fold twenty-seven
+  degrees long bent as much as thirty degrees at a corner. The ninth makes
+  that fold forty-eight degrees long, so no corner bends more than about
+  ten, and the rose is a soft glow under the brightest stretches only,
+  fading away elsewhere. On a
   fixed hour one ride in three has one; under Live the latitude decides,
   most nights beyond 55 degrees
   north or south and about one in forty near the equator, the same all

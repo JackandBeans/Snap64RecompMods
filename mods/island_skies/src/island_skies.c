@@ -3983,13 +3983,13 @@ static void shooting_star(void) {
 // An aurora: on some clear nights (aurora_draw) two curtains of light stand
 // low in the sky a quarter turn around from where the sun sets, the pole's
 // side (the other side south of the equator under Live). Each is a band of
-// light, bright at a sharp foot that arcs and folds along the curtain, with
-// a thin rose fringe under the foot and fine rays rising from it, fading up
-// through green to a violet top. The rays are a small picture (aurora_pic:
-// 256 by 4, light only, drawn once from nine broad soft streaks of their
-// own widths, heights and strengths over a floor that is strongest at the
-// foot), laid along each curtain two and a half times over; two waves of
-// light, thirty and fifty degrees long, travel along the curtain and the
+// light, bright at a foot that arcs and folds along the curtain, with a soft
+// rose glow under its brightest stretches and broad rays rising from it,
+// fading up through green to a violet top. The rays are a small picture
+// (aurora_pic: 256 by 4, light only, drawn once from nine broad soft streaks
+// of their own widths, heights and strengths over a floor that is strongest
+// at the foot), laid along each curtain two and a half times over; two waves
+// of light, thirty and fifty degrees long, travel along the curtain and the
 // rays brighten and fade as they pass; a faint shimmer; the whole breathes
 // over forty seconds.
 // HOW IT MOVES. The port's renderer draws the display's frames between the
@@ -4035,7 +4035,10 @@ static void shooting_star(void) {
 // times finer than the game's own sky pictures (64 by 32, six around the
 // sky, about a texel a degree) on strips two degrees wide, 1,152 triangles
 // a frame where the Beach's sky drum has 28; JackandBeans asked whether
-// that suited an N64 game and this one, the same night.) They are drawn as
+// that suited an N64 game and this one, the same night. The eighth's thin
+// rose fringe ran the whole foot, and its strips, six degrees wide, drew a
+// fold twenty-seven degrees long in sharp corners, which the fringe traced
+// like an outline: JackandBeans's picture, Nov 4 2026.) They are drawn as
 // the N64 drew such things: strips of colored corners under a tiny picture,
 // their light ADDED to the sky (the horizon glow's blend, night_glow_begin),
 // so the stars show through undimmed. The corners are rewritten every frame
@@ -4070,13 +4073,13 @@ typedef struct AuroraLayer {
 
 static const AuroraLayer aurora_layers[AURORA_LAYERS] = {
     // The main curtain: 96 degrees wide, its foot eight up, 25 tall at full height; the picture forty degrees long.
-    { 0.0f, 0.8378f, 0.1396f, { -0.0209f, 0.0f, 0.0262f, 0.0873f, 0.1745f, 0.2967f, 0.4363f }, 1.0f, 1230, 1, 0,
+    { 0.0f, 0.8378f, 0.1396f, { -0.04f, 0.0f, 0.0262f, 0.0873f, 0.1745f, 0.2967f, 0.4363f }, 1.0f, 1230, 1, 0,
       { 0x0000u, 0x4000u, 0x8000u, 0xC000u } },
     // A fainter curtain behind it, higher, a little around, with folds of its own; its picture slides the other way, turning a quarter round later.
-    { 0.3142f, 0.6109f, 0.2443f, { -0.0262f, 0.0f, 0.0349f, 0.1047f, 0.2007f, 0.3316f, 0.4712f }, 0.6f, 1098, -1, 2500,
+    { 0.3142f, 0.6109f, 0.2443f, { -0.04f, 0.0f, 0.0349f, 0.1047f, 0.2007f, 0.3316f, 0.4712f }, 0.6f, 1098, -1, 2500,
       { 0x2A00u, 0xE000u, 0x5000u, 0x9800u } },
 };
-static const u8 aurora_row_w[AURORA_ROWS] = { 45, 255, 235, 160, 95, 40, 0 };     // the alpha by row: a rose fringe, a bright sharp foot, fading up
+static const u8 aurora_row_w[AURORA_ROWS] = { 35, 255, 235, 160, 95, 40, 0 };     // the alpha by row: the glow under the foot at its fullest (aurora_state), a bright foot, fading up
 static const u8 aurora_row_color[AURORA_ROWS][3] = {
     { 255, 70, 130 }, { 210, 255, 215 }, { 120, 255, 140 }, { 70, 235, 150 }, { 110, 150, 210 }, { 150, 80, 220 }, { 160, 60, 200 },
 };
@@ -4268,7 +4271,10 @@ static u32 aurora_slide(f32 clock, f32 speed, const AuroraLayer* lay) {
 // clock's round, as the breath is (aurora_turns); the foot's arc, highest
 // at its middle, and its folds (two waves, two degrees and one deep) and
 // the height, all held still; and from them each row's corner on the dome,
-// its line of the picture, its color and its alpha.
+// its line of the picture, its color and its alpha. The first row, under
+// the foot, takes its color and alpha from the light above it: rose under
+// the brightest stretches, elsewhere fading away in the green above the
+// foot, so that no line runs along the foot.
 static void aurora_state(const Night* by) {
     f32 clock = world_clock();
     f32 speed = clock_speed(by);
@@ -4295,12 +4301,13 @@ static void aurora_state(const Night* by) {
             f32 b1 = aurora_wave(lay->phase[0] + cu * 0x3000u - wave1);                // thirty degrees long, twenty seconds a wave
             f32 b2 = aurora_wave(lay->phase[0] + 0x6000u + cu * 0x1BF0u + wave2);      // fifty degrees, thirty-three seconds, the other way
             f32 f1 = aurora_wave(lay->phase[1] + cu * 0x1800u);                        // the folds: sixty degrees long, held still
-            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x3822u);              // and twenty-seven
+            f32 f2 = aurora_wave(lay->phase[1] + 0x4000u + cu * 0x2000u);              // and forty-eight, long enough for the strips to bend gently
             f32 h1 = aurora_wave(lay->phase[2] + cu * 0x2001u);                        // the height: forty-eight degrees long, held still
             f32 shimmer = aurora_wave(lay->phase[2] + 0x8000u + cu * 0x0FFFu + shine);       // two and a half seconds
             f32 warp = aurora_wave(lay->phase[3] + cu * 0x1800u);                       // fixed
             f32 mix = 0.5f + 0.5f * (0.6f * b1 + 0.4f * b2);
             f32 bright = 0.5f + 0.5f * mix * __builtin_sqrtf(mix);
+            f32 rose = mix * mix;                                            // how rose and how strong the glow under the foot is here
             f32 edge = 1.3f * (0.5f + 0.5f * sky_cos(3.14159265f * u));      // the curtain thins to its ends
             f32 tall = 0.85f + 0.25f * h1;
             f32 foot = lay->foot + 0.03f * (1.0f - u * u) + 0.035f * f1 + 0.02f * f2;     // an arc, highest at its middle, with the folds on it
@@ -4323,6 +4330,12 @@ static void aurora_state(const Night* by) {
                 p->v.tc[1] = aurora_row_t[r];
                 for (k = 0; k < 3; k++) {
                     p->v.cn[k] = aurora_row_color[r][k];
+                }
+                if (r == 0) {
+                    for (k = 0; k < 3; k++) {
+                        p->v.cn[k] = (u8) ((f32) aurora_row_color[2][k] + ((f32) aurora_row_color[0][k] - (f32) aurora_row_color[2][k]) * rose);
+                    }
+                    al *= rose;
                 }
                 p->v.cn[3] = (u8) (al > 255.0f ? 255.0f : al);
             }
