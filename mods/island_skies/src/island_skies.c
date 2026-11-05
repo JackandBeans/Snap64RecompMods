@@ -390,6 +390,9 @@ static u8 lit;                   // the walker's reading of G_LIGHTING
 static u8 flowing;               // the walker's reading of the material: the one that flows
 static u32 slots[64];            // the walker's vertex buffer: where each painted vertex came from
 static f32 photo_clock;          // the world's clock as a photo recorded it
+static u32 photo_rounds;         // how many times that clock had started over, by the photo's stamp (stamp_of)
+static u32 ride_rounds;          // how many times the clock has started over on this ride (clock_rounds)
+static f32 ride_clock_last;      // and the clock when that was last looked at
 static u16 photo_stamp;          // the sky the photo being drawn was taken under (stamp_of), 0 when it has none
 static u16 world_stamp;          // the stamp the world now standing was built under
 static u8 stamped;               // that world is a stamped photo's: its weather holds, whatever the rows say
@@ -1806,6 +1809,32 @@ static u32 ticks_of(const Night* by) {
     return (u32) (world_clock() / clock_speed(by) + 0.5f);
 }
 
+// How many times the clock has started over: on the ride, counted as it
+// happens; in a photo's world, what the photo's stamp says (stamp_of). Only
+// a fall of more than half a round counts: a stopped clock can lose a
+// thousandth to its own rounding (world/block.c), and the sky's speed is
+// set to nothing in the course's cut-scenes.
+static u32 clock_rounds(void) {
+    if (!on_the_ride) {
+        return photo_rounds;
+    }
+    if (GlobalTimer < ride_clock_last - 5000.0f) {
+        ride_rounds++;
+    }
+    ride_clock_last = GlobalTimer;
+    return ride_rounds;
+}
+
+// The ride's time in whole ticks since its start, for what happens once over
+// a ride or is timed ahead: it does not start over with the clock, which
+// keeps what was over as it starts over, so it runs on without a step. With
+// no rounds it is ticks_of to the tick.
+static u32 ride_ticks_of(const Night* by) {
+    f32 rounds = (f32) clock_rounds();
+
+    return (u32) ((rounds * 10000.0f + world_clock()) / clock_speed(by) + 0.5f);
+}
+
 // The stars twinkle. Each group's brightness is its base, plus two slow
 // waves of different lengths so that it never quite repeats, plus -- for
 // some -- a brief swell now and then. Most groups are calm, some breathe, a
@@ -2611,7 +2640,7 @@ static s32 mist_tri(const Vtx* set, const u16* slot_copy, u32 a, u32 b, u32 c) {
 // was drawn through and their depths come out the same.
 static void mist_segment(s32 k, f32 m[4][4], const f32* eye, u32 chain[][2], u32 chain_n) {
     const GlintSeg* seg = &glint_seg[k];
-    u32 ticks = ticks_of(night);
+    u32 ticks = cycle ? ticks_of(night) : ride_ticks_of(night);     // at a fixed Dawn the drift runs on when the clock starts over; a photo under Live has no rounds to draw it by
     f32 per = 32.0f * 32.0f / NIGHT_MIST_TILE;      // a corner's s and t (a texel is 32) a unit of the world
     // Whole tiles off the part's own place, so s and t fit their sixteen bits
     // and the picture still joins from part to part; and the drift, a tile
@@ -3387,7 +3416,7 @@ static void night_voices(void) {
     static const u8 chirp_pan[CHIRP_VOICES] = { 26, 64, 102 };
     static const f32 chirp_pitch[CHIRP_VOICES] = { 1.0f, 1.12f, 0.91f };
     static const u16 chirp_vol[CHIRP_VOICES] = { 0x1A00, 0x1400, 0x1700 };
-    u32 ticks = ticks_of(night);
+    u32 ticks = ride_ticks_of(night);   // a chirp due past the clock's last tick would never come
     s32 k;
 
     if (!on_the_ride || !night_sounds_on || sunset || raining || snowing || storming || scoring || night->embers
@@ -4688,13 +4717,20 @@ RECOMP_HOOK_RETURN("score_Render") void night_scoring_ends(void) {
 // (stamp_of). The game builds a photo's world once and keeps it for the
 // photos of the same course; when the world standing was built under
 // another sky than this photo's, it is made to build the world afresh, as
-// it does for a photo of another course.
+// it does for a photo of another course. Dawn's and Dusk's rounds say where
+// in the ride the photo stands, and ask for no world of their own.
 RECOMP_HOOK("func_8009D65C") void night_photo_begins(PhotoData* photo) {
     if (photo != NULL) {
         const volatile u8* bytes = (const volatile u8*) photo;
         u16 stamp = (u16) (((u32) bytes[2] << 8) | bytes[3]);
+        u32 mode = (stamp >> 13) & 7;
 
         photo_clock = photo->unk_04.f32;
+        photo_rounds = 0;
+        if (mode == 4 || mode == 5) {
+            photo_rounds = (stamp >> 1) & 0x1FF;
+            stamp = (u16) (stamp & 0xFC01);
+        }
         photo_stamp = stamp;
         if (stamp != world_stamp && photo->levelID >= 0 && *(volatile s32*) PHOTO_LEVEL == photo->levelID) {
             *(volatile s32*) PHOTO_LEVEL = 0x7F;
@@ -4775,7 +4811,9 @@ static const Night* night_for(WorldSetup* setup) {
 //          0 is no stamp
 //   12-10  the weather, WX_CLEAR to WX_ASH
 //    9-1   under the clock, the ride's first minute of the day in quarters;
-//          a photo's own instant adds its clock (mode_minutes)
+//          a photo's own instant adds its clock (mode_minutes); at Dusk and
+//          at a Dawn with a mist, how many times the clock had started over
+//          at the shutter (shutter_stamp), none on a photo from before
 //      0   an aurora stood that night (aurora_draw)
 static u16 stamp_of(u32 weather) {
     u32 mode = cycle ? 1 : daytime ? 6 : dusk ? 5 : dawn ? 4 : sunset ? 3 : 2;
@@ -4786,10 +4824,16 @@ static u16 stamp_of(u32 weather) {
 
 // The stamp at the shutter: the ride's, with the weather of the instant
 // under Live, whose weather can turn during a ride (the half of a turn
-// that is nearer).
+// that is nearer), and at Dusk and at a Dawn with a mist, whose skies move
+// with the ride, the clock's rounds so far.
 static u16 shutter_stamp(void) {
     if (night != NULL && cycle && !stamped && setup_of() == 1 && night->weather != NULL) {
         return stamp_of(wx_share < 0.5f ? wx_from : wx_to);
+    }
+    if (night != NULL && (dusk || misty)) {
+        u32 rounds = clock_rounds();
+
+        return (u16) (world_stamp | ((rounds > 0x1FFu ? 0x1FFu : rounds) << 1));
     }
     return world_stamp;
 }
@@ -5226,7 +5270,7 @@ static f32 mist_now(void) {
     }
     w = ease(w);
     if (!cycle) {
-        f32 t = (f32) ticks_of(night) / MIST_RIDE_TICKS;
+        f32 t = (f32) ride_ticks_of(night) / MIST_RIDE_TICKS;
 
         t = t > 1.0f ? 1.0f : t;
         w *= 1.0f - (1.0f - MIST_RIDE_KEPT) * ease(t);
@@ -5879,6 +5923,8 @@ static f32 mode_minutes(void) {
         }
         // A photo's world: the minute of the photo's own instant, the ride's
         // first minute plus the photo's clock (ticks_of gives the photo's).
+        // The stamp has no room here for the clock's rounds, so a photo taken
+        // after the clock started over comes out that much earlier.
         {
             f32 m = ride_minutes + (f32) ticks_of(night) / 3600.0f;
 
@@ -5894,7 +5940,7 @@ static f32 mode_minutes(void) {
     if (dusk) {
         // The ride's own clock: sunset holds for forty seconds, then eighty
         // seconds to night. A photo's world takes its instant's moment.
-        f32 t = ((f32) ticks_of(night) - 2400.0f) / 4800.0f;
+        f32 t = ((f32) ride_ticks_of(night) - 2400.0f) / 4800.0f;
 
         t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
         return m_sun1 + (m_night0 - m_sun1) * t;
@@ -6397,7 +6443,7 @@ static void cycle_tick(void) {
     if (night == NULL || scoring || !(cycle || dusk || misty)) {
         return;
     }
-    t = ticks_of(night);
+    t = ride_ticks_of(night);   // two photos of one clock may stand a round apart
     if (!(dusk_last == 0xFFFFFFFFu || t - dusk_last >= 10 || t < dusk_last)) {
         return;
     }
@@ -6483,6 +6529,10 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     s32 i;
 
     on_the_ride = ((u32) pokemon_enters != PHOTO_WORLD_CALLBACK);
+    if (on_the_ride) {
+        ride_rounds = 0;            // the ride's time begins (ride_ticks_of)
+        ride_clock_last = GlobalTimer;
+    }
     by = night_of(setup);
     stamped = 0;
     stamp_weather_set = 0;

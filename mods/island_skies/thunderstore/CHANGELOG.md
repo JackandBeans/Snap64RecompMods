@@ -182,6 +182,17 @@
   **Aurora** row, Some nights, Every night or Off. The Tunnel has none.
   Chosen by JackandBeans on Oct 23 2026 from three ways to make the night
   sky more interesting.
+- Dusk and the mist of a Dawn ride go once through the whole ride. They
+  counted from the world's clock, which starts over every 83 seconds in
+  the Valley, every four minutes on the River and every seven on the Beach
+  and the Volcano, so Dusk went back to sunset each time and the mist came
+  back, and the Valley's Dusk never reached the night. The ride counts the
+  clock's rounds now: Dusk reaches the night two minutes in and stays, and
+  the mist thins once over three minutes, its wisps drifting on without a
+  step. A photo at Dusk or at a misty Dawn keeps its rounds in its stamp
+  and is redrawn at its own moment; a photo from before is drawn as it was.
+  The night's chirps went silent for good at the first restart too, and
+  now run through the ride. Found in a review of the code on Nov 2 2026.
 
 ## 1.1.1
 
