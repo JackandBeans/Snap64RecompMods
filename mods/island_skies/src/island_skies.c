@@ -1516,6 +1516,7 @@ static u32 day_texel(s32 which, s32 i, s32 k) {
 static void sky_paint(u32 pic, const u8* mask, s32 which) {
     s32 share = (s32) (nightness * 256.0f);
     volatile u16* texel = (volatile u16*) pic;
+    s32 lid = !(which == 1 && night->setup == NIGHT_VALLEY_SETUP);      // the Valley's second picture stands under the first
     s32 i;
 
     for (i = 0; i < SKY_TEXELS; i++) {
@@ -1524,11 +1525,14 @@ static void sky_paint(u32 pic, const u8* mask, s32 which) {
         u32 c[3];
         s32 k;
 
-        if (cloud_top_fade != 0 && row > 12) {
+        if (lid && cloud_top_fade != 0 && row > 12) {
             // At sunset the clouds thin away toward the top of the drum, so
             // its flat lid (the picture's top row, one color) meets the sides
             // without a rim, and the picture's six repeats around the sky
-            // crowd less where they are closest.
+            // crowd less where they are closest. Not on a picture that meets
+            // no lid: the Valley's lower picture lost its clouds right up to
+            // the upper's, and the two met in a straight line across the sky
+            // (JackandBeans, Nov 5 2026).
             s32 f = ((row - 12) * 255) / 19;
 
             m -= ((((m * f) / 255) * f) / 255) * cloud_top_fade / 255;
@@ -1701,6 +1705,31 @@ static void sky_at_night(u32 pic, s32 which) {
                 row[d] = (u8) (keep[d] + ((((s32) keep[best_o + 10 + d] - keep[d]) * w + 128) >> 8));
                 row[63 - d] = (u8) (keep[63 - d] + ((((s32) keep[best_o + 10 - d] - keep[63 - d]) * w + 128) >> 8));
             }
+        }
+    }
+}
+
+// The Valley's sky is one picture cut in two, ten degrees up: the lower
+// picture's last row is the upper's first, texel for texel, and by day no join
+// shows. Each mask is stretched and dissolved by its own picture, though, so
+// along the join the two disagree. Each column's two edge values meet at their
+// mean and the difference eases away over six rows either side, so a cloud
+// runs through the join.
+static void sky_masks_meet(void) {
+    static const s32 weight[6] = { 256, 237, 190, 128, 66, 19 };
+    s32 x, r;
+
+    for (x = 0; x < 64; x++) {
+        s32 gap = (s32) sky_mask_pic[1][31 * 64 + x] - (s32) sky_mask_pic[0][x];
+
+        for (r = 0; r < 6; r++) {
+            s32 upper = (gap * weight[r]) / 512;
+            s32 lower = upper - (gap * weight[r]) / 256;     // the rest of the gap, so the two edges come out equal
+            s32 a = (s32) sky_mask_pic[0][r * 64 + x] + upper;
+            s32 b = (s32) sky_mask_pic[1][(31 - r) * 64 + x] + lower;
+
+            sky_mask_pic[0][r * 64 + x] = (u8) (a < 0 ? 0 : a > 255 ? 255 : a);
+            sky_mask_pic[1][(31 - r) * 64 + x] = (u8) (b < 0 ? 0 : b > 255 ? 255 : b);
         }
     }
 }
@@ -6652,6 +6681,9 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
                     sky_mask_pic[i][k] = sky_mask[k];
                 }
             }
+        }
+        if (by->setup == NIGHT_VALLEY_SETUP) {
+            sky_masks_meet();
         }
         {
             f32 m = mode_minutes();

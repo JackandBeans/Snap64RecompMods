@@ -193,6 +193,14 @@
   and is redrawn at its own moment; a photo from before is drawn as it was.
   The night's chirps went silent for good at the first restart too, and
   now run through the ride. Found in a review of the code on Nov 2 2026.
+- The Valley's sky has no line across it at sunset, Dusk and dawn. Its sky
+  is one picture cut in two about ten degrees up, the only course's that
+  is. The clouds' thinning toward the drum's lid ran on the lower picture
+  too, so it lost its clouds right up to the upper one's and the two met
+  in a straight line (JackandBeans, Nov 5 2026, with a picture). The
+  thinning is the upper picture's alone now, and the two pictures' clouds
+  meet along the join, so a cloud runs through it. By day the sky is the
+  cartridge's, as before.
 
 ## 1.1.1
 
