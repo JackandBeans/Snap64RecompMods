@@ -350,6 +350,7 @@ static u8 glint_snow[GLINT_VTX];         // each copy's share of snow, 0 to 255,
 static s16 glint_world_y[GLINT_VTX];     // each copy's height in the world, for the surf line at a relight
 static s16 glint_world_x[GLINT_VTX], glint_world_z[GLINT_VTX];   // and its place across, for the mist's floors
 static u8 sky_mask_pic[2][SKY_TEXELS];   // each sky picture's cloud mask, kept for the dusk
+static u8 sky_repaint_due;               // the Valley's pictures to be painted again after this load's first draw (night_sky_ends)
 static u8 pal2_a[11][3], pal2_b[11][3], pal2_d[11][3];   // the three palettes for the weather the island turns to
 static u8 mix_a[11][3], mix_b[11][3], mix_d[11][3];      // the two weathers' palettes mixed, as far as the turn has come
 static u8 palc_a[11][3], palc_b[11][3], palc_d[11][3];   // the three palettes under a clear sky, for a roofed course's cave
@@ -1715,6 +1716,26 @@ static void sky_at_night(u32 pic, s32 which) {
 // along the join the two disagree. Each column's two edge values meet at their
 // mean and the difference eases away over six rows either side, so a cloud
 // runs through the join.
+// First the masks' floor comes off. Open sky in a mask was never nothing: the
+// day's picture has a haze of its own, a floor of 10 to 40 that changes from
+// row to row. The thinning toward the lid took that floor across one five-bit
+// step of the picture in a single row all the way round, a line three steps of
+// eight bits tall on every face, and the drum's six-sided rim stood out as a
+// box's ceiling (JackandBeans, Nov 5 2026). With no floor, open sky is one
+// color of the picture in every row, and only the corners carry its height.
+#define SKY_MASK_FLOOR 40
+static void sky_masks_lift(void) {
+    s32 which, i;
+
+    for (which = 0; which < 2; which++) {
+        for (i = 0; i < SKY_TEXELS; i++) {
+            s32 v = sky_mask_pic[which][i];
+
+            sky_mask_pic[which][i] = (u8) (v <= SKY_MASK_FLOOR ? 0 : ((v - SKY_MASK_FLOOR) * 255) / (255 - SKY_MASK_FLOOR));
+        }
+    }
+}
+
 static void sky_masks_meet(void) {
     static const s32 weight[6] = { 256, 237, 190, 128, 66, 19 };
     s32 x, r;
@@ -1770,8 +1791,13 @@ static void sky_extent(const Night* by) {
 // the horizon blended toward the tint at the top by the corner's height, as
 // the game's own corners carry the day's blue above and haze below. The
 // walker is told these are done, so the scenery's light does not fall on
-// the sky.
+// the sky. At the sunset's and the dawn's hours the Valley's sky is lighter
+// toward the sun, the more the higher, so the colors near the lid do not all
+// run along the drum's rings. No deeper away from it: the ring would stand
+// darker than the lid above it.
 static void sky_corners(u32 addr, s32 count, s32 which) {
+    static const u8 sun_side[3] = { 14, 8, 4 };
+    f32 life = (night->setup == NIGHT_VALLEY_SETUP) ? ((f32) cloud_top_fade / 255.0f) * clear_share : 0.0f;
     s32 i;
 
     for (i = 0; i < count; i++) {
@@ -1801,7 +1827,7 @@ static void sky_corners(u32 addr, s32 count, s32 which) {
         }
         for (k = 0; k < 3; k++) {
             s32 low = tint_away[k] + (((s32) tint_lo[k] - tint_away[k]) * toward) / 256;
-            s32 tint = low + (((s32) tint_hi[k] - low) * share) / 256;
+            s32 tint = low + (((s32) tint_hi[k] - low) * share) / 256 + (s32) (life * (f32) sun_side[k] * (facing > 0.0f ? facing : 0.0f) * up);
             s32 day = (i < 64) ? (s32) ((sky_orig_cn[which][i] >> (16 - 8 * k)) & 0xFF) : tint;
 
             if (i < 64 && overcast_share > 0.0f) {
@@ -4420,6 +4446,19 @@ static void aurora_frame(void) {
 
 RECOMP_HOOK_RETURN("drawSkyBox1Cycle") void night_sky_ends(void) {
     if (night != NULL) {
+        if (sky_repaint_due) {
+            // The port has just dissolved each picture once, at this load's
+            // first draw and after the mod's paint, each from its own clearest
+            // stretch (patches/src/sky_patch.c), and the Valley's two no longer
+            // met beside the drum's corners at an hour that is not painted
+            // again. The masks have that dissolve already, so the paint is laid
+            // over it, before the renderer reads the pictures for this frame.
+            sky_repaint_due = 0;
+            if (nightness > 0.0f) {
+                sky_paint(night->pics[0], sky_mask_pic[0], 0);
+                sky_paint(night->pics[1], sky_mask_pic[1], 1);
+            }
+        }
         if (storming && !scoring) {
             storm_sky();
         }
@@ -6576,6 +6615,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         }
     }
     night = by;
+    sky_repaint_due = (by != NULL && by->setup == NIGHT_VALLEY_SETUP);
     thunder_span = 0xFFFFFFFFu;
     thunder_at = body_at = echo_at = 0;
     chirp_next[0] = 240;
@@ -6683,6 +6723,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             }
         }
         if (by->setup == NIGHT_VALLEY_SETUP) {
+            sky_masks_lift();
             sky_masks_meet();
         }
         {

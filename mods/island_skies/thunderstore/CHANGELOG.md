@@ -201,6 +201,16 @@
   thinning is the upper picture's alone now, and the two pictures' clouds
   meet along the join, so a cloud runs through it. By day the sky is the
   cartridge's, as before.
+- The Valley's sky no longer reads as a box at sunset and dawn. Open sky in
+  its cloud masks was never quite nothing, and the thinning toward the lid
+  took all of it across one step of the picture's color in a single row, all
+  the way round, which drew the drum's six-sided rim under a flat ceiling
+  (JackandBeans, Nov 5 2026, "looks like you are in a box"). Open sky is one
+  color in the pictures now, with only the drum's corners carrying its
+  height, and at those hours they are lighter toward the sun. The thinnest
+  haze goes with the floor. The pictures are painted again after the port's
+  own dissolve at the first draw, so the two meet beside the drum's corners
+  too.
 
 ## 1.1.1
 
