@@ -211,6 +211,95 @@
   haze goes with the floor. The pictures are painted again after the port's
   own dissolve at the first draw, so the two meet beside the drum's corners
   too.
+- The Beach, the River, the Volcano and the Tunnel lose the same rim, at
+  every hour but the cartridge's Day. Their pictures hold a haze as well as
+  clouds, and it stood in whole rows, each a step of the color all the way
+  round; the River's rim at sunset was the strongest, nearly seven steps of
+  255. Each row of the picture is now divided by its own open sky and the
+  sky's corners carry that sky, smoothly. Open sky is one color of the picture
+  at every height and every hour, so it no longer crosses a step of the color
+  all at once as the dusk goes on, and a cloud keeps its contrast against the
+  sky around it. Asked for by JackandBeans on Nov 6 2026.
+- No straight line and no six-sided shape in the sky, at any hour but the
+  cartridge's Day. JackandBeans could still see a faint line at every course's
+  sunset (Nov 6 2026, with two pictures), and three things drew it. The top
+  ring's corners rounded apart, so the lid showed straight seams: the lid and
+  the top ring are now one color. The color went by height on six flat faces,
+  so its level lines and the breaks in its slope were six-sided: a drum nine
+  times finer now stands in for the port's, the same pictures in the same
+  places, each corner colored by its direction from the eye, so the level lines
+  are round and the top of the sky is flat before it reaches the lid. And the
+  last rounding to eight bits made steps of those lines: the sky's own draw now
+  adds half a level of noise either way before the rounding, new at each pixel
+  and each frame, so there are no steps, whatever the port's Dither setting
+  says. Corner colors have eight bits, and their rounding showed on so fine a
+  drum, so the faces are drawn a second time at an eighth, under corners that
+  make up what the first pass lost. The Valley's warmth toward the sun evens out
+  around the sky near the top. The Tunnel's painted boxes take the same finer
+  faces and the same noise, colored from each box's middle. The cartridge's Day
+  draws as it did, on the port's own drum, and an hour leaving Day starts from
+  the port's own colors.
+- At night the clouds keep their brightest parts and their height above the
+  sky. The pictures' open sky stood too high for the night's clouds, which
+  stand further above it than the sunset's, so their brightest parts were cut
+  flat at the top of the picture's colors: on the Volcano and the Beach at
+  night, late in the dusk and early in the dawn, and in the rain and the snow
+  on the Beach and in the Tunnel. At night the open sky now stands lower in the
+  pictures, coming down a whole step of their color at a time through the dusk
+  and going back up through the dawn. The night sky's color is the tints' curve
+  times one smooth line of haze up the drum, level where it meets the lid, and
+  each cloud stands on that line by its difference from its row's open sky, so
+  it keeps the height above its sky that the cartridge's picture gives it.
+  Sunset, Dawn and the Day draw as they did. Found by measuring every course's
+  night after JackandBeans asked for every sky to be perfect (Nov 6 2026).
+- At every hour but Day the Pokémon take the hour's light as the land does.
+  Moltres is drawn without the game's fog and lit by nothing but his own fire, yet
+  some of his parts turned fog on, so under the night's dark fog half of him went
+  dark (JackandBeans, Nov 7 2026, with two pictures): outside Day he stays
+  unfogged, fire bright at any distance. Rapidash, drawn without the game's fog
+  too, takes it outside Day as every other Pokémon does, its flames clear. A part
+  that sets its own light colors (the flames
+  of Charmander, Charmeleon and Magmar, and parts of Snorlax, Electabuzz,
+  Electrode and Vileplume) left them set for whatever was drawn after it, which
+  then took a gray day light at night: the hour's light is loaded again after such
+  a part, and those flames are evenly bright all round. The parts the cartridge
+  paints rather than lights (small parts of Butterfree, Meowth, Kakuna, Metapod and
+  Cloyster) take the hour's light; fire, sparks and Starmie's gem keep their own
+  color. By night the key light is the moon's color, or the
+  lava's on the Volcano, where it comes from below and toward the camera; the
+  shaded side takes a third of the sky's color, and it is never less than the
+  cartridge's Day share of the light, so nothing looks lit by day at night and no
+  side goes black. A photo's Pokémon, drawn from the game's other models, take the
+  same. Day is the cartridge's.
+- Outside Day the scene no longer flickers. The renderer reads a frame on a thread
+  of its own after the game has gone on, and the game's next update writes its own
+  light into the one record every camera loads, from behind the camera; the lean
+  toward the sun or the moon came only with the next frame's sky. So a frame read
+  late was lit from behind the camera, and the whole lit scene flickered, most of
+  all in fast-forward (JackandBeans, Nov 8 2026). Each frame now carries its own
+  copy of the light in its own command list, and the stars' twinkle, the aurora's
+  curtains and the rest of what changes from frame to frame are kept for each
+  frame the same way. Through a Dusk the light and the painted land move on with
+  every frame instead of every sixth of a second. Day is the cartridge's.
+- The game's frame buffers keep their room. The game draws each frame into four
+  buffers of fixed size and stops with "DLBuffer over flow" if one runs past its
+  end; the photo review fills its main buffer to 95.5% on its own, and the mod's
+  light took 96 bytes more there. The mod now keeps what it draws in its own
+  memory, a set for each frame, and puts only short calls of 8 to 24 bytes into
+  the game's buffers, where the rain, the snow and the glint used to write their
+  whole lists. It adds them only where the game's own fill in the frame before
+  leaves a margin, a thirty-second of the buffer and never under 512 bytes, and
+  only up to a set amount in one frame. A scene's first frame, with no frame
+  before it, goes by the fullest the game was ever measured to fill such a
+  buffer. Every frame draws as before. Found by measuring the buffers after
+  the flicker report (Nov 8 2026). The call the mod leaves in the game's own
+  sky list, to the stars, the moon and the aurora, now opens the renderer's
+  window to the mod's memory itself, in the first of the two pipe syncs every
+  sky list ends with, and the list it calls shuts it again; the storm's flash
+  and a shooting star take windows of their own too. A first build left that
+  call to the window around the sky, which the guard could hold back, and a
+  scripted run of the River at night stopped the game at the course's first
+  frame (Nov 8 2026).
 
 ## 1.1.1
 

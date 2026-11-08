@@ -43,6 +43,17 @@
 #define COURSE_LIGHT  ((volatile u8*) 0x800AEBD0)
 #define MAIN_GFX_POS  ((Gfx**) 0x8004A890)
 #define SKY_TEXELS    (64 * 32)
+// The frame being drawn (sys/gtl.c): its context, whose command buffers and
+// heap are its own until the renderer has finished with it, and the count of
+// frames drawn, which moves on once a frame's draw is done.
+#define GTL_CONTEXT   (*(volatile s32*) 0x8004A910u)     // gtlContextId
+#define GTL_DRAWN     (*(volatile s32*) 0x80040CF8u)     // gtlDrawnFrameCounter
+#define FRAME_CTX     2                                  // the courses' contexts (their scene setups' numContexts)
+#define FRAME_SLOTS   8                                  // the slots a frame context has for matrices written more than once a frame
+// The list every camera's frame calls to load the scene light (app_render/4D400.c:
+// a pipe sync, lighting on, one light, the light from 0x800AEBD8, the ambient from
+// 0x800AEBD0, two dither modes, the end).
+#define CAMERA_LIGHTS 0x800AEC18u
 
 // What the cartridge loads together with a course. Only vertices and
 // commands inside these spans are ever touched, because only these are read
@@ -117,6 +128,8 @@ typedef struct Night {
     Vtx* band;              // the glow band at the horizon toward the sunset's sun (night_data.h)
     Vtx* dawn_band;         // and toward the dawn's
     f32 roof_z;             // a roofed course: where its roof begins over the cart, z in the first block
+    u32 code_lo, code_hi;   // where the course's code lies: the ride's Pokémon (pokemonsnap/splat.yaml, <course>_code)
+    u32 extra_lo, extra_hi; // and its extra models: the photos' Pokémon (<course>_extra, the model_hd lists)
 } Night;
 
 #define NIGHT_TUNNEL_SETUP 0x8011E6CCu  // tunnel_WorldSetup: no sky box; a flat sky color where it opens
@@ -152,25 +165,29 @@ static const Night nights[] = {
         NIGHT_BEACH_SKY_VTX, NIGHT_BEACH_SKY_VTX_N, NIGHT_BEACH_R_LO, NIGHT_BEACH_R_SCALE,
         0x8011B050u, 0x80135BD4u, { 92, 123, 205 }, { 108, 141, 220 }, { 80, 112, 190 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 990, 1000,
-        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun, NIGHT_BEACH_DAWN, night_beach_dawn, night_beach_band, night_beach_dawn_band, 0.0f },
+        night_beach_sky, night_beach_twinkle, NIGHT_BEACH_TWINKLES, NIGHT_BEACH_KEY, 1, 0, NULL, NIGHT_BEACH_SUN, night_beach_sun, NIGHT_BEACH_DAWN, night_beach_dawn, night_beach_band, night_beach_dawn_band, 0.0f,
+        0x802C40A0u, 0x803476A0u, 0x801B0310u, 0x801D6840u },
     {   // The River: broken cloud, a mist over the water.
         NIGHT_RIVER_SETUP, "river", "river_weather", NIGHT_RIVER_SPARE, NIGHT_RIVER_PICS, NIGHT_RIVER_ROWS,
         NIGHT_RIVER_SKY_VTX, NIGHT_RIVER_SKY_VTX_N, NIGHT_RIVER_R_LO, NIGHT_RIVER_R_SCALE,
         0x8012A0C0u, 0x801416F0u, { 86, 124, 196 }, { 104, 142, 214 }, { 66, 104, 156 },
         { 104, 120, 176 }, { 188, 192, 208 }, { 48, 56, 80 }, { 16, 20, 44 }, 988, 1000,
-        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_dots, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn, night_river_band, night_river_dawn_band, 0.0f },
+        night_river_sky, night_river_twinkle, NIGHT_RIVER_TWINKLES, NIGHT_RIVER_KEY, 1, 0, night_firefly_dots, NIGHT_RIVER_SUN, night_river_sun, NIGHT_RIVER_DAWN, night_river_dawn, night_river_band, night_river_dawn_band, 0.0f,
+        0x802D8800u, 0x8033F6B0u, 0x8019AEE0u, 0x801B6B60u },
     {   // The Volcano: no moon. The lava keeps its own light and lights the smoke from below.
         NIGHT_VOLCANO_SETUP, "volcano", "volcano_weather", NIGHT_VOLCANO_SPARE, NIGHT_VOLCANO_PICS, NIGHT_VOLCANO_ROWS,
         NIGHT_VOLCANO_SKY_VTX, NIGHT_VOLCANO_SKY_VTX_N, NIGHT_VOLCANO_R_LO, NIGHT_VOLCANO_R_SCALE,
         0x800FFF90u, 0x80112260u, { 132, 96, 92 }, { 172, 132, 122 }, { 255, 240, 228 },
         { 72, 56, 64 }, { 255, 210, 150 }, { 108, 60, 44 }, { 24, 20, 40 }, 986, 1000,
-        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun, NIGHT_VOLCANO_DAWN, night_volcano_dawn, night_volcano_band, night_volcano_dawn_band, 0.0f },
+        night_volcano_sky, night_volcano_twinkle, NIGHT_VOLCANO_TWINKLES, { 0, -127, 0 }, 0, 1, NULL, NIGHT_VOLCANO_SUN, night_volcano_sun, NIGHT_VOLCANO_DAWN, night_volcano_dawn, night_volcano_band, night_volcano_dawn_band, 0.0f,
+        0x802D60E0u, 0x8034E120u, 0x801A9900u, 0x801CF770u },
     {   // The Valley: a high, clear mountain night.
         NIGHT_VALLEY_SETUP, "valley", "valley_weather", NIGHT_VALLEY_SPARE, NIGHT_VALLEY_PICS, NIGHT_VALLEY_ROWS,
         NIGHT_VALLEY_SKY_VTX, NIGHT_VALLEY_SKY_VTX_N, NIGHT_VALLEY_R_LO, NIGHT_VALLEY_R_SCALE,
         0x800FFF90u, 0x80116A70u, { 84, 112, 190 }, { 104, 136, 220 }, { 46, 72, 126 },
         { 104, 120, 184 }, { 196, 200, 212 }, { 48, 56, 88 }, { 12, 16, 44 }, 992, 1000,
-        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn, night_valley_band, night_valley_dawn_band, 0.0f },
+        night_valley_sky, night_valley_twinkle, NIGHT_VALLEY_TWINKLES, NIGHT_VALLEY_KEY, 1, 0, NULL, NIGHT_VALLEY_SUN, night_valley_sun, NIGHT_VALLEY_DAWN, night_valley_dawn, night_valley_band, night_valley_dawn_band, 0.0f,
+        0x802C5C20u, 0x8034E120u, 0x80186B10u, 0x801B1D40u },
     {   // The Tunnel: no sky drum, but an open-air start and end under two painted
         // 64x32 pictures, which take the hour and the weather as the other courses'
         // sky pictures do; the weather falls there until the mouth (roof_z), and
@@ -187,7 +204,8 @@ static const Night nights[] = {
         { 0, 0 }, { 0, 0 }, 0, 0,
         0x8011CB50u, 0x8018BC30u, { 118, 130, 178 }, { 126, 140, 196 }, { 100, 120, 170 },
         { 196, 200, 212 }, { 196, 200, 212 }, { 48, 56, 88 }, { 16, 20, 48 }, 996, 1000,
-        night_tunnel_sky, night_tunnel_twinkle, NIGHT_TUNNEL_TWINKLES, NIGHT_TUNNEL_KEY, 0, 0, NULL, NIGHT_TUNNEL_SUN, night_tunnel_sun, NIGHT_TUNNEL_DAWN, night_tunnel_dawn, night_tunnel_band, night_tunnel_dawn_band, NIGHT_TUNNEL_ROOF_Z },
+        night_tunnel_sky, night_tunnel_twinkle, NIGHT_TUNNEL_TWINKLES, NIGHT_TUNNEL_KEY, 0, 0, NULL, NIGHT_TUNNEL_SUN, night_tunnel_sun, NIGHT_TUNNEL_DAWN, night_tunnel_dawn, night_tunnel_band, night_tunnel_dawn_band, NIGHT_TUNNEL_ROOF_Z,
+        0x802E2500u, 0x80344770u, 0x8018BC50u, 0x801AFD30u },
 };
 
 extern f32 GlobalTimer;         // the world's clock: it advances by the set-up's sky speed each tick
@@ -264,11 +282,9 @@ static u8 roof_outside;          // this frame: the camera is under the open sky
 static GObj* roof_cam;           // the camera that drew the world this frame, whose matrices the weather takes
 static u8 roof_blink;            // the main camera's blink frame (the shutter's black): nothing is drawn on it
 static Gfx* roof_sky;            // the sky list in force (the night's, the sunset's or the dawn's; spare_point)
-static Mtx roof_sky_mtx[2];      // its place around the eye, this frame's and the last's
-static u8 roof_sky_turn;
+static Mtx roof_sky_mtx[FRAME_CTX]; // its place around the eye, for each frame context
 static GObj* photo_sky_cam;      // a photo's camera that drew the roofed course's land in this object pass
-static Mtx photo_sky_mtx[4];     // the sky's place around that camera's eye (more than one may draw in a frame)
-static u8 photo_sky_turn;
+static Mtx photo_sky_mtx[FRAME_CTX * FRAME_SLOTS];   // the sky's place around that camera's eye (more than one may draw in a frame)
 // A roofed course (the Tunnel): its sky is painted faces of the level, not a
 // drum, so the cave is told from the open air (open_air) and its stars, moon
 // and suns are drawn after the land (roof_weather).
@@ -278,9 +294,8 @@ static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in f
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
 static f32 relight_dir[3];       // toward the sun, or the moon, in the world's axes
 static u16 fog_near, fog_far;    // the night's fog, to come back to after a flash
-static Mtx storm_mtx[8][2];      // the flash's and the bolt's matrices, a pair a set, turning with the rain's
-static Mtx streak_mtx[2];        // the shooting star's, two sets
-static u8 streak_turn;
+static Mtx storm_mtx[FRAME_CTX * FRAME_SLOTS][2];   // the flash's and the bolt's matrices, a pair a slot
+static Mtx streak_mtx[FRAME_CTX * FRAME_SLOTS];   // the shooting star's, a slot each time one is drawn
 static u32 streak_logged;        // the last star the log named
 static f32 view_fwd[2];          // where the view faces, level, a unit; from the game's light each frame
 static u8 light_world[3];        // the lights in force: on the scenery,
@@ -293,12 +308,10 @@ static f32 sky_sin_lo, sky_sin_hi;       // how low and how high the box's corne
 static u8 cloud_top_fade;                // how far the clouds thin toward the drum's lid: full at sunset, none by night
 static u8 sky_mask[SKY_TEXELS];          // the picture's luminance, then its softened cloud mask
 static u8 sky_blur[SKY_TEXELS];
-static Mtx rain_mtx[8][NIGHT_RAIN_SHEETS * 2];   // each sheet's two matrices, in eight sets: the frame's, and photos drawn in one frame (as many as six)
-static u8 rain_turn;             // which of the eight sets the next drawing writes
+static Mtx rain_mtx[FRAME_CTX * FRAME_SLOTS][NIGHT_RAIN_SHEETS * 2];   // each sheet's two matrices, a set a slot: the frame's, and photos drawn in one frame (as many as six)
 static Gfx* const* rain_sheets_now = night_rain_sheets;   // the sheets the next rain takes: the ring's, or the Tunnel's volume
 static Gfx* const* snow_sheets_now = night_snow_sheets;
-static Mtx glow_mtx[2][1 + NIGHT_FIREFLY_GROUPS];   // the moon path's and the fireflies' matrices, two sets
-static u8 glow_turn;
+static Mtx glow_mtx[FRAME_CTX * FRAME_SLOTS][1 + NIGHT_FIREFLY_GROUPS];   // the moon path's and the fireflies' matrices, a set a slot
 static u8 mist_rgb[3];           // the mist's color: the fog's in force, a little lighter (fog_apply),
 static u8 mist_fog_rgb[3];       // the fog's own, and its near and far on the fog's scale, as the mod last set them
 static u16 mist_fog_min, mist_fog_max;
@@ -338,10 +351,10 @@ typedef struct GlintSeg {
     u8 lists_n;
     u8 flow;                // whether any of its triangles are the water's
 } GlintSeg;
-static Vtx glint_vtx[2][GLINT_VTX];    // the copies, two sets: this frame's and the last's
+static Vtx glint_vtx[FRAME_CTX][GLINT_VTX];    // the copies, a set for each frame context (the same corners in each)
 static u32 glint_op[GLINT_OPS];
 static GlintSeg glint_seg[GLINT_SEGS];
-static Mtx glint_mtx[2][GLINT_SEGS];
+static Mtx glint_mtx[FRAME_CTX][GLINT_SEGS];
 static u16 glint_vtx_n, glint_op_n, glint_tris, glint_land;
 static u32 glint_load_src[GLINT_OPS];    // where a load's vertices lie in the game's memory (the dusk relights them)
 static u32 glint_orig_cn[GLINT_VTX];     // each copy's day colors, as the course has them
@@ -360,7 +373,9 @@ static u8 pal_d[11][3];                  // and the dawn's: the cycle's three en
 static f32 dir_a[3], dir_b[3], dir_d[3];
 static u8 star_fade = 255;               // how far the stars have come up
 static u32 dusk_last;
-static u8 glint_seg_n, glint_recording, glint_turn, glint_said, glint_said_drawn;
+static u32 sky_paint_last = 0xFFFFFFFFu;     // the ride's tick the sky's pictures were last painted at, in a dusk
+static u8 sky_paint_skip;                    // this step leaves the pictures as they are
+static u8 glint_seg_n, glint_recording, glint_said, glint_said_drawn;
 static u8 drawing_glint;              // the model being drawn has segments of the glint
 static u8 drawing_parts;              // the model being drawn has parts in the record at all
 static u32 glint_model;               // the model being walked
@@ -559,6 +574,14 @@ static void sky_corner_color(volatile u8* color, const u8* paint, f32 up) {
 // the snow's light reached inside the cave.)
 static u8 cave_face;
 static const u8 no_light[3] = { 0, 0, 0 };     // the cave's directional term: none (JackandBeans's picture, Oct 16 2026: the dusk's sun on an inner wall)
+
+// A roofed course's sky faces, as the walker comes to them (the fine sky).
+static u8 fine_open;
+static u8 fine_new;
+static void fine_open_at(u32 list);
+static void fine_face(u32 a, u32 b, u32 c);
+static void fine_close(u32 list);
+static void fine_roof_refresh(void);
 
 static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
     if (at != 0 && mark(tinted, at)) {
@@ -895,6 +918,9 @@ static void light_corners(u32 word) {
 
         sky_face = (ROOFED(night) && tex_addr != 0 && (tex_addr == night->pics[0] || tex_addr == night->pics[1]));
         cave_face = (ROOFED(night) && !sky_face && slots[a] != 0 && !open_air(slots[a]));
+        if (sky_face && fine_open) {
+            fine_face(slots[a], slots[b], slots[c]);    // before they are lit: the first corner's paint is the day's
+        }
         if (!flowing && slots[a] != 0 && slots[b] != 0 && slots[c] != 0) {
             if (snow_cover && !sky_face && open_air(slots[a])) {
                 if (tex_addr != 0) {
@@ -975,12 +1001,19 @@ static void walk(u32 list, s32 depth) {
         u32 w0 = cmd[0];
         u32 w1 = cmd[1];
 
+        // A run of a sky's faces ends at the first command that is not geometry.
+        if (fine_open && (w0 >> 24) != 0x01 && (w0 >> 24) != 0x05 && (w0 >> 24) != 0x06 && (w0 >> 24) != 0x07) {
+            fine_close(list);
+        }
         switch (w0 >> 24) {
             case 0x01: {    // G_VTX: count, and one past the last slot filled
                 u32 count = (w0 >> 12) & 0xFF;
                 u32 first = ((w0 >> 1) & 0x7F) - count;
                 u32 i;
 
+                if (!fine_open && ROOFED(night) && tex_addr != 0 && (tex_addr == night->pics[0] || tex_addr == night->pics[1])) {
+                    fine_open_at(list);
+                }
                 for (i = 0; i < count && first + i < 64; i++) {
                     slots[first + i] = (lit || (w1 & 7)) ? 0 : w1 + 16 * i;
                 }
@@ -1178,7 +1211,6 @@ static void walk_payload(DObj* node, s32 kind) {
     }
 }
 
-static void key_light(void);
 static void set_light(const Night* by);
 static void fog_apply(void);
 static u8 roof_placed;           // this frame's camera has been placed against the roof
@@ -1231,6 +1263,795 @@ static void roof_place(GObj* cam) {
     }
 }
 
+
+// ---- The Pokémon outside Day ----
+// The courses' Pokémon are drawn from their own lists: the ride's in the course's
+// code, a photo's from the course's extra models. Outside Day four things went wrong
+// in them (Nov 7 2026; JackandBeans's pictures of Moltres at night, half of him dark):
+// - Moltres and Rapidash are drawn without the game's fog wrapper, every other
+//   Pokémon with it. Moltres, lit by nothing but his own fire, has parts that switch
+//   fog on and none off, so how much of him fogged hung on what was drawn just before,
+//   and under the night's dark fog the fogged half went dark: the dark wing was the
+//   bright one taken 83 parts in 100 toward the fog's color. Outside Day his switches
+//   switch nothing and he is drawn unfogged from the start: fire stays bright at any
+//   distance. Rapidash's body is lit as any Pokémon's: outside Day it takes the
+//   game's own fog wrapper, as the others do, and only its flames, which turn the fog
+//   off themselves, stay clear. What was drawn before never decides their fog. A
+//   fade the game draws with a fog of its own (app_level/pokemon.c) is left to it.
+// - A part may set the lights' colors for itself (a flame, a spark, Electrode's
+//   material) and leave them set: every lit thing drawn after it in the frame took
+//   those gray day colors, a day's key over a fill of a sixth, instead of the hour's,
+//   until the camera loaded the lights again. Outside Day the hour's lights are
+//   loaded again after such a part.
+// - A flame lit by the key went dark on its far side: the Volcano's flames' own
+//   colors are a fill nearly whole outside Day, so a flame is even all round.
+// - The parts the cartridge paints rather than lights kept the day's colors, or were
+//   lit once for the hour the course loaded under: now they take the hour's light as
+//   the land's painted corners do, and what glows keeps its color (fire, sparks,
+//   Starmie's gem).
+// At Day nothing here writes a word: the cartridge's lists, colors and commands are
+// as it has them.
+#define FOG_BIT 0x00010000u
+#define FIRE_MOLTRES 0x8032A5E8u        // the first payloads of the model drawn as fire: the ride's and the photo's
+#define FIRE_MOLTRES_HD 0x801B2680u
+#define GLOW_RAPIDASH 0x80330568u       // the model whose painted parts glow: Rapidash's flames
+#define GLOW_RAPIDASH_HD 0x801B6638u    // (the two ids once kept for Electrode's blast name no model: no word of the cartridge holds them)
+#define FOG_SET_LIST 0x800AEA80u        // the game's fog wrapper (DListRMFogOpaSet, app_render/4CDB0.c), its fog
+#define FOG_CLEAR_LIST 0x800AEAB8u      // brought up to date by setFogColor and setFogDistance; its end (DListRMFogOpaClear)
+#define NOFOG_SET_LIST 0x800AEB40u      // and the game's own unfogged wrapper (DListRMNoFogOpaSet)
+#define STARMIE_GEM 0x80171858u         // the Valley's Starmie: its gem's picture, drawn unlit (it glows)
+#define FIRE_KEY_DAY 0x9F9F9F00u        // a Volcano flame's own key and fill, as the cartridge has them,
+#define FIRE_FILL_DAY 0x26262600u
+#define FIRE_KEY_NIGHT 0x37373700u      // and outside Day: a fill nearly whole and a little key
+#define FIRE_FILL_NIGHT 0xC8C8C800u
+#define ACTOR_WORDS 160
+#define ACTOR_PAINTS 384
+#define ACTOR_MODELS 64
+#define ACTOR_LEAKS 96
+
+typedef struct ActorWord {
+    u32 at;         // a list's second word
+    u32 day;        // as the cartridge has it
+    u8 kind;        // what the hour makes of it
+} ActorWord;
+#define AW_FOG 1    // a fire model's fog switch: outside Day it switches nothing
+#define AW_KEY 2    // a flame's own key color
+#define AW_FILL 3   // a flame's own fill
+
+typedef struct ActorPaint {
+    u32 at;         // a painted corner's color
+    u8 day[3];      // as the cartridge has it
+    s8 n[3];        // its face's facing, in the model's own frame
+} ActorPaint;
+
+static ActorWord actor_words[ACTOR_WORDS];
+static s32 actor_word_n;
+static ActorPaint actor_paints[ACTOR_PAINTS];
+static s32 actor_paint_n;
+static u32 actor_models[ACTOR_MODELS];     // the models read this load, by their first payload
+static s32 actor_model_n;
+static u32 actor_leaks[ACTOR_LEAKS];       // lists that set the lights' colors
+static s32 actor_leak_n;
+static u8 actor_full_said;
+static u8 actor_fire;                      // the model being read or drawn is fire
+static u8 actor_blast;                     // its painted parts glow
+static u8 actor_lit, actor_fog;            // the reader's lighting and fog bits
+static u32 actor_tex;                      // the picture the reader saw loaded last
+static u32 actor_slots[64];                // the corners loaded, while lighting is off
+static u8 actor_on;                        // a Pokémon is being drawn outside Day
+static u8 actor_wrapped;                   // and the mod put the game's fog wrapper around it
+static u8 actor_rapidash;                  // the model is Rapidash, drawn without the wrapper and lit
+static Gfx* actor_seen[4];                 // how far each of the frame's lists has been looked at
+
+static s32 actor_list(u32 at) {
+    if (night == NULL || (at & 3)) {
+        return 0;
+    }
+    return (at >= night->code_lo && at < night->code_hi) || (at >= night->extra_lo && at < night->extra_hi);
+}
+
+static void actor_word_add(u32 at, u32 day, u8 kind) {
+    s32 i;
+
+    for (i = 0; i < actor_word_n; i++) {
+        if (actor_words[i].at == at) {
+            return;
+        }
+    }
+    if (actor_word_n >= ACTOR_WORDS) {
+        actor_full_said |= 1;
+        return;
+    }
+    actor_words[actor_word_n].at = at;
+    actor_words[actor_word_n].day = day;
+    actor_words[actor_word_n].kind = kind;
+    actor_word_n++;
+}
+
+static void actor_paint_add(u32 at, const f32* n) {
+    volatile u8* color = (volatile u8*) (at + 12);
+    ActorPaint* p;
+    s32 i;
+
+    for (i = 0; i < actor_paint_n; i++) {
+        if (actor_paints[i].at == at) {
+            return;
+        }
+    }
+    if (actor_paint_n >= ACTOR_PAINTS) {
+        actor_full_said |= 2;
+        return;
+    }
+    p = &actor_paints[actor_paint_n++];
+    p->at = at;
+    p->day[0] = color[0];
+    p->day[1] = color[1];
+    p->day[2] = color[2];
+    p->n[0] = (s8) (n[0] * 127.0f);
+    p->n[1] = (s8) (n[1] * 127.0f);
+    p->n[2] = (s8) (n[2] * 127.0f);
+}
+
+static void actor_leak_add(u32 list) {
+    s32 i;
+
+    for (i = 0; i < actor_leak_n; i++) {
+        if (actor_leaks[i] == list) {
+            return;
+        }
+    }
+    if (actor_leak_n >= ACTOR_LEAKS) {
+        actor_full_said |= 4;
+        return;
+    }
+    actor_leaks[actor_leak_n++] = list;
+}
+
+// A painted triangle: its corners take the hour's light, unless what it shows glows.
+static void actor_face(u32 word) {
+    u32 a = ((word >> 16) & 0xFF) >> 1;
+    u32 b = ((word >> 8) & 0xFF) >> 1;
+    u32 c = (word & 0xFF) >> 1;
+
+    if (actor_lit || a >= 64 || b >= 64 || c >= 64 || actor_slots[a] == 0 || actor_slots[b] == 0 || actor_slots[c] == 0) {
+        return;
+    }
+    // Fire, a blast, a material the cartridge draws with the fog off as well (a spark,
+    // an effect), and Starmie's gem keep their own color.
+    if (actor_fire || actor_blast || !actor_fog || (night->setup == NIGHT_VALLEY_SETUP && actor_tex == STARMIE_GEM)) {
+        return;
+    }
+    {
+        const volatile s16* A = (const volatile s16*) actor_slots[a];
+        const volatile s16* B = (const volatile s16*) actor_slots[b];
+        const volatile s16* C = (const volatile s16*) actor_slots[c];
+        f32 ux = (f32) (B[0] - A[0]), uy = (f32) (B[1] - A[1]), uz = (f32) (B[2] - A[2]);
+        f32 vx = (f32) (C[0] - A[0]), vy = (f32) (C[1] - A[1]), vz = (f32) (C[2] - A[2]);
+        f32 n[3];
+        f32 len;
+
+        n[0] = uy * vz - uz * vy;
+        n[1] = uz * vx - ux * vz;
+        n[2] = ux * vy - uy * vx;
+        len = __builtin_sqrtf(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        if (len < 1.0f) {
+            n[0] = n[2] = 0.0f;
+            n[1] = 1.0f;
+        } else {
+            n[0] /= len;
+            n[1] /= len;
+            n[2] /= len;
+        }
+        actor_paint_add(actor_slots[a], n);
+        actor_paint_add(actor_slots[b], n);
+        actor_paint_add(actor_slots[c], n);
+    }
+}
+
+// Reads a Pokémon's list, and what it calls, writing nothing: its fire's fog switches,
+// its flames' own light colors, its painted corners. Says whether it sets the lights'
+// colors itself, and keeps such lists.
+static s32 actor_read(u32 list, s32 depth) {
+    u32 start = list;
+    u32 half = 0;
+    s32 budget = 4000;
+    s32 sets = 0;
+    s32 i;
+
+    if (depth > 10 || (list & 7) || !actor_list(list)) {
+        return 0;
+    }
+    for (i = 0; i < actor_leak_n; i++) {
+        if (actor_leaks[i] == start) {
+            return 1;
+        }
+    }
+    // Plain tests, not a switch: a switch compiles to a jump table, and the runtime's mod
+    // recompiler did not resolve one in cut 34b ("Failed to find function at 0x8100EA78",
+    // JackandBeans's crash, Nov 8 2026).
+    while (budget-- > 0 && actor_list(list)) {
+        volatile u32* cmd = (volatile u32*) list;
+        u32 w0 = cmd[0];
+        u32 w1 = cmd[1];
+        u32 op = w0 >> 24;
+
+        if (op == 0xDF) {
+            break;
+        }
+        if (op == 0x01) {           // G_VTX
+            u32 count = (w0 >> 12) & 0xFF;
+            u32 first = ((w0 >> 1) & 0x7F) - count;
+
+            for (i = 0; i < (s32) count && first + i < 64; i++) {
+                actor_slots[first + i] = (actor_lit || !actor_list(w1)) ? 0 : w1 + 16 * i;
+            }
+        } else if (op == 0x05) {
+            actor_face(w0);
+        } else if (op == 0x06 || op == 0x07) {
+            actor_face(w0);
+            actor_face(w1);
+        } else if (op == 0xFD) {
+            actor_tex = w1;
+        } else if (op == 0xD9) {    // G_GEOMETRYMODE: clear, then set
+            u32 clear = ~w0 & 0x00FFFFFFu;
+
+            if (clear & G_LIGHTING_BIT) {
+                actor_lit = 0;
+            }
+            if (w1 & G_LIGHTING_BIT) {
+                actor_lit = 1;
+            }
+            if (clear & FOG_BIT) {
+                actor_fog = 0;
+            }
+            if (w1 & FOG_BIT) {
+                actor_fog = 1;
+                if (actor_fire) {
+                    actor_word_add((u32) &cmd[1], w1, AW_FOG);
+                }
+            }
+        } else if (op == 0xDB) {    // G_MOVEWORD: a light's color
+            if (((w0 >> 16) & 0xFF) == 0x0A) {
+                sets = 1;
+                if (night->embers && (w1 == FIRE_KEY_DAY || w1 == FIRE_FILL_DAY)) {
+                    actor_word_add((u32) &cmd[1], w1, ((w0 & 0xFFFF) < 0x18) ? AW_KEY : AW_FILL);
+                }
+            }
+        } else if (op == 0xE1) {    // G_RDPHALF_1: the target of the branch that follows
+            half = w1;
+        } else if (op == 0x04) {    // G_BRANCH_Z: the near or far list
+            sets |= actor_read(half, depth + 1);
+        } else if (op == 0xDE) {    // G_DL
+            sets |= actor_read(w1, depth + 1);
+            if ((w0 >> 16) & 0xFF) {
+                break;
+            }
+        }
+        list += 8;
+    }
+    if (sets) {
+        actor_leak_add(start);
+    }
+    return sets;
+}
+
+// Plain tests, not a switch, for the same reason as actor_read's.
+static void actor_payload(DObj* node, s32 kind) {
+    if (node->payload.any == NULL) {
+        return;
+    }
+    if (kind == 'A' || kind == 'B') {
+        actor_read((u32) node->payload.dlist, 0);
+    } else if (kind == 'C' || kind == 'D') {
+        DObjPayloadTypeC* entry = node->payload.typeC;
+        s32 guard = 8;
+
+        while (actor_list((u32) entry) && entry->dlistID != 4 && guard-- > 0) {
+            actor_read((u32) entry->dlist, 0);
+            entry++;
+        }
+    } else if (kind == 'I') {
+        DObjPayloadTypeI* pair = node->payload.typeI;
+
+        if (actor_list((u32) pair)) {
+            actor_read((u32) pair->unk_00, 0);
+            actor_read((u32) pair->unk_04, 0);
+        }
+    } else if (kind == 'J') {
+        DObjPayloadTypeJ* entry = node->payload.typeJ;
+        s32 guard = 8;
+
+        while (actor_list((u32) entry) && entry->dlistID != 4 && guard-- > 0) {
+            actor_read((u32) entry->unk_04, 0);
+            actor_read((u32) entry->unk_08, 0);
+            entry++;
+        }
+    }
+}
+
+static u32 blend_light(u32 day, u32 hour, s32 share) {
+    u32 out = day & 0xFF;
+    s32 k;
+
+    for (k = 1; k < 4; k++) {
+        s32 d = (s32) ((day >> (8 * k)) & 0xFF);
+        s32 h = (s32) ((hour >> (8 * k)) & 0xFF);
+
+        out |= (u32) (d + ((h - d) * share) / 256) << (8 * k);
+    }
+    return out;
+}
+
+// The hour on the Pokémon's words and painted corners: the cartridge's at Day.
+static void actors_hour(void) {
+    s32 share = (night != NULL) ? (s32) (nightness * 256.0f) : 0;
+    s32 i, k;
+
+    for (i = 0; i < actor_word_n; i++) {
+        const ActorWord* w = &actor_words[i];
+        u32 v = w->day;
+
+        if (share > 0) {
+            v = (w->kind == AW_FOG) ? (w->day & ~FOG_BIT)
+              : (w->kind == AW_KEY) ? blend_light(w->day, FIRE_KEY_NIGHT, share)
+              : blend_light(w->day, FIRE_FILL_NIGHT, share);
+        }
+        *(volatile u32*) w->at = v;
+    }
+    for (i = 0; i < actor_paint_n; i++) {
+        const ActorPaint* p = &actor_paints[i];
+        volatile u8* color = (volatile u8*) (p->at + 12);
+
+        if (share <= 0) {
+            color[0] = p->day[0];
+            color[1] = p->day[1];
+            color[2] = p->day[2];
+            continue;
+        }
+        {
+            f32 d = ((f32) p->n[0] * relight_dir[0] + (f32) p->n[1] * relight_dir[1] + (f32) p->n[2] * relight_dir[2]) / 127.0f;
+            u32 toward = d > 0.0f ? (u32) (d * 256.0f) : 0;
+
+            for (k = 0; k < 3; k++) {
+                u32 lit = light_body[k] + ((land_diff[k] * toward) >> 8);
+
+                color[k] = (u8) part(p->day[k], whole(lit));
+            }
+        }
+    }
+}
+
+// The tables for a new load: the cartridge's words and colors given back first.
+static void actor_reset(void) {
+    if (actor_word_n != 0 || actor_paint_n != 0) {
+        recomp_printf("[island skies] the Pokémon's hour: %d models, %d words, %d painted corners, %d lists that set their lights%s\n",
+                      actor_model_n, actor_word_n, actor_paint_n, actor_leak_n, actor_full_said ? "; a table FULL" : "");
+    }
+    {
+        s32 i;
+
+        for (i = 0; i < actor_word_n; i++) {
+            *(volatile u32*) actor_words[i].at = actor_words[i].day;
+        }
+        for (i = 0; i < actor_paint_n; i++) {
+            volatile u8* color = (volatile u8*) (actor_paints[i].at + 12);
+
+            color[0] = actor_paints[i].day[0];
+            color[1] = actor_paints[i].day[1];
+            color[2] = actor_paints[i].day[2];
+        }
+    }
+    actor_word_n = actor_paint_n = actor_model_n = actor_leak_n = 0;
+    actor_full_said = 0;
+    actor_on = 0;
+    actor_wrapped = 0;
+}
+
+static void actor_emit(s32 i, u32 w0, u32 w1) {
+    Gfx* g = MAIN_GFX_POS[i];
+
+    g->words.w0 = w0;
+    g->words.w1 = w1;
+    MAIN_GFX_POS[i] = g + 1;
+}
+
+// Whether a list the frame calls sets the lights' colors: one the reader kept.
+static s32 actor_sets_lights(u32 target) {
+    s32 i;
+
+    for (i = 0; i < actor_leak_n; i++) {
+        if (actor_leaks[i] == target) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// A part's materials as the game writes them each frame (renLoadTextures): a branch
+// for each, then their lists. Whether any sets the lights' colors (Electrode's does).
+static s32 actor_materials_set_lights(u32 base) {
+    volatile u32* entry = (volatile u32*) base;
+    s32 n;
+
+    if ((base >> 24) != 0x80 || (base & 7)) {
+        return 0;
+    }
+    for (n = 0; n < 8 && (entry[0] >> 24) == 0xDE && ((entry[0] >> 16) & 0xFF) != 0; n++, entry += 2) {
+        volatile u32* cmd = (volatile u32*) entry[1];
+        s32 budget = 48;
+
+        if ((entry[1] >> 24) != 0x80 || (entry[1] & 7)) {
+            return 0;
+        }
+        while (budget-- > 0 && (cmd[0] >> 24) != 0xDF) {
+            if ((cmd[0] >> 24) == 0xDB && ((cmd[0] >> 16) & 0xFF) == 0x0A) {
+                return 1;
+            }
+            cmd += 2;
+        }
+    }
+    return 0;
+}
+
+// ---- The frame's own light ----
+// The renderer reads a frame's commands on a thread of its own, after the game has
+// gone on: the game's next update writes its own light direction into the one record
+// every camera loads (behind the camera, app_level/player.c), and the mod's lean
+// toward the sun or the moon came only with the next frame's sky. A frame read late
+// was lit from behind the camera, and the scene flickered (JackandBeans, Nov 8 2026).
+// So outside Day each frame carries its own light, in its own command buffer, which is
+// the frame context's own until the renderer has done with it (sys/gtl.c): the light
+// list's call is pointed at a copy of that list, written past a branch beside it,
+// whose two loads read a copy of the record written just after it. The record itself
+// holds only what the game writes. At Day nothing of this is written.
+static u8 light_now[16];                   // the scene light's colors in force: ambient twice, diffuse twice, as the record has them
+static u8 light_set;                       // set_light has given them for this load
+static Gfx** prerender_at;                 // the list being written by the light list's call (func_800A1A50)
+static volatile u8* light_block;           // this frame's copy of the record, in its command buffer
+static s32 light_block_drawn;              // the frame it belongs to (GTL_DRAWN while it is drawn)
+static u8 light_block_said;
+static void light_store(void);
+
+// The frame being drawn still owns its copy: written from the light list's call on,
+// until the draw is done and the frame goes to the renderer.
+static s32 light_block_ok(void) {
+    return light_block != NULL && GTL_DRAWN == light_block_drawn;
+}
+
+// The frame context being drawn: what the mod writes for one frame and points that
+// frame's commands at is kept in sets by it, so the game draws the next frame into
+// another set, or into this one only once the renderer has finished with it.
+static u8 frame_ctx_said;
+
+static s32 frame_ctx(void) {
+    s32 c = GTL_CONTEXT;
+
+    if (c < 0 || c >= FRAME_CTX) {
+        if (!frame_ctx_said) {
+            frame_ctx_said = 1;
+            recomp_printf("[island skies] a frame context %d past the mod's %d sets\n", c, FRAME_CTX);
+        }
+        return 0;
+    }
+    return c;
+}
+
+// Matrices written more than once in a frame (the rain for each photo drawn with
+// it, the storm's, a roofed course's photo skies) take the next of their context's
+// slots; the slots start again with each frame (night_light_list_begins).
+static u8 rain_slot_n, storm_slot_n, photo_slot_n, glow_slot_n, streak_slot_n;
+
+static s32 frame_slot(u8* n, s32 slots) {
+    s32 s = frame_ctx() * slots + (s32) (*n % slots);
+
+    (*n)++;
+    return s;
+}
+
+// ---- The frame buffers' room ----
+// The game draws a frame into four buffers of its frame context (gtlDLBuffers[2][4], each a start and a
+// length: sys/gtl.c:81), and stops the game when one runs past its end ("DLBuffer over flow",
+// gtlCheckBuffers, gtl.c:176-186). The photo review's main buffer runs as full as 95.7% (Nov 8 2026).
+// So the mod keeps what it draws in its own memory, a set for each frame context as the sky's copies are:
+// the light list with the frame's copy of the record, the parts' reloads, and every extra (the weather, the
+// mist, the glint, the fireflies, a roofed course's sky, the storm's flash, a streak). In the game's buffers
+// it puts only the calls into those lists, each inside a window of the extension's addresses of its own (the
+// renderer reaches the mod's memory only through one: rt64_rsp.cpp, maskPhysicalAddress); so does the call the
+// mod leaves in the sky's own list (spare_point), so no call depends on another's window or on the plan. What each costs a buffer: the light 24 bytes at the frame's start (the extension's enable,
+// which the port gives only at each camera's matrices, later in the frame, in the cartridge's call's place;
+// the window's two ends; the call), a part's reload 24, an extra 24, the sky's
+// window 16, Moltres's fog 8, Rapidash's fog wrapper 16.
+// It adds even that only by plan: the game's own fill of the buffer in the last frame drawn (at omDrawAll's
+// end), plus all the mod may add to that buffer in a frame (gfx_budget), must leave the game a margin of it (a
+// 32nd, and never under 512 bytes), and so must the room left at the moment of each addition. A new scene's
+// first frame has no frame before it, and is planned from a seed instead: the fullest the game's own fill of
+// such a buffer was ever measured (gfx_seed). At a scene's end the log gives the most the mod added to each
+// buffer in one frame, and what it left out for room.
+#define GTL_DL_BUFFERS ((volatile u32*) 0x8004A850u)
+#define GFX_STAGE_N   8192      // commands an extra is written into first: more than the photo review's whole buffer holds
+#define GFX_ARENA_N   16384     // commands of the mod's own lists each frame context holds
+#define EXT_ENABLE_W0 0xE0525464u     // the extension's enable (rt64_extended_gbi.h gEXEnable: G_SPNOOP with RT64's mark)
+#define EXT_ENABLE_W1 0x10000064u
+#define EXT_WINDOW_W0 0x6400002Cu     // the window of the extension's addresses (G_EX_SETRDRAMEXTENDED), 1 open, 0 shut
+
+static Gfx gfx_stage[GFX_STAGE_N];
+static Gfx* gfx_stage_at;              // the extra being written: its next command
+static Gfx gfx_arena[FRAME_CTX][GFX_ARENA_N];
+static s32 gfx_arena_used[FRAME_CTX];
+static Gfx light_lists[FRAME_CTX][11];      // the camera's light list's copy (8 commands), then the frame's copy of the record (24 bytes)
+static Gfx light_reloads[FRAME_CTX][3];     // the light and the ambient loaded again from that copy, and the end
+static const u32 gfx_budget[4] = { 1536, 256, 128, 128 };  // bytes the mod may add to each of a frame's buffers
+static u32 gfx_mod_bytes[4];           // what the mod has added to each buffer in this frame
+static u32 gfx_most[4];                // the most it added to each in one frame, this scene
+static u32 gfx_plan_game[4];           // the game's own fill of each buffer in the last frame drawn
+static u32 gfx_plan_length[4];         // that buffer's length then; 0 while there is nothing to go by
+static s32 gfx_begun = -1;             // the drawn frame whose lists were begun
+static u32 gfx_short_n;                // additions left out for room, this scene
+static u8 gfx_short_said;
+
+// The buffer a pointer is in (context * 4 + its kind), the room left there in commands, the margin and the
+// buffer's length; -1 for a pointer in none of them.
+static s32 gfx_buffer(const Gfx* at, s32* room, s32* margin, u32* length) {
+    s32 i;
+
+    for (i = 0; i < 8; i++) {
+        u32 start = GTL_DL_BUFFERS[i * 2];
+        u32 len = GTL_DL_BUFFERS[i * 2 + 1];
+
+        if (len != 0 && (u32) at >= start && (u32) at <= start + len) {
+            u32 keep = len / 32;
+
+            *margin = (s32) ((keep > 512 ? keep : 512) / sizeof(Gfx));
+            *room = (s32) ((start + len - (u32) at) / sizeof(Gfx));
+            *length = len;
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Whether the mod may add n commands at `at` now. Its share of a buffer in a frame is what the last frame's own
+// fill left above the margin, and never more than its budget; and the room left at this moment must keep the
+// margin too. So the mod can only be what crosses the end in a frame whose own fill grew by more than the
+// margin since the frame before.
+static s32 gfx_may(const Gfx* at, s32 n) {
+    s32 room, margin, b, k;
+    u32 length, why, keep, share;
+
+    if (at == NULL) {
+        return 0;
+    }
+    b = gfx_buffer(at, &room, &margin, &length);
+    if (b < 0) {
+        return 1;
+    }
+    k = b & 3;
+    keep = (u32) margin * sizeof(Gfx);
+    share = (gfx_plan_game[k] + keep >= length) ? 0 : length - keep - gfx_plan_game[k];
+    if (share > gfx_budget[k]) {
+        share = gfx_budget[k];
+    }
+    why = (gfx_plan_length[k] != length) ? 1                                    // nothing to go by: the buffer is not the plan's
+        : (gfx_mod_bytes[k] + (u32) n * sizeof(Gfx) > share) ? 2               // past the share the last frame left
+        : (room - n < margin) ? 3 : 0;                                         // too little left now
+    if (why == 0) {
+        gfx_mod_bytes[k] += (u32) n * sizeof(Gfx);
+        if (gfx_mod_bytes[k] > gfx_most[k]) {
+            gfx_most[k] = gfx_mod_bytes[k];
+        }
+        return 1;
+    }
+    if (why != 1) {
+        gfx_short_n++;
+        if (!gfx_short_said) {
+            gfx_short_said = 1;
+            recomp_printf("[island skies] buffer %d of the frame: %s, so the mod leaves out what does not fit (%d commands left, the last frame's own fill %u of %u)\n",
+                          k, (why == 2 && share == gfx_budget[k]) ? "the mod's budget for a frame is spent" : "nearly full",
+                          room, gfx_plan_game[k], length);
+        }
+    }
+    return 0;
+}
+
+// The seed of a buffer's plan for a scene's first frame: the fullest the game's own fill of such a buffer was
+// measured. The photo check's main buffer (53,248 bytes) reached 50,864 on its own (Nov 8 2026, the eval tape,
+// at the release folder's settings and at JackandBeans's). No other buffer the mod draws into, in the five
+// courses or the photo check, ever passed 90% of its length: the port says so from 90% up ([SNAP-DL],
+// src/dl_budget.cpp), and no log of a ride or a run has such a line for one (Nov 2026).
+static u32 gfx_seed(s32 k, u32 length) {
+    u32 seed = length / 10 * 9;
+
+    if (k == 0 && length == 53248 && seed < 50864) {
+        seed = 50864;
+    }
+    return seed;
+}
+
+// A frame's draw begins (the light list's call, or omDrawAll's start, whichever comes first): its context's
+// lists start again, and so do the mod's shares. The drawn-frame count starts again with each scene, whose
+// first frame is planned from the seeds.
+static void gfx_frame_begins(void) {
+    s32 drawn = GTL_DRAWN, k;
+
+    if (drawn == gfx_begun) {
+        return;
+    }
+    if (drawn < gfx_begun || gfx_begun < 0) {
+        s32 c = frame_ctx();
+
+        for (k = 0; k < 4; k++) {
+            u32 length = GTL_DL_BUFFERS[(c * 4 + k) * 2 + 1];
+
+            gfx_plan_length[k] = length;
+            gfx_plan_game[k] = gfx_seed(k, length);
+        }
+    }
+    gfx_begun = drawn;
+    gfx_arena_used[frame_ctx()] = 0;
+    for (k = 0; k < 4; k++) {
+        gfx_mod_bytes[k] = 0;
+    }
+}
+
+// The draw has ended (omDrawAll's return): the game's own fill of each buffer, the plan for the next frame.
+static void gfx_frame_ends(void) {
+    s32 c = frame_ctx(), k;
+
+    for (k = 0; k < 4; k++) {
+        u32 start = GTL_DL_BUFFERS[(c * 4 + k) * 2];
+        u32 length = GTL_DL_BUFFERS[(c * 4 + k) * 2 + 1];
+        u32 at = (u32) MAIN_GFX_POS[k];
+
+        if (length == 0 || at < start || at - start > length) {
+            gfx_plan_length[k] = 0;
+            continue;
+        }
+        gfx_plan_game[k] = (at - start) - ((gfx_mod_bytes[k] < at - start) ? gfx_mod_bytes[k] : (at - start));
+        gfx_plan_length[k] = length;
+    }
+}
+
+// An extra whose length the frame decides is written into the stage first. Closed, it is copied whole into its
+// frame context's own lists, ended, and called from the game's buffer inside a window of the extension's
+// addresses (or with the call alone, `windowed`, for a caller already inside a window: none since cut 35c,
+// whose storm's flash and streak take windows of their own); or, without room or plan, it
+// is left out whole. A writer handed the stage itself (a roofed course's sky and weather hand theirs to the
+// rain, the snow, the storm and the streak) writes on into it, and the extra it is part of goes, or not, as one.
+static Gfx** gfx_stage_open(Gfx** game) {
+    if (game == &gfx_stage_at) {
+        return game;
+    }
+    gfx_stage_at = gfx_stage;
+    return &gfx_stage_at;
+}
+
+static void gfx_stage_close(Gfx** game, s32 windowed) {
+    s32 c, n, i;
+    Gfx* list;
+
+    if (game == &gfx_stage_at) {
+        return;
+    }
+    n = (s32) (gfx_stage_at - gfx_stage);
+    gfx_stage_at = gfx_stage;
+    c = frame_ctx();
+    if (n <= 0 || n > GFX_STAGE_N || *game == NULL || gfx_arena_used[c] + n + 1 > GFX_ARENA_N || !gfx_may(*game, windowed ? 1 : 3)) {
+        return;
+    }
+    list = &gfx_arena[c][gfx_arena_used[c]];
+    for (i = 0; i < n; i++) {
+        list[i] = gfx_stage[i];
+    }
+    list[n].words.w0 = 0xDF000000u;
+    list[n].words.w1 = 0;
+    gfx_arena_used[c] += n + 1;
+    if (!windowed) {
+        (*game)->words.w0 = EXT_WINDOW_W0;
+        (*game)->words.w1 = 1;
+        (*game)++;
+    }
+    (*game)->words.w0 = 0xDE000000u;
+    (*game)->words.w1 = (u32) list;
+    (*game)++;
+    if (!windowed) {
+        (*game)->words.w0 = EXT_WINDOW_W0;
+        (*game)->words.w1 = 0;
+        (*game)++;
+    }
+}
+
+// After a part: where it set the lights' colors for itself, the hour's lights are
+// loaded again in that list, from the frame's own copy of the record (which holds
+// the storm's flash too).
+static void actor_look(void) {
+    s32 i;
+
+    for (i = 0; i < 4; i++) {
+        volatile u32* cmd = (volatile u32*) actor_seen[i];
+        volatile u32* end = (volatile u32*) MAIN_GFX_POS[i];
+        s32 reload = 0;
+
+        if (cmd != NULL && end >= cmd && end - cmd < 4096) {
+            while (cmd < end) {
+                if (cmd[0] == 0xDB060038u) {        // the segment 0x0E: the part's materials
+                    reload |= actor_materials_set_lights(cmd[1]);
+                } else if ((cmd[0] >> 24) == 0xDE && actor_sets_lights(cmd[1])) {
+                    reload = 1;
+                }
+                cmd += 2;
+            }
+        }
+        if (reload && light_block_ok() && gfx_may(MAIN_GFX_POS[i], 3)) {
+            actor_emit(i, EXT_WINDOW_W0, 1);                                  // the frame's lists are in the mod's memory:
+            actor_emit(i, 0xDE000000u, (u32) light_reloads[frame_ctx()]);     // the light and the ambient, as the camera's list loads them
+            actor_emit(i, EXT_WINDOW_W0, 0);
+        }
+        actor_seen[i] = MAIN_GFX_POS[i];
+    }
+}
+
+// A Pokémon about to be drawn: read once a load; outside Day, followed part by part.
+static void actor_enters(DObj* first, s32 kind) {
+    u32 id = (u32) first->payload.any;
+    DObj* node;
+    s32 guard = 400;
+    s32 i;
+
+    actor_fire = (id == FIRE_MOLTRES || id == FIRE_MOLTRES_HD);
+    actor_rapidash = (id == GLOW_RAPIDASH || id == GLOW_RAPIDASH_HD);
+    actor_blast = actor_rapidash;
+    for (i = 0; i < actor_model_n; i++) {
+        if (actor_models[i] == id) {
+            break;
+        }
+    }
+    if (i == actor_model_n && actor_model_n < ACTOR_MODELS) {
+        actor_models[actor_model_n++] = id;
+        actor_lit = 1;
+        actor_fog = !actor_fire;        // the others are drawn inside the game's fog wrapper
+        actor_tex = 0;
+        for (i = 0; i < 64; i++) {
+            actor_slots[i] = 0;
+        }
+        for (node = first; node != NULL && guard-- > 0; node = after(node)) {
+            actor_payload(node, kind);
+        }
+        actors_hour();
+    }
+    actor_on = (nightness > 0.0f);
+    if (!actor_on) {
+        return;
+    }
+    for (i = 0; i < 4; i++) {
+        actor_seen[i] = MAIN_GFX_POS[i];
+    }
+    {
+        Gfx* last = MAIN_GFX_POS[0] - 1;
+        s32 fading = (last->words.w0 >> 24) == 0xF8;       // the game's fade has just set its own fog color
+
+        if (actor_fire && !fading && gfx_may(MAIN_GFX_POS[0], 1)) {
+            actor_emit(0, 0xD9FEFFFFu, 0);      // fog off from the first part: what came before cannot fog it
+        } else if (actor_rapidash && !fading) {
+            // The game's own wrapper, so the fog is on from the first part whatever
+            // came before; the lists are checked to be the wrapper's before they
+            // are called, and not called where the game has already wrapped it.
+            volatile u32* set = (volatile u32*) FOG_SET_LIST;
+            volatile u32* end = (volatile u32*) FOG_CLEAR_LIST;
+            s32 by_game = (last->words.w0 == 0xDE000000u && (last->words.w1 == FOG_SET_LIST || last->words.w1 == NOFOG_SET_LIST));
+
+            // Room for both ends of the wrapper, asked here: the end goes in whenever the start did.
+            if (!by_game && set[0] == 0xE7000000u && set[10] == 0xD9FFFFFFu && set[11] == FOG_BIT && end[0] == 0xE7000000u && end[6] == 0xD9FEFFFFu
+                && gfx_may(MAIN_GFX_POS[0], 2)) {
+                actor_emit(0, 0xDE000000u, FOG_SET_LIST);
+                actor_wrapped = 1;
+            }
+        }
+    }
+    for (i = 0; i < 4; i++) {
+        actor_seen[i] = MAIN_GFX_POS[i];
+    }
+}
+
 // A model about to be drawn. The first time each model of the course comes
 // by, its lists are read and given the night's light; after that the model
 // is known by its first list and passed over.
@@ -1243,6 +2064,7 @@ static void model_enters(GObj* obj, s32 kind) {
     for (i = 0; i < 4; i++) {
         entry_pos[i] = MAIN_GFX_POS[i];
     }
+    actor_on = 0;
     if (night == NULL || obj == NULL || obj->type != 1) {
         return;
     }
@@ -1251,6 +2073,10 @@ static void model_enters(GObj* obj, s32 kind) {
             first = node;
             break;
         }
+    }
+    if (first != NULL && actor_list((u32) first->payload.any)) {
+        actor_enters(first, kind);      // the course's Pokémon: not the walker's
+        return;
     }
     if (first == NULL || unit_of((u32) first->payload.any) < 0) {
         return;
@@ -1268,9 +2094,7 @@ static void model_enters(GObj* obj, s32 kind) {
         if (cam != NULL && cam->data.cam != NULL) {
             roof_place(cam);
             roof_strike();
-            if (moonlight_on) {
-                key_light();        // the drum's hook (night_sky_begins) never runs here
-            }
+            light_store();          // the drum's hook (night_sky_begins) never runs here: the strike's lean
         }
     }
     // A photo of a roofed course: the camera drawing its land, whose object
@@ -1294,9 +2118,7 @@ static void model_enters(GObj* obj, s32 kind) {
             if (storming && roof_outside) {
                 storm_light();      // the flash's veil, as a drum's photo has it
             }
-            if (moonlight_on) {
-                key_light();
-            }
+            light_store();
             if (!roof_photo_said) {
                 roof_photo_said = 1;
                 recomp_printf("[island skies] a photo of the tunnel: weather volume %d, %d units under the roof, %s\n",
@@ -1341,6 +2163,10 @@ static void model_enters(GObj* obj, s32 kind) {
             walk_payload(node, kind);
         }
         glint_recording = 0;
+        if (fine_new) {
+            fine_new = 0;
+            fine_roof_refresh();
+        }
         if (glint_tris == tris_before && glint_land == land_before) {
             // Nothing of the world in this model: what it loaded is dropped again.
             glint_vtx_n = vtx_before;
@@ -1385,6 +2211,14 @@ static GObj* sky_now;           // the sky being drawn, for the camera's place
 static void model_leaves(void) {
     s32 i;
 
+    if (actor_on) {
+        actor_look();
+        actor_on = 0;
+    }
+    if (actor_wrapped) {
+        actor_emit(0, 0xDE000000u, FOG_CLEAR_LIST);     // the wrapper's end, as the game's own
+        actor_wrapped = 0;
+    }
     if (night == NULL) {
         return;
     }
@@ -1415,7 +2249,6 @@ static void model_leaves(void) {
     // depth, does not paint over it.
     if (drawing_water && !scoring && sky_now != NULL && glows_on && !sunset && clear_share > 0.0f) {
         drawing_water = 0;
-        glow_turn ^= 1;
         if (night->fireflies != NULL) {
             fireflies(sky_now);
         }
@@ -1445,10 +2278,17 @@ RECOMP_HOOK_RETURN("renRenderModelTypeD") void night_model_d_done(void) { model_
 RECOMP_HOOK_RETURN("renRenderModelTypeI") void night_model_i_done(void) { model_leaves(); }
 RECOMP_HOOK_RETURN("renRenderModelTypeJ") void night_model_j_done(void) { model_leaves(); }
 
-// The scene light: ambient at 0 and diffuse at 8, each kept twice by the
-// game's light record.
+// A Pokémon's part about to be drawn: what the part before it left is looked at first.
+RECOMP_HOOK("renRenderModelNodeTypeB") void night_node_b(DObj* dobj) { if (actor_on) { actor_look(); } }
+RECOMP_HOOK("renRenderModelNodeTypeD") void night_node_d(DObj* dobj) { if (actor_on) { actor_look(); } }
+RECOMP_HOOK("renRenderModelNodeTypeI") void night_node_i(DObj* dobj) { if (actor_on) { actor_look(); } }
+RECOMP_HOOK("renRenderModelNodeTypeJ") void night_node_j(DObj* dobj) { if (actor_on) { actor_look(); } }
+
+// The scene light: ambient at 0 and diffuse at 8, each twice, as the game's light
+// record lays them out; kept by the mod and carried by each frame (light_store),
+// the record itself left as the game has it.
 static void set_light(const Night* by) {
-    volatile u8* light = COURSE_LIGHT;
+    volatile u8* light = light_now;
     s32 i;
 
     for (i = 0; i < 3; i++) {
@@ -1463,6 +2303,10 @@ static void set_light(const Night* by) {
         light[i] = light[4 + i] = (u8) ambient;
         light[8 + i] = light[12 + i] = (u8) diffuse;
     }
+    light[3] = light[7] = light[11] = light[15] = 0;
+    light_set = (by != NULL);
+    actors_hour();
+    light_store();
 }
 
 // A sky picture, recolored where it lies. The night keeps the day picture's
@@ -1514,18 +2358,116 @@ static u32 day_texel(s32 which, s32 i, s32 k) {
     return c[k];
 }
 
+// The haze of the Beach, the River and the Volcano. Their pictures hold a haze
+// as well as clouds, a floor under each row of the mask that climbs to 250 under
+// the River's lid and from 17 to 252 down the Volcano's sky. Five bits a channel
+// cannot hold it: the top fade took it down in whole rows, each a step of the
+// picture all the way round, and the drum's six-sided rim and rings stood out.
+// So each row of the picture is divided by its own open sky and painted from a
+// constant (sky_paint), and the corners carry that sky (sky_corners). Open sky is
+// then one color of the picture at every height and every hour, so it never
+// crosses a step, and a cloud keeps its contrast against the sky around it. The
+// Tunnel's first picture is the Beach's, with the same haze; its heights are
+// reckoned by the fine sky. The shares are of 255, at the low ring and at the top ring; keep
+// is the rows left alone at the bottom; base is the constant, red, green, blue:
+// high enough to keep the corners under 255 with the lava's glow on them, low
+// enough to leave the clouds room above it (Nov 6 2026).
+typedef struct SkyHaze {
+    u32 setup;
+    s16 low_y, top_y;
+    u8 low, top, keep;
+    u8 base[3];
+    u8 night_base[3];           // the night's: its clouds stand further above their sky, and want the room
+} SkyHaze;
+
+static const SkyHaze sky_hazes[] = {
+    { NIGHT_BEACH_SETUP, -153, 687, 88, 0, 0, { 165, 173, 213 }, { 140, 156, 196 } },
+    { NIGHT_RIVER_SETUP, 0, 1000, 48, 51, 2, { 173, 172, 204 }, { 172, 172, 204 } },
+    { NIGHT_VOLCANO_SETUP, 0, 1000, 230, 15, 0, { 190, 198, 196 }, { 140, 140, 164 } },
+    { NIGHT_TUNNEL_SETUP, 0, 1000, 88, 0, 0, { 165, 173, 213 }, { 140, 156, 196 } },
+};
+static u8 sky_floor[32];        // each row's floor; nothing on the other courses
+static f32 sky_gain[3] = { 1.0f, 1.0f, 1.0f };     // what five bits lost or gained of the painted picture, for the corners to give back
+
+// How far the hour has come into the Night's way of doing this: none at Sunset, at
+// Dawn, or with any of the Day in the blend.
+static f32 sky_night_share(void) {
+    return nightness >= 1.0f ? 1.0f - (f32) cloud_top_fade / 255.0f : 0.0f;
+}
+
+// The constant in force: the day's end's, going to the night's as far as the dusk has
+// come, picture and corners alike at every moment, so the open sky does not move. It
+// moves on the picture's own steps of eight and stands halfway up one, so a faint
+// cloud rounds the same way at every moment and each move is a whole step, which the
+// corners take back. None of the night's with any Day in the blend: picture and
+// corners would not cancel.
+static s32 sky_base(const SkyHaze* haze, s32 k) {
+    f32 share = sky_night_share();
+    f32 b = (f32) haze->base[k] + (f32) ((s32) haze->night_base[k] - (s32) haze->base[k]) * share;
+
+    if (share <= 0.0f) {
+        return haze->base[k];
+    }
+    return (s32) ((b - 4.0f) / 8.0f + 0.5f) * 8 + 4;
+}
+
+// At Night the open sky climbs the drum on one smooth line, from the low rows' haze to
+// the top row's, by the share of the top ring the tints themselves take, so it is level
+// where it meets the lid and has no corner at the middle ring. The corners carry the
+// line; the picture's clouds stand on it by their difference from their row's open sky,
+// so they keep the height above their sky they have on the cartridge (Nov 7 2026).
+static f32 sky_night_line(const SkyHaze* haze, s32 k, f32 up) {
+    f32 top_now = (f32) haze->top + ((f32) sky_floor[31] - (f32) haze->top) * (f32) (255 - (s32) cloud_top_fade) / 255.0f;
+    f32 h = ((f32) haze->low + (top_now - (f32) haze->low) * up) / 255.0f;
+
+    return (f32) pic_sky[k] + (f32) ((s32) pic_cloud[k] - (s32) pic_sky[k]) * h;
+}
+
+// That share at a row of the picture, which runs from the middle ring to the top one.
+// A picture is painted before the drum is first read, so the rings are from the record;
+// the drums' lowest ring stands at -400 on all three courses.
+static f32 sky_row_up(const SkyHaze* haze, s32 row) {
+    f32 a = (f32) row / 31.0f;
+
+    return a * a * (3.0f - 2.0f * a) + a * (1.0f - a) * (1.0f - a) * (f32) (haze->top_y - haze->low_y) / (f32) (haze->top_y + 400);
+}
+
+static const SkyHaze* sky_haze_of(const Night* by) {
+    u32 i;
+
+    for (i = 0; i < sizeof(sky_hazes) / sizeof(sky_hazes[0]); i++) {
+        if (sky_hazes[i].setup == by->setup) {
+            return &sky_hazes[i];
+        }
+    }
+    return NULL;
+}
+
 static void sky_paint(u32 pic, const u8* mask, s32 which) {
     s32 share = (s32) (nightness * 256.0f);
     volatile u16* texel = (volatile u16*) pic;
     s32 lid = !(which == 1 && night->setup == NIGHT_VALLEY_SETUP);      // the Valley's second picture stands under the first
+    const SkyHaze* haze = (which == 0) ? sky_haze_of(night) : NULL;     // the Tunnel's second picture has no eye under it
+    f32 by_line = (haze != NULL && night->setup != NIGHT_TUNNEL_SETUP) ? sky_night_share() : 0.0f;
+    f32 line[3] = { 0.0f, 0.0f, 0.0f };
+    u32 kept[3], drawn[3];
     s32 i;
 
+    for (i = 0; i < 3; i++) {
+        kept[i] = drawn[i] = 0;
+    }
     for (i = 0; i < SKY_TEXELS; i++) {
-        s32 m = mask[i];
         s32 row = i >> 6;
+        s32 open = sky_floor[row];
+        s32 m = (lid && haze != NULL && row == 31) ? open : mask[i];     // the lid's row: open sky, one color at every hour
         u32 c[3];
         s32 k;
 
+        if (by_line > 0.0f && (i & 63) == 0) {
+            for (k = 0; k < 3; k++) {
+                line[k] = sky_night_line(haze, k, sky_row_up(haze, row));
+            }
+        }
         if (lid && cloud_top_fade != 0 && row > 12) {
             // At sunset the clouds thin away toward the top of the drum, so
             // its flat lid (the picture's top row, one color) meets the sides
@@ -1537,9 +2479,23 @@ static void sky_paint(u32 pic, const u8* mask, s32 which) {
             s32 f = ((row - 12) * 255) / 19;
 
             m -= ((((m * f) / 255) * f) / 255) * cloud_top_fade / 255;
+            open -= ((((open * f) / 255) * f) / 255) * cloud_top_fade / 255;
         }
         for (k = 0; k < 3; k++) {
             c[k] = (u32) (pic_sky[k] + (((s32) pic_cloud[k] - pic_sky[k]) * m) / 255);
+            if (haze != NULL) {
+                // This row's open sky comes to the constant, and the clouds with it.
+                s32 sky = (s32) pic_sky[k] + (((s32) pic_cloud[k] - pic_sky[k]) * open) / 255;
+                s32 base = sky_base(haze, k);
+                s32 v;
+
+                if (by_line > 0.0f) {
+                    v = base + (s32) ((f32) (((s32) c[k] - sky) * base) / ((f32) sky + (line[k] - (f32) sky) * by_line));
+                } else {
+                    v = ((s32) c[k] * base) / sky;
+                }
+                c[k] = (u32) (v < 0 ? 0 : v > 255 ? 255 : v);
+            }
         }
         if (share < 256) {
             for (k = 0; k < 3; k++) {
@@ -1548,7 +2504,20 @@ static void sky_paint(u32 pic, const u8* mask, s32 which) {
                 c[k] = day + (((s32) c[k] - (s32) day) * share) / 256;
             }
         }
+        if (haze != NULL) {
+            for (k = 0; k < 3; k++) {
+                u32 five = c[k] >> 3;
+
+                kept[k] += c[k];
+                drawn[k] += (five << 3) | (five >> 2);
+            }
+        }
         texel[i] = (u16) (((c[0] >> 3) << 11) | ((c[1] >> 3) << 6) | ((c[2] >> 3) << 1) | 1);
+    }
+    if (haze != NULL) {
+        for (i = 0; i < 3; i++) {
+            sky_gain[i] = (f32) kept[i] / (f32) drawn[i];
+        }
     }
 }
 
@@ -1755,13 +2724,61 @@ static void sky_masks_meet(void) {
     }
 }
 
+// Each row's floor under the mask, a little smoothed between rows and never
+// under the row's own least, so that open sky comes to nothing (sky_hazes).
+static void sky_floor_make(const Night* by) {
+    const SkyHaze* haze = sky_haze_of(by);
+    u8 least[32];
+    s32 r, x;
+
+    for (r = 0; r < 32; r++) {
+        sky_floor[r] = 0;
+    }
+    if (haze == NULL) {
+        return;
+    }
+    for (r = 0; r < 32; r++) {
+        u8 m = 255;
+
+        for (x = 0; x < 64; x++) {
+            if (sky_mask_pic[0][r * 64 + x] < m) {
+                m = sky_mask_pic[0][r * 64 + x];
+            }
+        }
+        least[r] = m;
+    }
+    for (r = 0; r < haze->keep; r++) {
+        sky_floor[r] = haze->low;       // their open sky is the corners', so they come out as they were
+    }
+    for (r = haze->keep; r < 32; r++) {
+        s32 below = (r - 1 < haze->keep) ? r : r - 1;
+        s32 above = (r + 1 > 31) ? 31 : r + 1;
+        s32 smooth = ((s32) least[below] + 2 * (s32) least[r] + (s32) least[above]) / 4;
+
+        sky_floor[r] = (u8) (smooth > (s32) least[r] ? smooth : (s32) least[r]);
+    }
+}
+
 // How low and how high the sky box's corners reach, as sines of elevation,
 // so that the lowest ring takes the horizon's tint and the highest the top's.
+// The top ring's corners are whole numbers, and their sines differ in the fourth
+// place: the least of them is the top, so that every one of them is all the way
+// up and they take one color (the lid's seams, Nov 6 2026).
 static void sky_extent(const Night* by) {
+    s32 top_y = -32768;
     s32 i, j;
 
     sky_sin_lo = 1.0f;
-    sky_sin_hi = -1.0f;
+    sky_sin_hi = 1.0f;
+    for (i = 0; i < 2; i++) {
+        for (j = 0; j < by->sky_vtx_n[i]; j++) {
+            s32 y = ((volatile s16*) (by->sky_vtx[i] + 16 * j))[1];
+
+            if (y > top_y) {
+                top_y = y;
+            }
+        }
+    }
     for (i = 0; i < 2; i++) {
         for (j = 0; j < by->sky_vtx_n[i]; j++) {
             volatile s16* pos = (volatile s16*) (by->sky_vtx[i] + 16 * j);
@@ -1776,7 +2793,7 @@ static void sky_extent(const Night* by) {
                 if (sine < sky_sin_lo) {
                     sky_sin_lo = sine;
                 }
-                if (sine > sky_sin_hi) {
+                if (pos[1] >= top_y - 2 && sine < sky_sin_hi) {
                     sky_sin_hi = sine;
                 }
             }
@@ -1794,12 +2811,34 @@ static void sky_extent(const Night* by) {
 // the sky. At the sunset's and the dawn's hours the Valley's sky is lighter
 // toward the sun, the more the higher, so the colors near the lid do not all
 // run along the drum's rings. No deeper away from it: the ring would stand
-// darker than the lid above it.
+// darker than the lid above it. Near the top the warmth evens out around the
+// sky, to what it comes to on the whole, so the top ring and the lid are one
+// color (Nov 6 2026): around is its share as a corner faces the sun, even its
+// share whichever way the corner faces.
+static const u8 sky_sun_side[3] = { 14, 8, 4 };
+static u8 sky_lo_now[3];        // tint_lo as the corners last took it: the lava's glow is on it for that moment only
+
+static void sky_warm_shares(f32 up, f32* around, f32* even) {
+    f32 f = (up - 0.55f) / 0.45f;
+    f32 s = f <= 0.0f ? 0.0f : f >= 1.0f ? 1.0f : f * f * (3.0f - 2.0f * f);
+
+    *around = up * (1.0f - s);
+    *even = up * s * 0.31831f;      // one over pi: the mean around a circle of a facing that stops at nothing
+}
+
 static void sky_corners(u32 addr, s32 count, s32 which) {
-    static const u8 sun_side[3] = { 14, 8, 4 };
     f32 life = (night->setup == NIGHT_VALLEY_SETUP) ? ((f32) cloud_top_fade / 255.0f) * clear_share : 0.0f;
+    const SkyHaze* haze = sky_haze_of(night);
+    f32 top_now = 0.0f;
     s32 i;
 
+    if (haze != NULL) {
+        // The top fade took the top ring's haze; as it goes, the haze comes back.
+        top_now = (f32) haze->top + ((f32) sky_floor[31] - (f32) haze->top) * (f32) (255 - (s32) cloud_top_fade) / 255.0f;
+    }
+    sky_lo_now[0] = tint_lo[0];
+    sky_lo_now[1] = tint_lo[1];
+    sky_lo_now[2] = tint_lo[2];
     for (i = 0; i < count; i++) {
         volatile s16* pos = (volatile s16*) (addr + 16 * i);
         volatile u8* color = (volatile u8*) (addr + 16 * i + 12);
@@ -1810,6 +2849,7 @@ static void sky_corners(u32 addr, s32 count, s32 which) {
         f32 up = len > 1.0f ? (y / len - sky_sin_lo) / (sky_sin_hi - sky_sin_lo) : 0.0f;
         f32 flat = __builtin_sqrtf(x * x + z * z);
         f32 facing = flat > 1.0f ? (x * relight_dir[0] + z * relight_dir[2]) / flat : 0.0f;
+        f32 around, even;
         s32 share;
         s32 toward;
         s32 k;
@@ -1820,6 +2860,7 @@ static void sky_corners(u32 addr, s32 count, s32 which) {
         if (up > 1.0f) {
             up = 1.0f;
         }
+        sky_warm_shares(up, &around, &even);
         share = (s32) (up * 256.0f);        // the height's share, horizon to top
         toward = (s32) ((0.5f + 0.5f * facing) * 256.0f);
         if (!sky_orig_cn_kept[which] && i < 64) {
@@ -1827,8 +2868,22 @@ static void sky_corners(u32 addr, s32 count, s32 which) {
         }
         for (k = 0; k < 3; k++) {
             s32 low = tint_away[k] + (((s32) tint_lo[k] - tint_away[k]) * toward) / 256;
-            s32 tint = low + (((s32) tint_hi[k] - low) * share) / 256 + (s32) (life * (f32) sun_side[k] * (facing > 0.0f ? facing : 0.0f) * up);
-            s32 day = (i < 64) ? (s32) ((sky_orig_cn[which][i] >> (16 - 8 * k)) & 0xFF) : tint;
+            s32 tint = low + (((s32) tint_hi[k] - low) * share) / 256 + (s32) (life * (f32) sky_sun_side[k] * ((facing > 0.0f ? facing : 0.0f) * around + even));
+            s32 day;
+
+            if (haze != NULL) {
+                // The open sky the picture no longer holds at this height, as far as it has left it,
+                // and what five bits made of the picture.
+                f32 a = (y - (f32) haze->low_y) / (f32) (haze->top_y - haze->low_y);
+                f32 h, fit;
+
+                a = a < 0.0f ? 0.0f : a > 1.0f ? 1.0f : a;
+                h = ((f32) haze->low + (top_now - (f32) haze->low) * a) / 255.0f;
+                fit = (f32) pic_sky[k] + (f32) ((s32) pic_cloud[k] - (s32) pic_sky[k]) * h;
+                tint = (s32) ((f32) tint * fit / (f32) sky_base(haze, k) * sky_gain[k]);
+                tint = tint > 255 ? 255 : tint;
+            }
+            day = (i < 64) ? (s32) ((sky_orig_cn[which][i] >> (16 - 8 * k)) & 0xFF) : tint;
 
             if (i < 64 && overcast_share > 0.0f) {
                 day += (s32) ((f32) (255 - day) * overcast_share);     // a day under weather: the drum untinted, the overcast flat
@@ -1926,13 +2981,32 @@ static void twinkle(const Night* by) {
     by->twinkle[by->twinkles][0].words.w1 = 0xFFFFFF00u | (u32) ((235 * (s32) star_fade) / 255);
 }
 
-// The mod's stars and moon live in the mod's own memory, above the
-// console's. The renderer reads an address up there only between these two
-// commands of its extended set (rt64_extended_gbi.h: opcode 0x64,
-// G_EX_SETRDRAMEXTENDED_V1 = 0x2C), so they go around the sky's drawing.
-static void extended_addresses(s32 on) {
-    Gfx* cmd = MAIN_GFX_POS[0]++;
+// The mod's own lists live in the mod's own memory, above the console's. The
+// renderer reads an address up there only between these two commands of its
+// extended set (rt64_extended_gbi.h: opcode 0x64, G_EX_SETRDRAMEXTENDED_V1 =
+// 0x2C). Every call the mod puts into the game's lists carries a pair of its
+// own (the light, a part's reload, every extra, the sky's spare pair, a roofed
+// course's finer faces); this pair goes around the sky's drawing for the fine
+// sky alone, the one call that takes the drum's own place.
+static u8 ext_open;     // the sky's window of the mod's own addresses is open in this frame's main list
 
+// The window opens only with room for both of its ends; the fine sky goes in only while it is open (and
+// otherwise the drum stays the game's own), and it closes only if it opened.
+static void extended_addresses(s32 on) {
+    Gfx* cmd;
+
+    if (on) {
+        ext_open = (u8) gfx_may(MAIN_GFX_POS[0], 2);
+        if (!ext_open) {
+            return;
+        }
+    } else {
+        if (!ext_open) {
+            return;
+        }
+        ext_open = 0;
+    }
+    cmd = MAIN_GFX_POS[0]++;
     cmd->words.w0 = (0x64u << 24) | 0x00002Cu;
     cmd->words.w1 = on ? 1u : 0u;
 }
@@ -1943,6 +3017,1043 @@ static void command(Gfx** list, u32 w0, u32 w1) {
     cmd->words.w0 = w0;
     cmd->words.w1 = w1;
 }
+
+// ---- The fine sky ----
+// At every hour but the cartridge's own Day the sky is drawn from here, the same
+// pictures in the same places. Three things drew a six-sided line across it at
+// the port's resolution (JackandBeans's pictures, Nov 6 2026): the top ring's
+// corners rounded apart, and the lid showed straight seams; the color went by
+// height on six flat faces, so its level lines were six-sided and its slope broke
+// along them; and the last rounding to eight bits made steps of those lines. So a
+// much finer drum stands in for the port's, each corner colored by its direction
+// from the eye: the lid and the sky around it one color, the level lines round,
+// and the slope never breaking at a face. The rings' colors, the curve between
+// them and the corners' law are the port's and sky_corners'; the height they are
+// read at is the height the corner's elevation has on the drum, around the ring.
+// A corner's color has eight bits, and on a drum this fine their rounding stands
+// out as lumps: so the faces are drawn twice, the second time at an eighth, the
+// same picture under corners that make up what the first lost. The sum is the
+// picture times a color good to an eighth of a level, in each channel.
+// And the sky's own draw adds half a level of noise either way before the
+// rounding, new at each pixel and each frame, so the rounding makes no steps.
+// The day's end of every blend is the port's own colors, laid on its own cuts,
+// so nothing moves as an hour leaves Day; at Day itself the port's drum is drawn.
+#define FINE_CUT 12             // each of the game's triangles is cut in twelve along each side: the port's four, by three
+#define FINE_CUT_PORT 4
+#define FINE_TRI_VTX (((FINE_CUT + 1) * (FINE_CUT + 2)) / 2)
+#define FINE_PER (FINE_CUT / FINE_CUT_PORT)
+#define FINE_TRI_CMDS (FINE_CUT + (FINE_CUT * (FINE_CUT + 1)) / 2)     // a load a row, its triangles two to a command
+#define FINE_TRIS 80            // a drum has 28; the Tunnel's three painted boxes 74
+#define FINE_VTX (FINE_TRIS * FINE_TRI_VTX)
+#define FINE_CMDS (FINE_TRIS * FINE_TRI_CMDS * 2 + 256)
+#define FINE_EIGHTH 32          // the second pass's share, of 255: its corners' alpha
+#define FINE_PARTS 4
+#define FINE_PATCH 4            // the commands a roofed course's call takes in its list
+#define FINE_RDRAM 0x6400002Cu  // the renderer's extended addresses (extended_addresses)
+#define FINE_PLAIN_W0 0xFC121824u   // the cartridge's sky: TEXEL0 * SHADE
+#define FINE_PLAIN_W1 0xFF33FFFFu
+#define FINE_NOISE_W0 0xFC1218EFu   // TEXEL0 * SHADE, then (NOISE - K4) * K5 + COMBINED
+#define FINE_NOISE_W1 0xF7FFFE38u
+#define FINE_KEYS 0x00010001u       // K4 128 of 255, the noise's middle; K5 1 of 255, its size: a level, end to end
+#define FINE_ZETA 0.91f             // a six-sided ring's mean radius, of its corners'
+
+typedef struct FineCorner {
+    f32 w[3];           // its share of each ring's color
+    f32 hx, hz;         // its way around the sky, as a unit
+    f32 warm;           // its share of the sun's warmth, as it faces the sun
+    f32 even;           // and all round, whichever way it faces
+    f32 a;              // on a roofed course: how far up its picture it stands, for the picture's haze
+    u16 day[3];         // the day's color at it, in 256ths of a level
+} FineCorner;
+
+typedef struct FinePart {       // a roofed course's run of sky faces
+    u32 from, to;               // the commands it stands in for
+    u32 saved[FINE_PATCH * 2];  // the words its call covers
+    f32 up_lo, up_hi;           // how high its lowest and highest corners stand (sky_up)
+    u16 vtx0, vtx_n, list0;
+    u8 paint[3];                // its corners' paint
+    u8 tris, on, bad, turn, hazed;
+} FinePart;
+
+static Vtx fine_vtx[FRAME_CTX][2][FINE_VTX];    // each frame context's set: the first pass's corners, the second's
+static Gfx fine_list[FRAME_CTX][FINE_CMDS];
+static Gfx fine_entry[FRAME_CTX][2];
+static u32 fine_rest;                   // the game's own sky list, which the port's drum branches to after it
+static u32 sky_tail_for(s32 c);
+static FineCorner fine_corner[FINE_VTX];
+static FinePart fine_part[FINE_PARTS];
+static s16 fine_tri[FINE_TRIS][3][5];   // the drum's triangles: each corner's x, y, z, s, t
+static s32 fine_parts, fine_vtx_n, fine_cmd_n;
+static u8 fine_turn, fine_ready, fine_failed, fine_full;
+static u32 fine_sum[FRAME_CTX];
+static f32 fine_ring_y[3], fine_ring_up[3];
+static f32 fine_node[3][8][3];          // the rings' corners' day colors, around
+static f32 fine_mean_top[3];
+static s32 fine_nodes;
+static f32 fine_az0, fine_step, fine_top_sin2;
+
+// A course's load starts the fine sky over.
+static void fine_reset(void) {
+    fine_parts = 0;
+    fine_vtx_n = 0;
+    fine_cmd_n = 0;
+    fine_ready = 0;
+    fine_failed = 0;
+    fine_full = 0;
+    fine_open = 0;
+    fine_new = 0;
+    fine_sum[0] = fine_sum[1] = 0;
+}
+
+static void fine_emit(u32 w0, u32 w1) {
+    s32 k;
+
+    if (fine_cmd_n >= FINE_CMDS) {
+        fine_full = 1;
+        return;
+    }
+    for (k = 0; k < FRAME_CTX; k++) {
+        fine_list[k][fine_cmd_n].words.w0 = w0;
+        fine_list[k][fine_cmd_n].words.w1 = w1;
+    }
+    fine_cmd_n++;
+}
+
+// A point of the cut triangle, in whole numbers and the same from either side of
+// a shared edge, so two faces meet without a crack.
+static s32 fine_mix(s32 a, s32 b, s32 c, s32 i, s32 j) {
+    s32 sum = a * (FINE_CUT - i - j) + b * i + c * j;
+
+    return sum >= 0 ? (sum + FINE_CUT / 2) / FINE_CUT : -((-sum + FINE_CUT / 2) / FINE_CUT);
+}
+
+// A triangle's commands for one pass: a load for each row and the next, the
+// triangles between them wound as the game's, two to a command.
+static void fine_rows(s32 base, s32 pass) {
+    s32 row = base;
+    s32 i, j, k;
+
+    for (j = 0; j < FINE_CUT; j++) {
+        s32 across = FINE_CUT + 1 - j;
+        s32 count = across + across - 1;
+        u32 first = 0;
+        s32 have = 0;
+
+        for (k = 0; k < FRAME_CTX; k++) {
+            fine_list[k][fine_cmd_n].words.w0 = (0x01u << 24) | ((u32) count << 12) | ((u32) count << 1);
+            fine_list[k][fine_cmd_n].words.w1 = (u32) &fine_vtx[k][pass][row];
+        }
+        fine_cmd_n++;
+        for (i = 0; i < across - 1; i++) {
+            s32 t;
+
+            for (t = 0; t < ((i < across - 2) ? 2 : 1); t++) {
+                u32 p = (u32) (t == 0 ? i : i + 1);
+                u32 q = (u32) (t == 0 ? i + 1 : across + i + 1);
+                u32 r = (u32) (across + i);
+                u32 word = (p * 2) << 16 | (q * 2) << 8 | (r * 2);
+
+                if (have) {
+                    fine_emit((0x06u << 24) | first, word);
+                    have = 0;
+                } else {
+                    first = word;
+                    have = 1;
+                }
+            }
+        }
+        if (have) {
+            fine_emit((0x05u << 24) | first, 0);
+        }
+        row += across;
+    }
+}
+
+// Cuts one triangle, its corners five numbers each (x, y, z and the picture's s,
+// t), into every set of corners, row by row, and its first pass into both lists.
+static s32 fine_cut_face(const s16* a, const s16* b, const s16* c) {
+    s32 base = fine_vtx_n;
+    s32 n = base;
+    s32 i, j, k;
+
+    if (fine_vtx_n + FINE_TRI_VTX > FINE_VTX || fine_cmd_n + FINE_TRI_CMDS * 2 + 32 > FINE_CMDS) {
+        fine_full = 1;
+        return -1;
+    }
+    for (j = 0; j <= FINE_CUT; j++) {
+        for (i = 0; i + j <= FINE_CUT; i++) {
+            for (k = 0; k < 4; k++) {
+                Vtx* p = &fine_vtx[k >> 1][k & 1][n];
+
+                p->v.ob[0] = (s16) fine_mix(a[0], b[0], c[0], i, j);
+                p->v.ob[1] = (s16) fine_mix(a[1], b[1], c[1], i, j);
+                p->v.ob[2] = (s16) fine_mix(a[2], b[2], c[2], i, j);
+                p->v.flag = 0;
+                p->v.tc[0] = (s16) fine_mix(a[3], b[3], c[3], i, j);
+                p->v.tc[1] = (s16) fine_mix(a[4], b[4], c[4], i, j);
+                p->v.cn[0] = p->v.cn[1] = p->v.cn[2] = 0;
+                p->v.cn[3] = (k & 1) ? FINE_EIGHTH : 255;
+            }
+            n++;
+        }
+    }
+    fine_vtx_n = n;
+    fine_rows(base, 0);
+    return base;
+}
+
+// The azimuth as the port reckons it (patches/src/sky_patch.c), degrees.
+static f32 fine_atan_unit(f32 z) {
+    f32 z2 = z * z;
+
+    return z * (0.99997726f + z2 * (-0.33262347f + z2 * (0.19354346f + z2 * (-0.11643287f + z2 * (0.05265332f + z2 * -0.01172120f)))));
+}
+
+static f32 fine_azimuth(f32 x, f32 z) {
+    f32 ax = x < 0.0f ? -x : x;
+    f32 az = z < 0.0f ? -z : z;
+    f32 a;
+
+    if (ax < 0.001f && az < 0.001f) {
+        return 0.0f;
+    }
+    if (az >= ax) {
+        a = fine_atan_unit(ax / az);
+    } else {
+        a = 1.57079633f - fine_atan_unit(az / ax);
+    }
+    if (z < 0.0f) {
+        a = 3.14159265f - a;
+    }
+    if (x < 0.0f) {
+        a = -a;
+    }
+    return a * (180.0f / 3.14159265f);
+}
+
+// The port's curve between the rings, as each ring's share of the color.
+static void fine_shares(f32 y, f32* w) {
+    f32 y0 = fine_ring_y[0], y1 = fine_ring_y[1], y2 = fine_ring_y[2];
+
+    if (y >= y2) {
+        w[0] = 0.0f;
+        w[1] = 0.0f;
+        w[2] = 1.0f;
+    } else if (y <= y0) {
+        w[0] = 1.0f;
+        w[1] = 0.0f;
+        w[2] = 0.0f;
+    } else {
+        s32 low = y < y1;
+        f32 span = low ? y1 - y0 : y2 - y1;
+        f32 u = (y - (low ? y0 : y1)) / span;
+        f32 u2 = u * u;
+        f32 u3 = u2 * u;
+        f32 h00 = 2.0f * u3 - 3.0f * u2 + 1.0f;
+        f32 h10 = u3 - 2.0f * u2 + u;
+        f32 h01 = -2.0f * u3 + 3.0f * u2;
+        f32 h11 = u3 - u2;
+        f32 m = span / (y2 - y0);
+
+        if (low) {
+            w[0] = h00 - h11 * m;
+            w[1] = h01;
+            w[2] = h11 * m;
+        } else {
+            w[0] = -h10 * m;
+            w[1] = h00;
+            w[2] = h01 + h10 * m;
+        }
+    }
+}
+
+// The day's color at a point of the port's cuts: its sky_paint, from the game's
+// corners as the cartridge has them.
+static void fine_port_color(f32 x, f32 y, f32 z, f32* out) {
+    f32 ring[3][3];
+    f32 f = (fine_azimuth(x, z) - fine_az0) / fine_step;
+    s32 seg = (s32) f;
+    f32 t, t2, t3, w[4];
+    s32 n[4];
+    s32 r, k;
+
+    if ((f32) seg > f) {
+        seg--;
+    }
+    t = f - (f32) seg;
+    t2 = t * t;
+    t3 = t2 * t;
+    w[0] = (-t3 + 2.0f * t2 - t) * 0.5f;
+    w[1] = (3.0f * t3 - 5.0f * t2 + 2.0f) * 0.5f;
+    w[2] = (-3.0f * t3 + 4.0f * t2 + t) * 0.5f;
+    w[3] = (t3 - t2) * 0.5f;
+    for (k = 0; k < 4; k++) {
+        s32 q = (seg - 1 + k) % fine_nodes;
+
+        n[k] = q < 0 ? q + fine_nodes : q;
+    }
+    for (r = 0; r < 3; r++) {
+        for (k = 0; k < 3; k++) {
+            ring[r][k] = w[0] * fine_node[r][n[0]][k] + w[1] * fine_node[r][n[1]][k] + w[2] * fine_node[r][n[2]][k] + w[3] * fine_node[r][n[3]][k];
+        }
+    }
+    if (y >= fine_ring_y[2] - 1.0f) {
+        f32 len2 = x * x + y * y + z * z;
+        f32 sin2 = (len2 > 1.0f) ? (y * y) / len2 : 0.0f;
+        f32 dome = (fine_top_sin2 < 0.999f) ? (sin2 - fine_top_sin2) / (1.0f - fine_top_sin2) : 0.0f;
+
+        dome = dome < 0.0f ? 0.0f : dome > 1.0f ? 1.0f : dome;
+        dome = dome * dome * (3.0f - 2.0f * dome);
+        for (k = 0; k < 3; k++) {
+            out[k] = ring[2][k] + (fine_mean_top[k] - ring[2][k]) * dome;
+        }
+    } else if (y <= fine_ring_y[0] + 1.0f) {
+        for (k = 0; k < 3; k++) {
+            out[k] = ring[0][k];
+        }
+    } else {
+        f32 s[3];
+
+        fine_shares(y, s);
+        for (k = 0; k < 3; k++) {
+            out[k] = s[0] * ring[0][k] + s[1] * ring[1][k] + s[2] * ring[2][k];
+        }
+    }
+    for (k = 0; k < 3; k++) {
+        f32 c = out[k] + 0.5f;
+
+        out[k] = (f32) (c < 0.0f ? 0 : c > 255.0f ? 255 : (s32) c);
+    }
+}
+
+// A triangle's day colors: the port's at its own cuts, laid straight across them
+// as the port's triangles lay them, so the sky at the day's end is the port's.
+static void fine_day_face(s32 base, const s16* a, const s16* b, const s16* c) {
+    f32 col[FINE_CUT_PORT + 1][FINE_CUT_PORT + 1][3];
+    s32 n = base;
+    s32 i, j, k;
+
+    for (j = 0; j <= FINE_CUT_PORT; j++) {
+        for (i = 0; i + j <= FINE_CUT_PORT; i++) {
+            f32 u = (f32) i / (f32) FINE_CUT_PORT;
+            f32 v = (f32) j / (f32) FINE_CUT_PORT;
+            f32 w = 1.0f - u - v;
+
+            fine_port_color(w * a[0] + u * b[0] + v * c[0], w * a[1] + u * b[1] + v * c[1], w * a[2] + u * b[2] + v * c[2], col[i][j]);
+        }
+    }
+    for (j = 0; j <= FINE_CUT; j++) {
+        for (i = 0; i + j <= FINE_CUT; i++) {
+            s32 ia = i / FINE_PER, ja = j / FINE_PER, fa = i % FINE_PER, fb = j % FINE_PER;
+            FineCorner* corner = &fine_corner[n++];
+
+            for (k = 0; k < 3; k++) {
+                f32 v;
+
+                if (fa + fb <= FINE_PER) {
+                    v = col[ia][ja][k] * (f32) (FINE_PER - fa - fb);
+                    if (fa > 0) {
+                        v += col[ia + 1][ja][k] * (f32) fa;
+                    }
+                    if (fb > 0) {
+                        v += col[ia][ja + 1][k] * (f32) fb;
+                    }
+                } else {
+                    v = col[ia + 1][ja][k] * (f32) (FINE_PER - fb) + col[ia][ja + 1][k] * (f32) (FINE_PER - fa) + col[ia + 1][ja + 1][k] * (f32) (fa + fb - FINE_PER);
+                }
+                corner->day[k] = (u16) (v * (256.0f / (f32) FINE_PER) + 0.5f);
+            }
+        }
+    }
+}
+
+// Each corner's shares by its direction. The height is what its elevation has on
+// the drum, reckoned at the ring's mean radius low down and at its corners' at
+// the top, so the whole top ring is up at the elevation of its lowest corner.
+static void fine_drum_shares(f32 r1, f32 rt, f32 t_cap) {
+    f32 y1 = fine_ring_y[1], y2 = fine_ring_y[2];
+    f32 slant = (rt - r1) / (y2 - y1);
+    f32 reach = r1 - slant * y1;
+    f32 t1 = y1 / r1;
+    s32 i;
+
+    for (i = 0; i < fine_vtx_n; i++) {
+        FineCorner* corner = &fine_corner[i];
+        f32 x = fine_vtx[0][0][i].v.ob[0];
+        f32 y = fine_vtx[0][0][i].v.ob[1];
+        f32 z = fine_vtx[0][0][i].v.ob[2];
+        f32 rho = __builtin_sqrtf(x * x + z * z);
+        f32 len = __builtin_sqrtf(rho * rho + y * y);
+        f32 up = len > 1.0f ? (y / len - sky_sin_lo) / (sky_sin_hi - sky_sin_lo) : 1.0f;
+
+        corner->hx = rho > 1.0f ? x / rho : 0.0f;
+        corner->hz = rho > 1.0f ? z / rho : 0.0f;
+        sky_warm_shares(up < 0.0f ? 0.0f : up > 1.0f ? 1.0f : up, &corner->warm, &corner->even);
+        if (y >= y2 - 1.0f || rho < 1.0f || y / rho >= t_cap) {
+            corner->w[0] = 0.0f;
+            corner->w[1] = 0.0f;
+            corner->w[2] = 1.0f;
+            sky_warm_shares(1.0f, &corner->warm, &corner->even);
+        } else {
+            f32 t = y / rho;
+            f32 tt = t * (FINE_ZETA + (1.0f - FINE_ZETA) * (t > 0.0f ? t / t_cap : 0.0f));
+
+            fine_shares(tt >= t1 ? tt * reach / (1.0f - tt * slant) : tt * r1, corner->w);
+        }
+    }
+}
+
+// The drum, from the fine drum the port made of the game's list: the state in its
+// order, each of its cut triangles cut finer, the sky's combiner with the noise
+// added, two cycles for it, and all as it was at the end. The game's list still
+// runs after it, with what the mod has added there.
+static s32 fine_drum_build(u32 entry) {
+    volatile u32* e = (volatile u32*) entry;
+    volatile u32* list;
+    f32 ring_at[3][8][3];
+    s32 tris = 0;
+    s32 rings = 0;
+    s32 n, i, c, r, k, m;
+    u32 w0;
+
+    if (e[0] != 0xDE000000u || e[2] != 0xDE010000u) {
+        return 0;
+    }
+    list = (volatile u32*) e[1];
+    for (n = 0; n < 2048; n++) {
+        w0 = list[n * 2];
+        if ((w0 >> 24) == 0xDF) {
+            break;
+        }
+        if ((w0 >> 24) == 0x01) {
+            volatile s16* v = (volatile s16*) list[n * 2 + 1];
+
+            if (((w0 >> 12) & 0xFF) != 15 || tris >= FINE_TRIS) {
+                return 0;
+            }
+            for (c = 0; c < 3; c++) {
+                volatile s16* at = v + (c == 0 ? 0 : c == 1 ? 4 : 14) * 8;
+
+                fine_tri[tris][c][0] = at[0];
+                fine_tri[tris][c][1] = at[1];
+                fine_tri[tris][c][2] = at[2];
+                fine_tri[tris][c][3] = at[4];
+                fine_tri[tris][c][4] = at[5];
+            }
+            tris++;
+        }
+    }
+    if (n >= 2048 || tris == 0) {
+        return 0;
+    }
+    // The rings, lowest first, and each one's corners around, as the port finds them.
+    for (i = 0; i < tris; i++) {
+        for (c = 0; c < 3; c++) {
+            f32 y = fine_tri[i][c][1];
+
+            for (r = 0; r < rings; r++) {
+                if (y > fine_ring_y[r] - 2.0f && y < fine_ring_y[r] + 2.0f) {
+                    break;
+                }
+            }
+            if (r == rings) {
+                if (rings >= 3) {
+                    return 0;
+                }
+                fine_ring_y[rings++] = y;
+            }
+        }
+    }
+    if (rings != 3) {
+        return 0;
+    }
+    for (r = 0; r < 3; r++) {
+        for (m = r + 1; m < 3; m++) {
+            if (fine_ring_y[m] < fine_ring_y[r]) {
+                f32 t = fine_ring_y[r];
+
+                fine_ring_y[r] = fine_ring_y[m];
+                fine_ring_y[m] = t;
+            }
+        }
+    }
+    for (r = 0; r < 3; r++) {
+        f32 az[8];
+        s32 count = 0;
+
+        for (i = 0; i < tris; i++) {
+            for (c = 0; c < 3; c++) {
+                f32 x = fine_tri[i][c][0], y = fine_tri[i][c][1], z = fine_tri[i][c][2];
+                f32 a;
+
+                if (!(y > fine_ring_y[r] - 2.0f && y < fine_ring_y[r] + 2.0f)) {
+                    continue;
+                }
+                a = fine_azimuth(x, z);
+                for (m = 0; m < count; m++) {
+                    f32 d = a - az[m];
+
+                    d = d < 0.0f ? -d : d;
+                    if (d < 2.0f || d > 358.0f) {
+                        break;
+                    }
+                }
+                if (m == count) {
+                    if (count >= 8) {
+                        return 0;
+                    }
+                    az[count] = a;
+                    ring_at[r][count][0] = x;
+                    ring_at[r][count][1] = y;
+                    ring_at[r][count][2] = z;
+                    count++;
+                }
+            }
+        }
+        if (count < 4 || (r > 0 && count != fine_nodes)) {
+            return 0;
+        }
+        for (m = 0; m < count; m++) {
+            for (k = m + 1; k < count; k++) {
+                if (az[k] < az[m]) {
+                    f32 t = az[m];
+
+                    az[m] = az[k];
+                    az[k] = t;
+                    for (c = 0; c < 3; c++) {
+                        t = ring_at[r][m][c];
+                        ring_at[r][m][c] = ring_at[r][k][c];
+                        ring_at[r][k][c] = t;
+                    }
+                }
+            }
+        }
+        if (r == 0) {
+            fine_nodes = count;
+            fine_az0 = az[0];
+            fine_step = 360.0f / (f32) count;
+        }
+    }
+    // The corners' day colors, as the cartridge has them, by place.
+    for (r = 0; r < 3; r++) {
+        for (m = 0; m < fine_nodes; m++) {
+            s32 found = 0;
+            s32 at, j;
+
+            for (at = 0; at < 2 && !found; at++) {
+                for (j = 0; j < night->sky_vtx_n[at] && j < 64 && !found; j++) {
+                    volatile s16* pos = (volatile s16*) (night->sky_vtx[at] + 16 * j);
+
+                    if ((f32) pos[0] == ring_at[r][m][0] && (f32) pos[1] == ring_at[r][m][1] && (f32) pos[2] == ring_at[r][m][2]) {
+                        for (k = 0; k < 3; k++) {
+                            fine_node[r][m][k] = (f32) ((sky_orig_cn[at][j] >> (16 - 8 * k)) & 0xFF);
+                        }
+                        found = 1;
+                    }
+                }
+            }
+            if (!found) {
+                return 0;
+            }
+        }
+    }
+    {
+        f32 t_cap = 1000.0f;
+        f32 x = ring_at[2][0][0], y = ring_at[2][0][1], z = ring_at[2][0][2];
+        f32 len2 = x * x + y * y + z * z;
+
+        fine_top_sin2 = (len2 > 1.0f) ? (y * y) / len2 : 1.0f;
+        for (k = 0; k < 3; k++) {
+            f32 s = 0.0f;
+
+            for (m = 0; m < fine_nodes; m++) {
+                s += fine_node[2][m][k];
+            }
+            fine_mean_top[k] = s / (f32) fine_nodes;
+        }
+        for (r = 0; r < 3; r++) {
+            f32 s = 0.0f;
+
+            for (m = 0; m < fine_nodes; m++) {
+                f32 ax = ring_at[r][m][0], ay = ring_at[r][m][1], az = ring_at[r][m][2];
+                f32 rho = __builtin_sqrtf(ax * ax + az * az);
+
+                s += ay / __builtin_sqrtf(rho * rho + ay * ay);
+                if (r == 2 && ay / rho < t_cap) {
+                    t_cap = ay / rho;
+                }
+            }
+            s = (s / (f32) fine_nodes - sky_sin_lo) / (sky_sin_hi - sky_sin_lo);
+            fine_ring_up[r] = s < 0.0f ? 0.0f : s > 1.0f ? 1.0f : s;
+        }
+        fine_ring_up[2] = 1.0f;
+        // The lists. The rectangle first: the renderer seeds its noise with the
+        // draw's number times the pixel's place, and the frame's first draw is
+        // number nought, which would give every pixel of it one value. Under
+        // the sky, it never shows.
+        fine_vtx_n = 0;
+        fine_cmd_n = 0;
+        fine_emit(0xE7000000u, 0);
+        fine_emit(0xFCFFFFFFu, 0xFFFFFFFFu);
+        fine_emit(0xF6004004u, 0);
+        fine_emit(0xE7000000u, 0);
+        fine_emit(0xE3000A01u, 0x00100000u);                    // two cycles
+        fine_emit(0xE200001Cu, G_RM_PASS | G_RM_AA_OPA_SURF2);  // as drawSkyBox2Cycle has them
+        fine_emit(0xEC000000u, FINE_KEYS);
+        i = 0;
+        c = 0;      // where the run of triangles not yet given their second pass begins
+        for (n = 0; n < 2048; n++) {
+            u32 w1;
+
+            w0 = list[n * 2];
+            w1 = list[n * 2 + 1];
+            if ((w0 >> 24) == 0x01) {
+                s32 base = fine_cut_face(fine_tri[i][0], fine_tri[i][1], fine_tri[i][2]);
+
+                if (base < 0) {
+                    return 0;
+                }
+                fine_day_face(base, fine_tri[i][0], fine_tri[i][1], fine_tri[i][2]);
+                i++;
+            } else if ((w0 >> 24) != 0x05 && (w0 >> 24) != 0x06 && (w0 >> 24) != 0x07) {
+                if (c < fine_vtx_n) {
+                    fine_emit(0xE7000000u, 0);
+                    fine_emit(0xE200001Cu, G_RM_PASS | G_RM_XLU_SURF2);
+                    for (; c < fine_vtx_n; c += FINE_TRI_VTX) {
+                        fine_rows(c, 1);
+                    }
+                    fine_emit(0xE7000000u, 0);
+                    fine_emit(0xE200001Cu, G_RM_PASS | G_RM_AA_OPA_SURF2);
+                }
+                if ((w0 >> 24) == 0xDF) {
+                    break;
+                }
+                if (w0 == FINE_PLAIN_W0 && w1 == FINE_PLAIN_W1) {
+                    w0 = FINE_NOISE_W0;
+                    w1 = FINE_NOISE_W1;
+                }
+                fine_emit(w0, w1);
+            }
+        }
+        fine_emit(0xE7000000u, 0);
+        fine_emit(0xE3000A01u, 0);                              // one cycle again, as drawSkyBox1Cycle set it
+        fine_emit(0xE200001Cu, G_RM_AA_OPA_SURF | G_RM_AA_OPA_SURF2);
+        fine_emit(0xEC000000u, 0);
+        fine_emit(0xDF000000u, 0);
+        if (fine_full) {
+            return 0;
+        }
+        fine_rest = e[3];
+        for (k = 0; k < FRAME_CTX; k++) {
+            fine_entry[k][0].words.w0 = 0xDE000000u;
+            fine_entry[k][0].words.w1 = (u32) &fine_list[k][0];
+            fine_entry[k][1].words.w0 = 0xDE010000u;
+            fine_entry[k][1].words.w1 = e[3];       // the game's own list goes on (each frame: its context's copy, sky_tail_for)
+        }
+        fine_drum_shares(__builtin_sqrtf(ring_at[1][0][0] * ring_at[1][0][0] + ring_at[1][0][2] * ring_at[1][0][2]),
+                         __builtin_sqrtf(ring_at[2][0][0] * ring_at[2][0][0] + ring_at[2][0][2] * ring_at[2][0][2]), t_cap);
+    }
+    return 1;
+}
+
+// One stretch of corners painted: each ring's color at the corner's way around, by
+// the corner's shares, and the day's color as far as the hour has left it.
+static void fine_paint(s32 set, s32 from, s32 count, f32 a[3][3], f32 b[3][3], f32 life, const SkyHaze* haze, f32 plain[3][3], f32 plain_b[3][3], const SkyHaze* rows) {
+    f32 dx = relight_dir[0], dz = relight_dir[2];
+    f32 top_now = 0.0f;
+    f32 by_line = rows != NULL ? sky_night_share() : 0.0f;   // Sunset's and Dawn's sky is the rings' products; Night's, the curve of the tints times the line
+    s32 i, k;
+
+    if (haze != NULL) {
+        top_now = (f32) haze->top + ((f32) sky_floor[31] - (f32) haze->top) * (f32) (255 - (s32) cloud_top_fade) / 255.0f;
+    }
+
+    for (i = from; i < from + count; i++) {
+        const FineCorner* corner = &fine_corner[i];
+        u8* color = fine_vtx[set][0][i].v.cn;
+        u8* extra = fine_vtx[set][1][i].v.cn;
+        f32 facing = corner->hx * dx + corner->hz * dz;
+        f32 toward = 0.5f + 0.5f * facing;
+        f32 warm = life * ((facing > 0.0f ? facing * corner->warm : 0.0f) + corner->even);
+
+        for (k = 0; k < 3; k++) {
+            f32 tint = corner->w[0] * (a[0][k] + b[0][k] * toward) + corner->w[1] * (a[1][k] + b[1][k] * toward)
+                     + corner->w[2] * (a[2][k] + b[2][k] * toward) + warm * (f32) sky_sun_side[k];
+            f32 day = (f32) corner->day[k] / 256.0f;
+            f32 v;
+            s32 whole;
+
+            if (haze != NULL) {
+                f32 h = ((f32) haze->low + (top_now - (f32) haze->low) * corner->a) / 255.0f;
+                f32 fit = (f32) pic_sky[k] + (f32) ((s32) pic_cloud[k] - (s32) pic_sky[k]) * h;
+
+                tint *= sky_gain[k] * fit / (f32) sky_base(haze, k);
+            }
+            if (by_line > 0.0f) {
+                f32 own = corner->w[0] * (plain[0][k] + plain_b[0][k] * toward) + corner->w[1] * (plain[1][k] + plain_b[1][k] * toward)
+                        + corner->w[2] * (plain[2][k] + plain_b[2][k] * toward);
+
+                tint += (own * sky_gain[k] * sky_night_line(rows, k, corner->w[2]) / (f32) sky_base(rows, k) - tint) * by_line;
+            }
+            day += (255.0f - day) * overcast_share;
+            v = day + (tint - day) * nightness;
+            v = v < 0.0f ? 0.0f : v > 255.0f ? 255.0f : v;
+            whole = (s32) (v + 0.5f);
+            color[k] = (u8) whole;
+            // The second pass, at an eighth, makes up what the rounding lost.
+            v += (v - (f32) whole) * ((255.0f - (f32) FINE_EIGHTH) / (f32) FINE_EIGHTH) + 0.5f;
+            extra[k] = (u8) (v < 0.0f ? 0 : v > 255.0f ? 255 : (s32) v);
+        }
+    }
+}
+
+// The rings' colors at this moment, by sky_corners' law: at each ring, a part that
+// is the same all round and a part that goes by how far the corner faces the sun.
+static void fine_rings(f32 a[3][3], f32 b[3][3], f32 plain[3][3], f32 plain_b[3][3]) {
+    const SkyHaze* haze = sky_haze_of(night);
+    f32 top_now = 0.0f;
+    s32 r, k;
+
+    if (haze != NULL) {
+        top_now = (f32) haze->top + ((f32) sky_floor[31] - (f32) haze->top) * (f32) (255 - (s32) cloud_top_fade) / 255.0f;
+    }
+    for (r = 0; r < 3; r++) {
+        f32 up = fine_ring_up[r];
+
+        for (k = 0; k < 3; k++) {
+            f32 lo = sky_lo_now[k], away = tint_away[k], hi = tint_hi[k];
+
+            a[r][k] = away * (1.0f - up) + hi * up;
+            b[r][k] = (lo - away) * (1.0f - up);
+            plain[r][k] = a[r][k];
+            plain_b[r][k] = b[r][k];
+            if (haze != NULL) {
+                f32 at = (fine_ring_y[r] - (f32) haze->low_y) / (f32) (haze->top_y - haze->low_y);
+                f32 h, fit, gain;
+
+                at = at < 0.0f ? 0.0f : at > 1.0f ? 1.0f : at;
+                h = ((f32) haze->low + (top_now - (f32) haze->low) * at) / 255.0f;
+                fit = (f32) pic_sky[k] + (f32) ((s32) pic_cloud[k] - (s32) pic_sky[k]) * h;
+                gain = sky_gain[k] * fit / (f32) sky_base(haze, k);
+                a[r][k] *= gain;
+                b[r][k] *= gain;
+            }
+        }
+    }
+}
+
+static u32 fine_bits(f32 f) {
+    union {
+        f32 f;
+        u32 u;
+    } v;
+
+    v.f = f;
+    return v.u;
+}
+
+// What the drum's colors are made from, as one number: they are painted again when it changes.
+static u32 fine_inputs(void) {
+    u32 sum = (u32) cloud_top_fade + ((u32) sky_floor[31] << 8);
+    s32 k;
+
+    sum = sum * 31u + fine_bits(nightness);
+    sum = sum * 31u + fine_bits(overcast_share);
+    sum = sum * 31u + fine_bits(clear_share);
+    for (k = 0; k < 3; k++) {
+        sum = sum * 31u + (((u32) sky_lo_now[k] << 16) | ((u32) tint_away[k] << 8) | tint_hi[k]);
+        sum = sum * 31u + (((u32) pic_sky[k] << 8) | pic_cloud[k]);
+        sum = sum * 31u + fine_bits(relight_dir[k]);
+        sum = sum * 31u + fine_bits(sky_gain[k]);
+    }
+    return sum | 1u;
+}
+
+// The sky's draw has just gone into the frame's list: its call to the port's drum
+// goes to the fine one instead, unless the hour is the cartridge's Day or the game
+// is measuring a photo. A sky the port left as the cartridge has it stays so.
+static void sky_fine_draw(void) {
+    f32 a[3][3], b[3][3], plain[3][3], plain_b[3][3];
+    volatile u32* cmd;
+    u32 entry, sum;
+    s32 back;
+
+    if (night == NULL || scoring || nightness <= 0.0f || fine_failed || sky_now == NULL || sky_now->data.dobj == NULL) {
+        return;
+    }
+    entry = (u32) sky_now->data.dobj->payload.dlist;
+    if (!fine_ready) {
+        if (!fine_drum_build(entry)) {
+            fine_failed = 1;
+            recomp_printf("[island skies] the fine sky: left to the port's drum\n");
+            return;
+        }
+        fine_ready = 1;
+        recomp_printf("[island skies] the fine sky: %d corners, %d commands\n", fine_vtx_n, fine_cmd_n);
+    }
+    cmd = (volatile u32*) MAIN_GFX_POS[0];
+    for (back = 1; back <= 32; back++) {
+        if (cmd[-2 * back] == 0xDE000000u && cmd[-2 * back + 1] == entry) {
+            break;
+        }
+    }
+    if (back > 32) {
+        return;
+    }
+    fine_turn = (u8) frame_ctx();      // the frame context's set
+    sum = fine_inputs();
+    if (fine_sum[fine_turn] != sum) {
+        fine_sum[fine_turn] = sum;
+        fine_rings(a, b, plain, plain_b);
+        fine_paint(fine_turn, 0, fine_vtx_n, a, b,
+                   (night->setup == NIGHT_VALLEY_SETUP) ? ((f32) cloud_top_fade / 255.0f) * clear_share : 0.0f, NULL, plain, plain_b, sky_haze_of(night));
+    }
+    fine_entry[fine_turn][1].words.w1 = sky_tail_for(fine_turn);       // the rest of the sky, as this frame has it
+    cmd[-2 * back + 1] = (u32) &fine_entry[fine_turn][0];
+}
+
+// A roofed course's sky is faces in its land's lists, the same material and the
+// same six-sided boxes, but the eye moves about under them. The walker finds each
+// run of them; a call to its finer faces goes in at the run's start and a branch
+// past the rest, while the hour is not Day. They are colored by their direction
+// from the box's middle, from the foot of its walls: a color by the direction from
+// the eye itself would crowd its whole slope into the few rows of the nearest wall.
+static void fine_open_at(u32 list) {
+    FinePart* p;
+    s32 i;
+
+    if (fine_parts >= FINE_PARTS) {
+        return;
+    }
+    for (i = 0; i < fine_parts; i++) {
+        if (fine_part[i].from == list) {
+            return;
+        }
+    }
+    p = &fine_part[fine_parts];
+    p->from = list;
+    p->to = 0;
+    p->vtx0 = (u16) fine_vtx_n;
+    p->vtx_n = 0;
+    p->list0 = (u16) fine_cmd_n;
+    p->tris = 0;
+    p->on = 0;
+    p->bad = 0;
+    p->up_lo = 1.0f;
+    p->up_hi = 0.0f;
+    p->turn = 0;
+    p->hazed = (tex_addr == night->pics[0]);        // the pale box's is the second picture, which keeps its haze
+    fine_emit(0xE7000000u, 0);
+    fine_emit(0xE3000A01u, 0x00100000u);
+    fine_emit(0xE200001Cu, (G_RM_PASS | G_RM_AA_ZB_OPA_SURF2) & ~(u32) Z_UPD);     // without Z_UPD, as roof_sky_depth has the material
+    fine_emit(0xEC000000u, FINE_KEYS);
+    fine_emit(FINE_NOISE_W0, FINE_NOISE_W1);
+    fine_open = 1;
+}
+
+static void fine_face(u32 a, u32 b, u32 c) {
+    FinePart* p = &fine_part[fine_parts];
+    u32 at[3];
+    s16 corner[3][5];
+    s32 i;
+
+    if (a == 0 || b == 0 || c == 0) {
+        p->bad = 1;
+        return;
+    }
+    at[0] = a;
+    at[1] = b;
+    at[2] = c;
+    for (i = 0; i < 3; i++) {
+        volatile s16* v = (volatile s16*) at[i];
+        f32 up = sky_up(at[i]);
+
+        corner[i][0] = v[0];
+        corner[i][1] = v[1];
+        corner[i][2] = v[2];
+        corner[i][3] = v[4];
+        corner[i][4] = v[5];
+        if (up < p->up_lo) {
+            p->up_lo = up;
+        }
+        if (up > p->up_hi) {
+            p->up_hi = up;
+        }
+    }
+    if (p->tris == 0) {
+        volatile u8* paint = (volatile u8*) (a + 12);
+
+        p->paint[0] = paint[0];
+        p->paint[1] = paint[1];
+        p->paint[2] = paint[2];
+    }
+    if (fine_cut_face(corner[0], corner[1], corner[2]) < 0 || p->tris >= 40) {
+        p->bad = 1;
+        return;
+    }
+    p->tris++;
+}
+
+static void fine_close(u32 list) {
+    FinePart* p = &fine_part[fine_parts];
+    f32 y_lo = 32767.0f, y_hi = -32768.0f;
+    f32 x_lo = 32767.0f, x_hi = -32768.0f, z_lo = 32767.0f, z_hi = -32768.0f;
+    f32 mx, mz, far2 = 0.0f;
+    s32 i, k;
+
+    fine_open = 0;
+    fine_new = 1;
+    fine_emit(0xE7000000u, 0);
+    fine_emit(0xE200001Cu, G_RM_PASS | G_RM_ZB_XLU_SURF2);
+    for (i = p->vtx0; i < fine_vtx_n; i += FINE_TRI_VTX) {
+        fine_rows(i, 1);
+    }
+    fine_emit(0xE7000000u, 0);
+    fine_emit(0xE3000A01u, 0);
+    fine_emit(0xE200001Cu, (G_RM_AA_ZB_OPA_SURF | G_RM_AA_ZB_OPA_SURF2) & ~(u32) Z_UPD);
+    fine_emit(0xEC000000u, 0);
+    fine_emit(FINE_PLAIN_W0, FINE_PLAIN_W1);
+    fine_emit(0xDF000000u, 0);
+    p->to = list;
+    p->vtx_n = (u16) (fine_vtx_n - p->vtx0);
+    fine_parts++;
+    if (fine_full || p->tris == 0 || (list - p->from) / 8 < FINE_PATCH) {
+        p->bad = 1;
+        return;
+    }
+    for (i = p->vtx0; i < p->vtx0 + p->vtx_n; i++) {
+        f32 y = fine_vtx[0][0][i].v.ob[1];
+
+        y_lo = y < y_lo ? y : y_lo;
+        y_hi = y > y_hi ? y : y_hi;
+    }
+    for (i = p->vtx0; i < p->vtx0 + p->vtx_n; i++) {
+        f32 x = fine_vtx[0][0][i].v.ob[0], y = fine_vtx[0][0][i].v.ob[1], z = fine_vtx[0][0][i].v.ob[2];
+
+        if (y >= y_hi - 2.0f) {
+            x_lo = x < x_lo ? x : x_lo;
+            x_hi = x > x_hi ? x : x_hi;
+            z_lo = z < z_lo ? z : z_lo;
+            z_hi = z > z_hi ? z : z_hi;
+        }
+    }
+    mx = (x_lo + x_hi) * 0.5f;
+    mz = (z_lo + z_hi) * 0.5f;
+    for (i = p->vtx0; i < p->vtx0 + p->vtx_n; i++) {
+        f32 dx = fine_vtx[0][0][i].v.ob[0] - mx, y = fine_vtx[0][0][i].v.ob[1], dz = fine_vtx[0][0][i].v.ob[2] - mz;
+
+        if (y >= y_hi - 2.0f && dx * dx + dz * dz > far2) {
+            far2 = dx * dx + dz * dz;
+        }
+    }
+    {
+        f32 far = __builtin_sqrtf(far2 > 1.0f ? far2 : 1.0f);
+        f32 y_mid = y_lo;
+        f32 t_cap = (y_hi - y_lo) / far;
+        f32 t_mid;
+
+        for (i = p->vtx0; i < p->vtx0 + p->vtx_n; i += FINE_TRI_VTX) {
+            s32 c;
+
+            // A triangle's three corners stand first, at the end of its first row, and last.
+            for (c = 0; c < 3; c++) {
+                f32 y = fine_vtx[0][0][i + (c == 0 ? 0 : c == 1 ? FINE_CUT : FINE_TRI_VTX - 1)].v.ob[1];
+
+                if (y < y_hi - 2.0f && y > y_mid) {
+                    y_mid = y;
+                }
+            }
+        }
+        t_mid = (y_mid - y_lo) / (FINE_ZETA * far);
+        for (i = p->vtx0; i < p->vtx0 + p->vtx_n; i++) {
+            FineCorner* corner = &fine_corner[i];
+            f32 dx = fine_vtx[0][0][i].v.ob[0] - mx, y = fine_vtx[0][0][i].v.ob[1], dz = fine_vtx[0][0][i].v.ob[2] - mz;
+            f32 rho = __builtin_sqrtf(dx * dx + dz * dz);
+            f32 tan = (y >= y_hi - 2.0f || rho < 1.0f) ? t_cap : (y - y_lo) / rho;
+            f32 u = tan / t_cap;
+            f32 a = (tan - t_mid) / (t_cap - t_mid);
+            f32 up;
+
+            u = u > 1.0f ? 1.0f : u;
+            a = a < 0.0f ? 0.0f : a > 1.0f ? 1.0f : a;
+            up = p->up_lo + (p->up_hi - p->up_lo) * u * (0.5f + u * (2.0f - 1.5f * u));     // flat at the top, nearly straight below
+            corner->a = a * a * (3.0f - 2.0f * a);
+            corner->w[0] = 1.0f - up;
+            corner->w[1] = 0.0f;
+            corner->w[2] = up;
+            corner->hx = 0.0f;
+            corner->hz = 0.0f;
+            corner->warm = 0.0f;
+            corner->even = 0.0f;
+            for (k = 0; k < 3; k++) {
+                corner->day[k] = (u16) ((u32) p->paint[k] << 8);
+            }
+        }
+    }
+}
+
+// A part's spare set of corners painted and its call pointed at it.
+static void fine_part_show(FinePart* p) {
+    f32 a[3][3], b[3][3];
+    volatile u32* at = (volatile u32*) p->from;
+    s32 k;
+
+    if (p->bad) {
+        return;
+    }
+    for (k = 0; k < 3; k++) {
+        a[0][k] = tint_lo[k];
+        a[1][k] = 0.0f;
+        a[2][k] = tint_hi[k];
+        b[0][k] = b[1][k] = b[2][k] = 0.0f;
+    }
+    p->turn ^= 1;
+    fine_paint(p->turn, p->vtx0, p->vtx_n, a, b, 0.0f, p->hazed ? sky_haze_of(night) : NULL, NULL, NULL, NULL);
+    if (!p->on) {
+        for (k = 0; k < FINE_PATCH * 2; k++) {
+            p->saved[k] = at[k];
+        }
+        p->on = 1;
+    }
+    at[0] = FINE_RDRAM;
+    at[1] = 1;
+    at[2] = 0xDE000000u;
+    at[3] = (u32) &fine_list[p->turn][p->list0];
+    at[4] = FINE_RDRAM;
+    at[5] = 0;
+    at[6] = 0xDE010000u;
+    at[7] = p->to;
+}
+
+// The hour has changed, or the walker has found more faces: every part shown
+// anew; at Day the lists as the cartridge has them.
+static void fine_roof_refresh(void) {
+    s32 i, k;
+
+    if (night == NULL || !ROOFED(night) || fine_parts == 0) {
+        return;
+    }
+    if (nightness <= 0.0f) {
+        for (i = 0; i < fine_parts; i++) {
+            FinePart* p = &fine_part[i];
+
+            if (p->on) {
+                volatile u32* at = (volatile u32*) p->from;
+
+                for (k = 0; k < FINE_PATCH * 2; k++) {
+                    at[k] = p->saved[k];
+                }
+                p->on = 0;
+            }
+        }
+        return;
+    }
+    for (i = 0; i < fine_parts; i++) {
+        fine_part_show(&fine_part[i]);
+    }
+}
+
+// ---- The fine sky's end ----
 
 // A matrix that moves a thing to a place: ones on the diagonal, with the
 // place in its last row. The record holds sixteen whole parts, then their
@@ -1974,17 +4085,18 @@ static void place(Mtx* mtx, f32 x, f32 y, f32 z) {
 // is raised. The camera's place is the sky's own: the sky box follows the
 // camera on the ride and is set to a photo's camera for a photo. The lists
 // go among the see-through things, which are drawn after the solid world.
-static void rain_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
+static void rain_at(Gfx** game, f32 ex, f32 ey, f32 ez) {
     u32 ticks = ticks_of(night);
     Mtx* set;
     u32 sheet;
     u32 copy;
+    Gfx** list;
 
-    if (*list == NULL) {
+    if (*game == NULL) {
         return;
     }
-    rain_turn = (u8) ((rain_turn + 1) & 7);
-    set = rain_mtx[rain_turn];
+    list = gfx_stage_open(game);
+    set = rain_mtx[frame_slot(&rain_slot_n, FRAME_SLOTS)];
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
     gDPSetPrimColor((*list)++, 0, 0, 255, 255, 255, (u8) (132.0f * rain_share));     // the rain's own alpha, as far as it has come
@@ -2015,23 +4127,25 @@ static void rain_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     }
     gSPDisplayList((*list)++, night_rain_end);
     command(list, (0x64u << 24) | 0x00002Cu, 0);
+    gfx_stage_close(game, 0);
 }
 
 // The snow: made and moved as the rain is, but slowly (its paces are in
 // eighths of a unit a tick), and each sheet sways from side to side on a
 // slow wave of its own as it falls.
-static void snow_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
+static void snow_at(Gfx** game, f32 ex, f32 ey, f32 ez) {
     u32 ticks = ticks_of(night);
     Mtx* set;
     u32 sheet;
     u32 copy;
     u8 ash = (ash_share > 0.0f && snow_share <= 0.0f);      // the Volcano's ash, unless snow falls with it
+    Gfx** list;
 
-    if (*list == NULL) {
+    if (*game == NULL) {
         return;
     }
-    rain_turn = (u8) ((rain_turn + 1) & 7);
-    set = rain_mtx[rain_turn];
+    list = gfx_stage_open(game);
+    set = rain_mtx[frame_slot(&rain_slot_n, FRAME_SLOTS)];
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_rain_begin);
     gSPDisplayList((*list)++, night_snow_alpha);
@@ -2065,6 +4179,7 @@ static void snow_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     }
     gSPDisplayList((*list)++, night_rain_end);
     command(list, (0x64u << 24) | 0x00002Cu, 0);
+    gfx_stage_close(game, 0);
 }
 
 // The moon's path on the sea: a strip of soft light from near the camera
@@ -2178,8 +4293,8 @@ static void glint_corner(Vtx* v, f32 m[4][4], const f32* eye, const f32* la, con
 static void glint_segment(s32 k, f32 m[4][4], const f32* eye, const f32* la, const f32* breath, Gfx** list,
                           s32* opened) {
     const GlintSeg* seg = &glint_seg[k];
-    Vtx* set = glint_vtx[glint_turn];
-    Mtx* mtx = &glint_mtx[glint_turn][k];
+    Vtx* set = glint_vtx[frame_ctx()];          // the frame's own set: its context's
+    Mtx* mtx = &glint_mtx[frame_ctx()][k];
     u32 j, o, pending = 0xFFFFFFFFu;
 
     if (!seg->flow) {
@@ -2255,8 +4370,7 @@ typedef struct Ember {
     u8 seg, sway;           // the part it belongs to, and its sway's phase
 } Ember;
 static Ember ember[EMBERS];
-static Vtx ember_vtx[2][EMBERS * 4];   // this frame's corners and the last's
-static u8 ember_turn;
+static Vtx ember_vtx[FRAME_CTX][EMBERS * 4];   // each frame context's corners
 static u32 ember_drawn;                 // the quads written so far this frame
 
 static void ember_seed(s32 k) {
@@ -2326,7 +4440,7 @@ static void ember_seed(s32 k) {
 
 static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
     u32 ticks = ticks_of(night);
-    Vtx* set = ember_vtx[ember_turn];
+    Vtx* set = ember_vtx[frame_ctx()];
     f32 rx = view_fwd[1], rz = -view_fwd[0];      // level, across the view
     u32 first_quad = ember_drawn;
     s32 e;
@@ -2450,7 +4564,7 @@ static void ember_segment(s32 k, f32 m[4][4], Gfx** list, s32* opened) {
 #define MIST_DRIFT_T 18000u     // and along t (five)
 #define MIST_POOL 1024          // the water corners the floors are taken from
 #define MIST_UNKNOWN 0x7FFF
-static Vtx mist_vtx[2][GLINT_VTX];      // the copies, two sets as the glint's
+static Vtx mist_vtx[FRAME_CTX][GLINT_VTX];      // the copies, a set for each frame context, as the glint's
 static s16 mist_floor[GLINT_VTX];       // the water's height near each copy, once found,
 static u8 mist_near[GLINT_VTX];         // and how far across that water lies, in fours of units
 static s16 mist_pool[MIST_POOL][3];     // the water's corners in the world
@@ -2463,12 +4577,11 @@ static u8 mist_clip_ok;                 // read this frame
 static GObj* mist_cam;                  // the camera whose models the copies were set under
 static Mtx mist_world_mtx;              // the world's own frame, the copies' space
 static u8 mist_world_ok;
-static u8 mist_turn;                    // the set of copies written through a frame and drawn at its end
 static u16 mist_parts_last;             // the last drawn frame's parts and corners, for the log
 static u32 mist_corners_last;
 static u8 mist_sky_said;
-static u32 mist_part_chain[2][GLINT_SEGS][MIST_CHAIN][2];   // the matrix commands each part was drawn under, for its shore copies
-static u8 mist_part_chain_n[2][GLINT_SEGS];
+static u32 mist_part_chain[FRAME_CTX][GLINT_SEGS][MIST_CHAIN][2];   // the matrix commands each part was drawn under, for its shore copies
+static u8 mist_part_chain_n[FRAME_CTX][GLINT_SEGS];
 static u16 mist_seen_head[1024];        // the triangles drawn so far this frame, by their corners' places in the world
 static u16 mist_seen_next[MIST_TRIS];
 static u16 mist_seen_copy[MIST_TRIS][3];
@@ -2603,7 +4716,7 @@ static f32 mist_fog_at(f32 px, f32 py, f32 pz) {
 // mist's gone into the fog's as far as the fog has it.
 static u32 mist_corner(u32 i, f32 m[4][4], const f32* eye, f32 base_s, f32 base_t, f32 drift_s, f32 drift_t, f32 per) {
     const Vtx* src = &glint_vtx[0][i];
-    Vtx* dst = &mist_vtx[mist_turn][i];
+    Vtx* dst = &mist_vtx[frame_ctx()][i];
     f32 x = src->v.ob[0], y = src->v.ob[1], z = src->v.ob[2];
     f32 px = x * m[0][0] + y * m[1][0] + z * m[2][0] + m[3][0];
     f32 py = x * m[0][1] + y * m[1][1] + z * m[2][1] + m[3][1];
@@ -2721,10 +4834,10 @@ static void mist_segment(s32 k, f32 m[4][4], const f32* eye, u32 chain[][2], u32
     }
     mist_ready[k] = 1;
     for (j = 0; j < chain_n && j < MIST_CHAIN; j++) {
-        mist_part_chain[mist_turn][k][j][0] = chain[j][0];
-        mist_part_chain[mist_turn][k][j][1] = chain[j][1];
+        mist_part_chain[frame_ctx()][k][j][0] = chain[j][0];
+        mist_part_chain[frame_ctx()][k][j][1] = chain[j][1];
     }
-    mist_part_chain_n[mist_turn][k] = (u8) (chain_n < MIST_CHAIN ? chain_n : MIST_CHAIN);
+    mist_part_chain_n[frame_ctx()][k] = (u8) (chain_n < MIST_CHAIN ? chain_n : MIST_CHAIN);
     mist_corners += any;
     mist_corners_frame += any;
     mist_parts_frame++;
@@ -2796,13 +4909,13 @@ static void mist_pass(Gfx** list, Vtx* set, u32 water) {
             slot_copy[s] = 0xFFFF;
         }
         if (!water) {
-            u32 n = mist_part_chain_n[mist_turn][k], c;
+            u32 n = mist_part_chain_n[frame_ctx()][k], c;
 
             if (n == 0) {
                 gSPMatrix((*list)++, &mist_world_mtx, G_MTX_PUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
             }
             for (c = 0; c < n; c++) {
-                gSPMatrix((*list)++, (Mtx*) mist_part_chain[mist_turn][k][c][1],
+                gSPMatrix((*list)++, (Mtx*) mist_part_chain[frame_ctx()][k][c][1],
                           (c == 0 ? G_MTX_PUSH | G_MTX_LOAD : G_MTX_NOPUSH | G_MTX_MUL) | G_MTX_MODELVIEW);
             }
         }
@@ -2850,7 +4963,7 @@ static void mist_pass(Gfx** list, Vtx* set, u32 water) {
 // view in force: the mist's modes, then the water's pass in the world's own
 // space and the shore's in each part's.
 static void mist_draw(Gfx** list) {
-    Vtx* set = mist_vtx[mist_turn];
+    Vtx* set = mist_vtx[frame_ctx()];
     s32 k, any = 0;
 
     for (k = 0; k < glint_seg_n; k++) {
@@ -2895,14 +5008,13 @@ static void mist_draw(Gfx** list) {
         command(list, (0x64u << 24) | 0x00002Cu, 0);
     }
     // The frame's books close with its draw, whatever the sky's place in the
-    // frame's order: the set turns, the camera is read again at the next
+    // frame's order: the camera is read again at the next
     // frame's first misty model, and the count is kept for the log.
     mist_parts_last = mist_parts_frame;
     mist_corners_last = mist_corners_frame;
     mist_parts_frame = 0;
     mist_corners_frame = 0;
     mist_clip_ok = 0;
-    mist_turn ^= 1;
 }
 
 // The water was just drawn: its commands, from where this model began, hold
@@ -2945,7 +5057,8 @@ static void glint_scan(s32 mode) {
     for (i = 0; i < 4; i++) {
         volatile u32* cmd = (volatile u32*) entry_pos[i];
         volatile u32* end = (volatile u32*) MAIN_GFX_POS[i];
-        Gfx** list = &MAIN_GFX_POS[i];
+        Gfx** game = &MAIN_GFX_POS[i];
+        Gfx** list = gfx_stage_open(game);      // what the walk adds: moved into the buffer whole, or left out
         s32 sp = 0, budget = (mode == 2) ? 16384 : 4096, opened = 0, r, c;
 
         if (cmd == NULL || end < cmd) {
@@ -3037,6 +5150,7 @@ static void glint_scan(s32 mode) {
             gSPDisplayList((*list)++, night_rain_end);
             command(list, (0x64u << 24) | 0x00002Cu, 0);
         }
+        gfx_stage_close(game, 0);
     }
     if (!glint_said_drawn && mode != 2) {
         s32 drawn = 0;
@@ -3141,7 +5255,7 @@ static void mist_weather(void) {
     }
     {
         u32 oc = (u32) cam->data.cam;
-        Gfx** list = &MAIN_GFX_POS[0];
+        Gfx** game = &MAIN_GFX_POS[0];
         u32 matrices = *(volatile u32*) 0x8004B248u;  // ren_D_8004B248: the camera's matrix sub-list begins after it
         const volatile s32* border = (const volatile s32*) 0x803AE540u;    // MainCameraBorderXmin, Ymin, Xmax, Ymax (app_level/player.c)
         s32 x0 = border[0], y0 = border[1], x1 = border[2], y1 = border[3];
@@ -3158,7 +5272,9 @@ static void mist_weather(void) {
         if (y1 > 240) {
             y1 = 240;
         }
-        if (matrices != 0 && *list != NULL && x1 > x0 && y1 > y0) {
+        if (matrices != 0 && *game != NULL && x1 > x0 && y1 > y0) {
+            Gfx** list = gfx_stage_open(game);
+
             gDPPipeSync((*list)++);
             gSPViewport((*list)++, oc + 0x08);
             gDPSetScissor((*list)++, G_SC_NON_INTERLACE, x0, y0, x1, y1);
@@ -3169,6 +5285,7 @@ static void mist_weather(void) {
                             | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                             G_AC_THRESHOLD | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
             mist_draw(list);
+            gfx_stage_close(game, 0);
         }
     }
 }
@@ -3176,18 +5293,21 @@ static void mist_weather(void) {
 // A photo's mist, drawn as its camera's object pass ends, under the matrices
 // still in force, the whole mode word set first as for the ride.
 static void mist_photo(GObj* cam) {
-    Gfx** list = &MAIN_GFX_POS[0];
+    Gfx** game = &MAIN_GFX_POS[0];
+    Gfx** list;
 
     if (night == NULL || on_the_ride || scoring || cam == NULL || cam != mist_cam || cam->data.cam == NULL
-        || mist_share <= 0.0f || mist_parts_frame == 0 || *list == NULL) {
+        || mist_share <= 0.0f || mist_parts_frame == 0 || *game == NULL) {
         return;
     }
+    list = gfx_stage_open(game);
     gDPPipeSync((*list)++);
     gDPSetOtherMode((*list)++,
                     G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
                     | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                     G_AC_THRESHOLD | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
     mist_draw(list);
+    gfx_stage_close(game, 0);
 }
 
 // Fireflies: four groups of small dots around the camera, near the water,
@@ -3242,15 +5362,17 @@ static s32 firefly_bright(u32 dot, u32 ticks) {
 }
 
 static void fireflies(GObj* sky) {
-    Gfx** list = &MAIN_GFX_POS[1];
+    Gfx** game = &MAIN_GFX_POS[1];
+    Gfx** list;
     DObj* eye = sky->data.dobj;
     u32 ticks = ticks_of(night);
-    Mtx* set = glow_mtx[glow_turn];
+    Mtx* set = glow_mtx[frame_slot(&glow_slot_n, FRAME_SLOTS)];
     u32 g, i;
 
-    if (eye == NULL || *list == NULL) {
+    if (eye == NULL || *game == NULL) {
         return;
     }
+    list = gfx_stage_open(game);
     command(list, (0x64u << 24) | 0x00002Cu, 1);
     gSPDisplayList((*list)++, night_glow_begin);
     for (g = 0; g < NIGHT_FIREFLY_GROUPS; g++) {
@@ -3284,6 +5406,7 @@ static void fireflies(GObj* sky) {
     }
     gSPDisplayList((*list)++, night_rain_end);
     command(list, (0x64u << 24) | 0x00002Cu, 0);
+    gfx_stage_close(game, 0);
 }
 
 // Lightning. Time is cut into spans of a few seconds; whether a span has a
@@ -3503,7 +5626,7 @@ static void night_voices(void) {
 // this writes the night's own values back.
 static void storm_light(void) {
     static const u8 lit[3] = { 132, 148, 204 };
-    volatile u8* light = COURSE_LIGHT;
+    volatile u8* light = light_now;
     u8 fog[3];
     s32 i;
 
@@ -3519,6 +5642,7 @@ static void storm_light(void) {
     }
     setFogColor(fog[0], fog[1], fog[2]);
     setFogDistance((u16) (fog_near - (38 * strike_flash) / 255), fog_far);
+    light_store();
 }
 
 // A matrix that turns a thing about the upright axis and moves it to a
@@ -3571,12 +5695,15 @@ static f32 tcos(f32 rad) {
 // The flash over the sky and the bolt, drawn right after the sky's own
 // box and so behind all the land. Neither is to be placed between ticks:
 // each is named to the renderer as a group it must leave alone.
-static void storm_sky_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
-    Mtx* pair = storm_mtx[rain_turn & 7];
+static void storm_sky_at(Gfx** game, f32 ex, f32 ey, f32 ez) {
+    Mtx* pair;
+    Gfx** list;
 
-    if (strike_flash == 0) {
+    if (strike_flash == 0 || *game == NULL) {
         return;
     }
+    list = gfx_stage_open(game);
+    pair = storm_mtx[frame_slot(&storm_slot_n, FRAME_SLOTS)];
     place(&pair[0], ex, ey, ez);
     command(list, (0x64u << 24) | 0x00000Cu, 0);
     command(list, 0x00000001u, 0);
@@ -3596,6 +5723,7 @@ static void storm_sky_at(Gfx** list, f32 ex, f32 ey, f32 ez) {
     }
     gSPDisplayList((*list)++, night_storm_end);
     command(list, (0x64u << 24) | 0x00000Du, 1);
+    gfx_stage_close(game, 0);       // in a window of its own: the sky's may be shut by now
 }
 
 static void storm_sky(void) {
@@ -3644,9 +5772,8 @@ static void sky_lists_zb(s32 on) {
 // a silhouette; under cloud it comes from above; while lightning flashes,
 // from the bolt; on the Volcano, from the lava below. Directions are in the
 // world's own axes, as the game's are.
-static void key_light(void) {
-    volatile s8* dir = (volatile s8*) (COURSE_LIGHT + 16);
-    f32 gx = dir[0], gy = dir[1], gz = dir[2];      // the game's own, this frame
+static void key_turn(s8* dir) {
+    f32 gx = dir[0], gy = dir[1], gz = dir[2];      // the game's own, this update's
     f32 kx, ky, kz, w, len;
 
     if (storming && strike_flash != 0) {
@@ -3659,6 +5786,16 @@ static void key_light(void) {
         ky = 127.0f;
         kz = 0.0f;
         w = 0.7f;
+    } else if (night->embers && !sunset) {
+        // The lava's light from below, and toward the camera's side, as the
+        // cartridge's own key comes from behind the camera: the faces one
+        // sees take it (Nov 7 2026).
+        f32 flat = __builtin_sqrtf(gx * gx + gz * gz);
+
+        kx = flat > 1.0f ? gx / flat * 102.0f : 0.0f;
+        ky = -76.0f;
+        kz = flat > 1.0f ? gz / flat * 102.0f : 0.0f;
+        w = 0.75f;
     } else {
         kx = relight_dir[0] * 127.0f;
         ky = relight_dir[1] * 127.0f;
@@ -3693,6 +5830,108 @@ static void key_light(void) {
     dir[0] = (s8) (kx * 127.0f / len);
     dir[1] = (s8) (ky * 127.0f / len);
     dir[2] = (s8) (kz * 127.0f / len);
+}
+
+// The frame's copy of the record: the colors in force, and the direction the game
+// gave this update, leaned as key_turn says. Written again whenever the colors, the
+// flash or the lean change while the frame is drawn, all before it goes to the
+// renderer; the renderer reads only the last.
+static void light_store(void) {
+    volatile u8* b = light_block;
+    volatile s8* raw = (volatile s8*) (COURSE_LIGHT + 16);
+    s8 dir[3];
+    s32 i;
+
+    if (!light_block_ok()) {
+        return;
+    }
+    for (i = 0; i < 16; i++) {
+        b[i] = light_now[i];
+    }
+    dir[0] = raw[0];
+    dir[1] = raw[1];
+    dir[2] = raw[2];
+    if (night != NULL && moonlight_on) {
+        key_turn(dir);
+    }
+    b[16] = (u8) dir[0];
+    b[17] = (u8) dir[1];
+    b[18] = (u8) dir[2];
+    for (i = 19; i < 24; i++) {
+        b[i] = 0;
+    }
+}
+
+RECOMP_HOOK("func_800A1A50") void night_light_list_begins(Gfx** gfx) {
+    prerender_at = gfx;
+    rain_slot_n = storm_slot_n = photo_slot_n = glow_slot_n = streak_slot_n = 0;     // a frame begins: its slots from the first
+    gfx_frame_begins();
+}
+
+// The frame's first list has just called the light list (rdpReset, at the start of
+// every frame; the game calls that start again at each change of microcode). Outside
+// Day the call goes to a copy of the light list whose two loads read the frame's copy
+// of the record, both in the frame context's own set in the mod's memory; the call's
+// place takes the extension's enable (the port gives it only at each camera's matrices,
+// later in the frame), and the call follows in a window of the extension's addresses:
+// [enable] [window open] [the call] [window shut], 24 bytes more than the cartridge's.
+RECOMP_HOOK_RETURN("func_800A1A50") void night_light_list_ends(void) {
+    Gfx** at = prerender_at;
+    volatile u32* list = (volatile u32*) CAMERA_LIGHTS;
+    Gfx* g;
+    Gfx* call;
+    s32 i;
+
+    prerender_at = NULL;
+    light_block = NULL;
+    if (at == NULL || night == NULL || nightness <= 0.0f || !light_set) {
+        return;         // Day, or no course of the mod's: the call and the record as the cartridge has them
+    }
+    g = *at;
+    call = g - 1;
+    if (((u32) g & 7) != 0 || call->words.w0 != 0xDE000000u || call->words.w1 != CAMERA_LIGHTS
+        || list[6] != 0xDC08060Au || list[7] != 0x800AEBD8u || list[8] != 0xDC08090Au || list[9] != 0x800AEBD0u
+        || list[14] != 0xDF000000u) {
+        if (!light_block_said) {
+            light_block_said = 1;
+            recomp_printf("[island skies] the light list is not the cartridge's here: the frames keep the game's record\n");
+        }
+        return;
+    }
+    if (!gfx_may(g, 3)) {
+        return;         // not by plan or room this frame: it keeps the game's own record, and no part loads it again
+    }
+    {
+        s32 c = frame_ctx();
+        Gfx* copy = light_lists[c];
+        Gfx* again = light_reloads[c];
+
+        for (i = 0; i < 8; i++) {
+            copy[i].words.w0 = list[i * 2];
+            copy[i].words.w1 = list[i * 2 + 1];
+        }
+        copy[3].words.w1 = (u32) &copy[9];          // the light: the copy's diffuse and its direction
+        copy[4].words.w1 = (u32) &copy[8];          // the ambient
+        again[0].words.w0 = 0xDC08060Au;
+        again[0].words.w1 = (u32) &copy[9];
+        again[1].words.w0 = 0xDC08090Au;
+        again[1].words.w1 = (u32) &copy[8];
+        again[2].words.w0 = 0xDF000000u;
+        again[2].words.w1 = 0;
+        light_block = (volatile u8*) &copy[8];
+        light_block_drawn = GTL_DRAWN;
+        // [the extension's enable, in the call's place] [the window open] [the call] [the window shut]
+        call->words.w0 = EXT_ENABLE_W0;
+        call->words.w1 = EXT_ENABLE_W1;
+        g[0].words.w0 = EXT_WINDOW_W0;
+        g[0].words.w1 = 1;
+        g[1].words.w0 = 0xDE000000u;
+        g[1].words.w1 = (u32) copy;
+        g[2].words.w0 = EXT_WINDOW_W0;
+        g[2].words.w1 = 0;
+        *at = &g[3];
+    }
+    light_store();
 }
 
 // The Volcano's sky from below: the lava's glow on the clouds' undersides, the
@@ -3743,8 +5982,6 @@ static void snow(GObj* sky) {
 
 RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
     sky_now = obj;
-    glint_turn ^= 1;        // the record's two sets turn once a frame
-    ember_turn ^= 1;
     // The last drawn frame's mist, said once a ride past the intro's own camera.
     if (night != NULL && !mist_said_frame && on_the_ride && mist_corners_last > 0 && ticks_of(night) >= 900) {
         mist_said_frame = 1;
@@ -3784,9 +6021,7 @@ RECOMP_HOOK("drawSkyBox1Cycle") void night_sky_begins(GObj* obj) {
                 thunder(ticks_of(night));
             }
         }
-        if (moonlight_on) {
-            key_light();
-        }
+        light_store();              // the frame's light with this frame's strike, if any
         if (rain_share > 0.0f && obj != NULL) {
             rain(obj);
             if (on_the_ride) {
@@ -4040,20 +6275,25 @@ place:
     n[0] = c[1] * t[2] - c[2] * t[1];
     n[1] = c[2] * t[0] - c[0] * t[2];
     n[2] = c[0] * t[1] - c[1] * t[0];
-    streak_turn ^= 1;
-    mtx = &streak_mtx[streak_turn];
+    mtx = &streak_mtx[frame_slot(&streak_slot_n, FRAME_SLOTS)];
     place_frame(mtx, ex + c[0] * STREAK_DIST, ey + c[1] * STREAK_DIST, ez + c[2] * STREAK_DIST, t, n, c);
-    // Its own matrix group, as the bolt's: pushed, not interpolated (a group
-    // that asked the port to interpolate it stopped the sky's frames).
-    command(list, (0x64u << 24) | 0x00000Cu, 0);
-    command(list, 0x00000001u, 0);
-    gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-    gSPDisplayList((*list)++, night_rain_begin);     // the state the stars have inside the sky's list
-    gDPSetPrimColor((*list)++, 0, 0, 230, 240, 255, (u8) (210.0f * alpha));
-    gSPDisplayList((*list)++, night_streak);
-    gSPDisplayList((*list)++, night_rain_end);
-    gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
-    command(list, (0x64u << 24) | 0x00000Du, 1);
+    {
+        Gfx** game = list;
+
+        list = gfx_stage_open(game);        // an extra of its own, called in a window of its own
+        // Its own matrix group, as the bolt's: pushed, not interpolated (a group
+        // that asked the port to interpolate it stopped the sky's frames).
+        command(list, (0x64u << 24) | 0x00000Cu, 0);
+        command(list, 0x00000001u, 0);
+        gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
+        gSPDisplayList((*list)++, night_rain_begin);     // the state the stars have inside the sky's list
+        gDPSetPrimColor((*list)++, 0, 0, 230, 240, 255, (u8) (210.0f * alpha));
+        gSPDisplayList((*list)++, night_streak);
+        gSPDisplayList((*list)++, night_rain_end);
+        gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
+        command(list, (0x64u << 24) | 0x00000Du, 1);
+        gfx_stage_close(game, 0);
+    }
 }
 
 static void shooting_star(void) {
@@ -4173,7 +6413,8 @@ static Vtx aurora_vtx[AURORA_LAYERS][AURORA_COLS * AURORA_ROWS];
 static Gfx aurora_list[AURORA_GFX];
 static Gfx* aurora_tile[AURORA_LAYERS];     // each layer's tile command in the list, rewritten each frame
 static Gfx aurora_none[] = { gsSPEndDisplayList() };
-static Gfx aurora_hook[] = { gsSPDisplayList(aurora_none), gsSPDisplayList(aurora_none), gsSPEndDisplayList() };     // the sky's own list, then the curtains (spare_point)
+// The sky's own list, then the curtains, then the window that the spare pair opened shut again (spare_point).
+static Gfx aurora_hook[] = { gsSPDisplayList(aurora_none), gsSPDisplayList(aurora_none), {{ EXT_WINDOW_W0, 0 }}, gsSPEndDisplayList() };
 static u8 aurora_lists_built;
 static f32 aurora_pole[2];       // the pole's side, around: x and z
 static u32 aurora_seed;
@@ -4444,6 +6685,133 @@ static void aurora_frame(void) {
     gSPDisplayList(&aurora_hook[1], show);
 }
 
+// ---- The sky's tail, each frame its own ----
+// After the drum the sky goes on in the game's own list, whose spare slot calls the
+// hook: the night's stars and moon (or the sunset's or the dawn's list), then the
+// curtains. The stars' colors (twinkle) and the curtains' corners and tiles
+// (aurora_state) change every frame in lists the mod keeps once, and the renderer
+// read them on its own thread while the game wrote the next frame's. So as each
+// frame's sky is drawn, its context takes copies of that tail, of the hook, of the
+// stars' list with this frame's colors and of the curtains' list with this frame's
+// corners, and the frame's drum branches to them (Nov 8 2026). Day draws the
+// port's drum and the cartridge's own list, as before.
+#define SKY_TAIL  256
+#define SKY_STARS 2048
+static Gfx sky_tail[FRAME_CTX][SKY_TAIL];
+static Gfx sky_hook[FRAME_CTX][3];
+static Gfx sky_stars[FRAME_CTX][SKY_STARS];
+static Gfx sky_twinkle[FRAME_CTX][NIGHT_GROUPS_MAX + 1][2];
+static Gfx aurora_list_f[FRAME_CTX][AURORA_GFX];
+static Vtx aurora_vtx_f[FRAME_CTX][AURORA_LAYERS][AURORA_COLS * AURORA_ROWS];
+static u8 sky_tail_said, sky_stars_said;
+
+// The night's stars list as this frame has it: its calls of the brightness commands
+// pointed at the frame's own copies of them. Any other list is given back as it is.
+static Gfx* sky_stars_snap(s32 c, Gfx* list) {
+    const Night* by = night;
+    u32 tw0, tw1;
+    s32 n, i;
+
+    if (by == NULL || list == NULL || list != by->sky || by->twinkle == NULL || by->twinkles > NIGHT_GROUPS_MAX) {
+        return list;
+    }
+    tw0 = (u32) &by->twinkle[0][0];
+    tw1 = (u32) &by->twinkle[by->twinkles + 1][0];        // past the bright stars' steady hearts
+    for (i = 0; i <= by->twinkles; i++) {
+        sky_twinkle[c][i][0] = by->twinkle[i][0];
+        sky_twinkle[c][i][1] = by->twinkle[i][1];
+    }
+    for (n = 0; n < SKY_STARS; n++) {
+        u32 w0 = list[n].words.w0, w1 = list[n].words.w1;
+
+        if (w0 == 0xDE000000u && w1 >= tw0 && w1 < tw1 && ((w1 - tw0) & 15) == 0) {
+            w1 = (u32) &sky_twinkle[c][(w1 - tw0) >> 4][0];
+        }
+        sky_stars[c][n].words.w0 = w0;
+        sky_stars[c][n].words.w1 = w1;
+        if ((w0 >> 24) == 0xDF) {
+            return &sky_stars[c][0];
+        }
+    }
+    if (!sky_stars_said) {
+        sky_stars_said = 1;
+        recomp_printf("[island skies] the stars' list is longer than %d commands: its shared copy is drawn\n", SKY_STARS);
+    }
+    return list;
+}
+
+// The curtains' list as this frame has it, its corner loads pointed at the frame's corners.
+static Gfx* aurora_snap(s32 c) {
+    u32 v0 = (u32) &aurora_vtx[0][0], v1 = v0 + (u32) sizeof(aurora_vtx);
+    s32 n, l, i;
+
+    for (l = 0; l < AURORA_LAYERS; l++) {
+        for (i = 0; i < AURORA_COLS * AURORA_ROWS; i++) {
+            aurora_vtx_f[c][l][i] = aurora_vtx[l][i];
+        }
+    }
+    for (n = 0; n < AURORA_GFX; n++) {
+        u32 w0 = aurora_list[n].words.w0, w1 = aurora_list[n].words.w1;
+
+        if ((w0 >> 24) == 0x01 && w1 >= v0 && w1 < v1) {
+            w1 = (u32) &aurora_vtx_f[c][0][0] + (w1 - v0);
+        }
+        aurora_list_f[c][n].words.w0 = w0;
+        aurora_list_f[c][n].words.w1 = w1;
+        if ((w0 >> 24) == 0xDF) {
+            return &aurora_list_f[c][0];
+        }
+    }
+    return aurora_list;
+}
+
+// The hook as this frame has it: the list in force and the curtains, each the frame's copy. It is reached only
+// from the frame's copy of the tail, inside the sky's window, so it leaves the window as it is.
+static Gfx* sky_hook_for(s32 c) {
+    static const Gfx end = gsSPEndDisplayList();
+
+    sky_hook[c][0] = aurora_hook[0];
+    sky_hook[c][1] = aurora_hook[1];
+    sky_hook[c][2] = end;
+    if (night != NULL && aurora_hook[0].words.w1 == (u32) night->sky) {
+        sky_hook[c][0].words.w1 = (u32) sky_stars_snap(c, night->sky);
+    }
+    if (aurora_hook[1].words.w1 == (u32) aurora_list) {
+        sky_hook[c][1].words.w1 = (u32) aurora_snap(c);
+    }
+    return &sky_hook[c][0];
+}
+
+// The game's own sky list after the drum, as this frame has it, its spare slot calling
+// the frame's hook. Where it cannot be copied whole the shared list is branched to.
+static u32 sky_tail_for(s32 c) {
+    volatile u32* src = (volatile u32*) fine_rest;
+    u32 spare = (night != NULL) ? night->spare : 0;
+    s32 n;
+
+    if (fine_rest == 0 || (fine_rest & 7) != 0) {
+        return fine_rest;
+    }
+    for (n = 0; n < SKY_TAIL; n++) {
+        u32 at = fine_rest + (u32) n * 8u;
+        u32 w0 = src[n * 2], w1 = src[n * 2 + 1];
+
+        if (at == spare && w0 == 0xDE000000u && w1 == (u32) aurora_hook) {
+            w1 = (u32) sky_hook_for(c);
+        }
+        sky_tail[c][n].words.w0 = w0;
+        sky_tail[c][n].words.w1 = w1;
+        if ((w0 >> 24) == 0xDF) {
+            return (u32) &sky_tail[c][0];
+        }
+    }
+    if (!sky_tail_said) {
+        sky_tail_said = 1;
+        recomp_printf("[island skies] the sky's own list is longer than %d commands: its shared copy is drawn\n", SKY_TAIL);
+    }
+    return fine_rest;
+}
+
 RECOMP_HOOK_RETURN("drawSkyBox1Cycle") void night_sky_ends(void) {
     if (night != NULL) {
         if (sky_repaint_due) {
@@ -4455,16 +6823,21 @@ RECOMP_HOOK_RETURN("drawSkyBox1Cycle") void night_sky_ends(void) {
             // over it, before the renderer reads the pictures for this frame.
             sky_repaint_due = 0;
             if (nightness > 0.0f) {
+                recomp_printf("[island skies] the sky's pictures painted again: begun\n");
                 sky_paint(night->pics[0], sky_mask_pic[0], 0);
                 sky_paint(night->pics[1], sky_mask_pic[1], 1);
+                recomp_printf("[island skies] the sky's pictures painted again: done\n");
             }
         }
         if (storming && !scoring) {
-            storm_sky();
+            storm_sky();            // each in a window of its own (gfx_stage_close)
         }
         if (night->sky != NULL) {
             shooting_star();
         }
+        if (ext_open) {
+            sky_fine_draw();        // without the window the drum stays the game's own call, whose
+        }                           // spare pair runs the hook in a window of its own (spare_point)
         extended_addresses(0);
     }
 }
@@ -4511,6 +6884,7 @@ static s32 fire_color(u32 word) {
 RECOMP_HOOK("omDrawAll") void night_cameras_begin(void) {
     s32 list;
 
+    gfx_frame_begins();         // a scene without the light list's call begins its frame here
     fx_lit_n = 0;
     status_tick();
     cycle_tick();
@@ -4556,6 +6930,8 @@ RECOMP_HOOK_RETURN("omDrawAll") void night_cameras_end(void) {
         *(volatile u32*) (fx_lit_at[i] + 0x50) = fx_env[i];
     }
     fx_lit_n = 0;
+    light_block = NULL;         // the frame is drawn: it goes to the renderer as it is
+    gfx_frame_ends();           // its buffers' fill, the plan for the next
 }
 
 // A roofed course's open-air start: the weather drawn into the frame's main
@@ -4600,7 +6976,7 @@ static void roof_weather(void) {
     }
     {
         u32 oc = (u32) cam->data.cam;
-        Gfx** list = &MAIN_GFX_POS[0];
+        Gfx** game = &MAIN_GFX_POS[0];
         u32 matrices = *(volatile u32*) 0x8004B248u;  // ren_D_8004B248: the camera's matrix sub-list begins after it
         const volatile s32* border = (const volatile s32*) 0x803AE540u;    // MainCameraBorderXmin, Ymin, Xmax, Ymax (app_level/player.c)
         s32 x0 = border[0], y0 = border[1], x1 = border[2], y1 = border[3];
@@ -4617,7 +6993,9 @@ static void roof_weather(void) {
         if (y1 > 240) {
             y1 = 240;
         }
-        if (matrices != 0 && *list != NULL && x1 > x0 && y1 > y0) {
+        if (matrices != 0 && *game != NULL && x1 > x0 && y1 > y0) {
+            Gfx** list = gfx_stage_open(game);
+
             gDPPipeSync((*list)++);
             gSPViewport((*list)++, oc + 0x08);
             gDPSetScissor((*list)++, G_SC_NON_INTERLACE, x0, y0, x1, y1);
@@ -4631,14 +7009,14 @@ static void roof_weather(void) {
                             G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
                             | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                             G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
-            roof_sky_turn ^= 1;
-            roof_sky_draw(list, oc, &roof_sky_mtx[roof_sky_turn]);
+            roof_sky_draw(list, oc, &roof_sky_mtx[frame_ctx()]);
             // The strike was decided as the frame's world began (roof_strike).
             if (storming && roof_outside) {
                 storm_light();
                 thunder(ticks_of(night));
             }
             roof_volume_draw(list, 1);
+            gfx_stage_close(game, 0);
         }
     }
 }
@@ -4730,7 +7108,7 @@ static void roof_stars(Gfx** list, u32 oc, Mtx* mtx) {
     command(list, (0x64u << 24) | 0x00000Cu, 0x534B5900u);   // the group: its place followed between ticks
     command(list, 0x00002829u, 0);
     gSPMatrix((*list)++, mtx, G_MTX_PUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-    gSPDisplayList((*list)++, roof_sky);
+    gSPDisplayList((*list)++, sky_stars_snap(frame_ctx(), roof_sky));      // the stars with this frame's colors
     gDPSetDepthSource((*list)++, G_ZS_PIXEL);
     gSPPopMatrix((*list)++, G_MTX_MODELVIEW);
     command(list, (0x64u << 24) | 0x00000Du, 1);
@@ -4751,25 +7129,27 @@ RECOMP_HOOK("renCameraRenderObjects") void night_objects_begin(GObj* cam_obj, s3
 
 RECOMP_HOOK_RETURN("renCameraRenderObjects") void night_objects_end(void) {
     GObj* cam = photo_sky_cam;
-    Gfx** list = &MAIN_GFX_POS[0];
+    Gfx** game = &MAIN_GFX_POS[0];
+    Gfx** list;
 
     photo_sky_cam = NULL;
     mist_photo(*(GObj* volatile*) 0x8004AC48u);
     if (cam == NULL || cam != *(GObj* volatile*) 0x8004AC48u || cam->data.cam == NULL || night == NULL
-        || !ROOFED(night) || on_the_ride || scoring || *list == NULL) {
+        || !ROOFED(night) || on_the_ride || scoring || *game == NULL) {
         return;
     }
     if (night->twinkle != NULL) {
         twinkle(night);         // the photo's instant (ticks_of)
     }
+    list = gfx_stage_open(game);
     gDPPipeSync((*list)++);
     gDPSetOtherMode((*list)++,
                     G_AD_DISABLE | G_CD_DISABLE | G_CK_NONE | G_TC_FILT | G_TF_BILERP | G_TT_NONE | G_TL_TILE
                     | G_TD_CLAMP | G_TP_PERSP | G_CYC_1CYCLE | G_PM_NPRIMITIVE,
                     G_AC_NONE | G_ZS_PIXEL | G_RM_AA_ZB_XLU_SURF | G_RM_AA_ZB_XLU_SURF2);
-    photo_sky_turn = (photo_sky_turn + 1) & 3;
-    roof_sky_draw(list, (u32) cam->data.cam, &photo_sky_mtx[photo_sky_turn]);
+    roof_sky_draw(list, (u32) cam->data.cam, &photo_sky_mtx[frame_slot(&photo_slot_n, FRAME_SLOTS)]);
     roof_volume_draw(list, 0);
+    gfx_stage_close(game, 0);
 }
 
 RECOMP_HOOK("score_Render") void night_scoring_begins(GObj* camera) {
@@ -5026,6 +7406,53 @@ static u32 weather_of(const Night* by) {
 // set: the night's, the sunset's or the dawn's.
 static u8 palette_cave;          // the palettes being kept are a roofed course's cave's (the clear sky's)
 
+// The scene light's two parts as the hour makes them (Nov 7 2026). By night the key is
+// the moon's color, or the lava's on the Volcano, and the fill a third of the way to the
+// sky's own color, each as strong as before (half the way made a Pokémon's shaded side
+// too deep a blue); at every hour but Day the fill is at least a part
+// in 2.8 of the two together, as the cartridge's own day has it (ambient 100 of 280),
+// so no face looks lit by day at night and no side goes black.
+static f32 light_lum(const u8* c) {
+    return 0.2126f * (f32) c[0] + 0.7152f * (f32) c[1] + 0.0722f * (f32) c[2];
+}
+
+static void scene_light_shape(const Night* by) {
+    static const u8 moon_key[3] = { 200, 212, 236 };
+    static const u8 lava_key[3] = { 255, 150, 80 };
+    s32 k;
+
+    if (!sunset && !raining && !snowing) {
+        const u8* key = by->embers ? lava_key : moon_key;
+        u8 sky[3];
+        f32 fill_lum = light_lum(scene_ambient), key_lum = light_lum(scene_diffuse), sky_lum, keyc_lum = light_lum(key);
+
+        for (k = 0; k < 3; k++) {
+            sky[k] = (u8) (((u32) sky_horizon[k] + sky_top[k]) / 2);
+        }
+        sky_lum = light_lum(sky);
+        for (k = 0; k < 3; k++) {
+            f32 fill = (f32) scene_ambient[k];
+            f32 v;
+
+            if (sky_lum > 1.0f) {
+                fill = 0.65f * fill + 0.35f * (f32) sky[k] * fill_lum / sky_lum;
+            }
+            v = (f32) key[k] * key_lum / keyc_lum;
+            scene_ambient[k] = (u8) (fill > 255.0f ? 255 : (s32) (fill + 0.5f));
+            scene_diffuse[k] = (u8) (v > 255.0f ? 255 : (s32) (v + 0.5f));
+        }
+    }
+    for (k = 0; k < 3; k++) {
+        s32 both = (s32) scene_ambient[k] + scene_diffuse[k];
+        s32 least = (both * 10 + 27) / 28;
+
+        if (scene_ambient[k] < least) {
+            scene_ambient[k] = (u8) (least > 255 ? 255 : least);
+            scene_diffuse[k] = (u8) (both - least > 255 ? 255 : both - least < 0 ? 0 : both - least);
+        }
+    }
+}
+
 static void choose_palette(const Night* by) {
     s32 i;
 
@@ -5119,6 +7546,7 @@ static void choose_palette(const Night* by) {
         sky_horizon[i] = (u8) ((pic_sky[i] * (((u32) tint_lo[i] + tint_away[i]) / 2)) / 255);
         sky_top[i] = (u8) ((pic_sky[i] * tint_hi[i]) / 255);
     }
+    scene_light_shape(by);
     // Where the light comes from, for the painted land, the sky's corners
     // and the key light: the sun at sunset, the moon by night.
     {
@@ -5420,23 +7848,42 @@ static void moon_state(f32 moon) {
     }
 }
 
-// The sky list's spare slot (a pipe sync the generator found twice over)
-// calls the list given, or goes back to being a pipe sync.
+// The sky list's spare pair: two pipe syncs back to back before its end, the second the slot the generator
+// found (NIGHT_*_SPARE). It calls the list given in a window of its own: the window opens in the first, the
+// call is the second, and the hook shuts the window as it ends. So the sky reaches the mod's memory only
+// through a window of its own, whatever the frame's plan; with the call alone, a frame whose sky window the
+// guard held back ran whatever the renderer found at the masked address (cut 35 crashed so at a night's
+// first frame, Nov 8 2026). The writes go in an order that never leaves the call without its window, should
+// the renderer read the list between two of them. Without a call the pair is the cartridge's two pipe syncs.
+static u8 spare_pair_said;
+
 static void spare_point(Gfx* list) {
     volatile u32* spare = (volatile u32*) night->spare;
+    s32 pair_ok;
 
     roof_sky = list;        // a course without a drum draws it itself (roof_weather)
     if (spare == NULL) {
         return;
     }
-    if (list == NULL || raining || snowing) {
-        spare[0] = 0xE7000000u;
+    pair_ok = (spare[-2] == 0xE7000000u && spare[-1] == 0) || (spare[-2] == EXT_WINDOW_W0 && spare[-1] == 1);
+    if (!pair_ok && !spare_pair_said) {
+        spare_pair_said = 1;
+        recomp_printf("[island skies] the sky's spare pair is not the cartridge's here: its stars and moon are left out\n");
+    }
+    if (list == NULL || raining || snowing || !pair_ok) {
+        spare[0] = 0xE7000000u;     // the call goes first
         spare[1] = 0;
+        if (pair_ok) {
+            spare[-2] = 0xE7000000u;
+            spare[-1] = 0;
+        }
     } else {
-        // The slot runs the hook: the sky's list, then the aurora's (aurora_frame).
+        // The pair runs the hook: the sky's list, then the aurora's (aurora_frame), then the window shut.
         gSPDisplayList(&aurora_hook[0], list);
-        spare[0] = 0xDE000000u;
+        spare[-2] = EXT_WINDOW_W0;  // the window goes first
+        spare[-1] = 1;
         spare[1] = (u32) aurora_hook;
+        spare[0] = 0xDE000000u;
     }
 }
 
@@ -5644,7 +8091,7 @@ static void scene_apply(void) {
     set_light(night);
     fog_apply();
     for (i = 0; i < 2; i++) {
-        if (night->pics[i] != 0) {
+        if (night->pics[i] != 0 && !sky_paint_skip) {
             sky_paint(night->pics[i], sky_mask_pic[i], i);
         }
         if (night->sky_vtx[i] != 0) {
@@ -5653,6 +8100,7 @@ static void scene_apply(void) {
         }
     }
     relight_record();
+    fine_roof_refresh();
 }
 
 // A minute of the day, 0 to 1440: the whole scene set for it.
@@ -6507,12 +8955,17 @@ static void cycle_tick(void) {
     u32 t;
     f32 m;
     s32 turning = 0;
+    u32 step;
 
     if (night == NULL || scoring || !(cycle || dusk || misty)) {
         return;
     }
     t = ride_ticks_of(night);   // two photos of one clock may stand a round apart
-    if (!(dusk_last == 0xFFFFFFFFu || t - dusk_last >= 10 || t < dusk_last)) {
+    // A dusk on the ride moves on with every frame: in steps of ten ticks a lit
+    // face moved by as much as two levels at once (its ambient and its diffuse each
+    // a level). The sky's pictures are still painted again every ten (scene_apply).
+    step = (dusk && on_the_ride) ? 1u : 10u;
+    if (!(dusk_last == 0xFFFFFFFFu || t - dusk_last >= step || t < dusk_last)) {
         return;
     }
     dusk_last = t;
@@ -6529,7 +8982,12 @@ static void cycle_tick(void) {
     if (!turning && m >= m_day0 && m < m_day1 && cycle_minute >= m_day0 && cycle_minute < m_day1) {
         return;
     }
+    sky_paint_skip = (step == 1u && sky_paint_last != 0xFFFFFFFFu && t >= sky_paint_last && t - sky_paint_last < 10u);
+    if (!sky_paint_skip) {
+        sky_paint_last = t;
+    }
     moment_apply(m);
+    sky_paint_skip = 0;         // a photo's world, a load: their pictures are painted
 }
 
 // Whether tonight has an aurora, drawn as the ride's world is built and kept
@@ -6674,6 +9132,8 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
     moon_phase_apply();
     star_fade = 255;
     dusk_last = 0xFFFFFFFFu;
+    sky_paint_last = 0xFFFFFFFFu;
+    sky_paint_skip = 0;
     cycle_minute = -1.0f;
     fog_far = by->fog_max;          // fog_near: weather_shares_apply
     // The set-up record ends in a byte the game leaves empty; it is marked here
@@ -6697,7 +9157,9 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
         }
         sun_y0_kept[0] = sun_y0_kept[1] = 0;
         sky_orig_cn_kept[0] = sky_orig_cn_kept[1] = 0;
+        fine_reset();
         clear_maps();
+        actor_reset();
         flow_y_sum = 0.0f;
         flow_y_n = 0;
         mist_said = 0;
@@ -6726,6 +9188,7 @@ RECOMP_HOOK("createWorld") void night_create_world(WorldSetup* setup, s32 sky_id
             sky_masks_lift();
             sky_masks_meet();
         }
+        sky_floor_make(by);
         {
             f32 m = mode_minutes();
 
@@ -6763,8 +9226,16 @@ RECOMP_HOOK("destroyWorld") void night_destroy_world(void) {
                       (glint_op_n > GLINT_OPS - 64) ? "; the ops FULL" : "",
                       (glint_seg_n >= GLINT_SEGS) ? "; the parts FULL" : "");
     }
+    if ((gfx_most[0] | gfx_most[1] | gfx_most[2] | gfx_most[3] | gfx_short_n) != 0) {
+        recomp_printf("[island skies] the frame buffers: the mod's most in one frame %u, %u, %u and %u bytes (its budgets %u, %u, %u, %u); %u additions left out for room\n",
+                      gfx_most[0], gfx_most[1], gfx_most[2], gfx_most[3], gfx_budget[0], gfx_budget[1], gfx_budget[2], gfx_budget[3], gfx_short_n);
+    }
+    gfx_most[0] = gfx_most[1] = gfx_most[2] = gfx_most[3] = 0;
+    gfx_short_n = 0;
+    gfx_short_said = 0;
     night = NULL;
     set_light(NULL);
+    actor_reset();
     rain_quiet();
     thunder_at = body_at = echo_at = 0;
     chirp_next[0] = 240;

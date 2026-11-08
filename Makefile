@@ -12,6 +12,10 @@ MOD ?= unlimited_film
 BUILD_DIR := build/$(MOD)
 SRC_DIR := mods/$(MOD)/src
 
+# A mod may add compiler flags of its own: mods/<mod>/mod.mk sets MOD_CFLAGS.
+MOD_CFLAGS :=
+-include mods/$(MOD)/mod.mk
+
 ifeq ($(OS),Windows_NT)
     CC      := clang
     LD      := ld.lld
@@ -30,7 +34,7 @@ ARCHFLAGS := -target mips -mips2 -mabi=32 -O2 -G0 -mno-abicalls -mno-odd-spreg -
              -fomit-frame-pointer -ffast-math -fno-unsafe-math-optimizations -fno-builtin-memset -fno-builtin-memcpy -fno-builtin-memmove -fno-builtin-bcopy -funsigned-char -fno-builtin-sinf -fno-builtin-cosf
 WARNFLAGS := -Wall -Wextra -Wno-incompatible-library-redeclaration -Wno-unused-parameter -Wno-unknown-pragmas -Wno-unused-variable \
              -Wno-missing-braces -Wno-unsupported-floating-point-opt -Werror=section -Wno-visibility
-CFLAGS   := $(ARCHFLAGS) $(WARNFLAGS) -D_LANGUAGE_C -nostdinc -ffunction-sections
+CFLAGS   := $(ARCHFLAGS) $(WARNFLAGS) -D_LANGUAGE_C -nostdinc -ffunction-sections $(MOD_CFLAGS)
 CPPFLAGS := -DMIPS -DF3DEX_GBI_2 -DNDEBUG -D_FINALROM -I include -I include/dummy_headers \
             -I pokemonsnap/include -I pokemonsnap/src -I pokemonsnap/ultralib/include -I pokemonsnap/ultralib/include/PR \
             -idirafter include/dummy_headers/stdlib
