@@ -8,10 +8,11 @@ dusk that falls during the ride, or live: the island follows your own clock,
 day and night, under weather of its own that holds from one ride to
 the next and turns during a ride when its time comes. Stars that twinkle,
 a moon with its glint on the water, meteor showers on clear nights and an
-aurora on some of them, the Volcano lit by its lava; rain, storms with lightning and snow that lies,
-on every course, and ash over the Volcano; at dawn a mist lies on the River
-and the Valley and lifts as the day comes. By day the island is exactly as
-the cartridge draws it, and photos keep the sky of their instant.
+aurora on some of them, fireflies over the River, the Volcano lit by its
+lava; rain, storms with lightning and snow that lies, on every course, and
+ash over the Volcano; at dawn a mist lies on the River and the Valley and
+lifts as the day comes. By day the island is exactly as the cartridge
+draws it, and photos keep the sky of their instant.
 
 ## Pictures
 
@@ -38,6 +39,14 @@ The River at night: fireflies over the water under the stars.
 ![The River under the stars](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/river_stars.png)
 
 The River at night, down the water: the stars overhead, fireflies along the banks.
+
+![The River under the aurora](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/river_aurora.png)
+
+The River at night under the aurora, the stars above the hills.
+
+![The River at dawn](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/river_dawn.png)
+
+The River at dawn in the mist, the far hills pale.
 
 ![The Valley in snow](https://raw.githubusercontent.com/JackandBeans/Snap64RecompMods/main/mods/island_skies/pictures/valley.png)
 
@@ -69,13 +78,13 @@ In the game, open Options > Mods, select Island Skies and press A for
 its details, then A again for its options. The first row is **Setup**:
 
 - **Simple** is two more rows. **Time**: Night (the default), Sunset,
-  Dawn, Dusk (the sun sets during the ride), Day, or Your clock.
-  **Weather**: Island's own (rain on the River, clear elsewhere), Clear,
+  Dawn, Dusk (the sun sets during the ride and night falls), Day, or
+  Your clock. **Weather**: Island's own (rain on the River, clear elsewhere), Clear,
   Rain, Storm, Snow, or Random. A weather chosen falls on every course:
   snow lies on the Beach's sand as on the Valley's banks, with the surf
   line left wet and bare, and dusts the Volcano's warm rock without
-  settling deep. Snow lies by the slope: flat ground white, rock faces
-  their own rock, a snow line between. The Tunnel's open-air start, the
+  settling deep. Snow lies by the slope: flat ground white, steep rock
+  dusted, a snow line between. The Tunnel's open-air start, the
   slope up to the cave's mouth, takes the weather like any course, under
   its painted sky, which takes the weather and the hour as the other
   courses' skies do: it is a thing of the world there, hidden by the rock
@@ -184,8 +193,8 @@ to full and back, and south of the equator its lit side is the other one.
   and a paler, nearer fog, or the plain dawn.
 - **Aurora**: curtains of light low in the sky on clear nights, some
   nights (one ride in three), every night, or never. The Tunnel has none.
-- **Moonlight on Pokémon**: the scene's light leans toward the moon, or
-  stays where the game puts it.
+- **Moonlight on Pokémon**: the scene's light leans toward the moon (on
+  the Volcano it rises from the lava), or stays where the game puts it.
 - **Night Sounds**: insects chirping in the dark on a clear night.
 - **Lightning**: Gentle (the default) keeps the bolt and the thunder but
   dims the flash that fills the screen, for sensitive eyes; Full is the

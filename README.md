@@ -18,7 +18,7 @@ and the Volcano in snow. More pictures are on
 
 | Mod | Version | Needs | Download |
 | --- | --- | --- | --- |
-| [Island Skies](mods/island_skies/thunderstore/README.md) | 1.1.1 | Snap64 Recomp 1.1.3 or later | [snap64_island_skies.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_island_skies.nrm) |
+| [Island Skies](mods/island_skies/thunderstore/README.md) | 1.1.2 | Snap64 Recomp 1.1.3 or later | [snap64_island_skies.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_island_skies.nrm) |
 | [Unlimited Film](mods/unlimited_film/thunderstore/README.md) | 1.0.2 | Snap64 Recomp 1.0.9 or later | [snap64_unlimited_film.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_unlimited_film.nrm) |
 | [Unlock Everything](mods/unlock_everything/thunderstore/README.md) | 1.0.2 | Snap64 Recomp 1.0.9 or later | [snap64_unlock_everything.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_unlock_everything.nrm) |
 
@@ -36,10 +36,12 @@ The island's sky at any hour and in any weather: night, sunset, dawn, a
 dusk that falls during the ride, or live by your own clock, under weather
 of the island's own that holds from one ride to the next and turns during
 a ride when its time comes. Stars, a moon with its glint on the water,
-shooting stars, the Volcano's embers; rain, storms with lightning, snow
-that lies, ash over the Volcano. By day the island is exactly as the
-cartridge draws it, and photos keep the sky of their instant. Simple set-up
-is three rows, Live adds only the sun's, Custom opens every row.
+meteor showers on clear nights and an aurora on some of them, fireflies on
+the River, a mist at dawn, the Volcano's embers; rain, storms with
+lightning, snow that lies, ash over the Volcano. By day the island is
+exactly as the cartridge draws it, and photos keep the sky of their
+instant. Simple set-up is three rows, Live adds only the sun's, Custom
+opens every row.
 
 [Page](mods/island_skies/thunderstore/README.md) ·
 [Changelog](mods/island_skies/thunderstore/CHANGELOG.md)

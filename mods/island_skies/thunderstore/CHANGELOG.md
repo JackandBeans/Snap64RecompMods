@@ -2,304 +2,34 @@
 
 ## 1.1.2
 
-- The River's fireflies are few and seldom. Each flashes by itself,
-  a soft rise and a longer fade under a second in all, at a moment of
-  its own drawn afresh every twelve seconds, five times in eight, so no
-  two keep time and no stretch of the ride repeats; a flash shows
-  somewhere every few seconds. 1.1.1 lit them sixteen at a time, in four
-  groups that each glowed for a second and a half of every three, and
-  the water swarmed. There are 32 where there were 64, each smaller and
-  dimmer, and they keep near the water, from a little below the camera
-  to a little above it, where some hung high in the sky. Asked for by
-  JackandBeans on Oct 18 2026, twice: the first cut still blinked too
-  fast and too often.
-- A mist at dawn on the River and the Valley: the fog draws in a little
-  and goes from the sky's own horizon color a quarter of the way to a
-  pale gray, so the far land fades into a lighter sky, and wisps of it
-  lie on the water and along its banks, with open water between them,
-  faint by the cart and fullest in the middle distance, thinning again
-  toward the far fog. The wisps lie still on the world and drift a
-  little, and they follow the shore up the bank's foot and clear as the
-  ground rises; a wall carries none. It gathers through the night's last
-  hour, lies thickest as the sky pinks and lifts as the day comes under
-  Live; a ride at Dawn starts in it and sees it thin as the ride goes.
-  Clear weather only. Chosen by JackandBeans on Oct 18 2026 from a list
-  of what the mod still lacked. Four cuts of a flat sheet riding with
-  the camera went before it: the first pulled the fog most of the way to
-  white and hung the sheet over the water, and the walls and the logs
-  went white (JackandBeans, Oct 18 2026); the second lay as a film over
-  all the water and was still too much (Oct 19 2026); the third moved
-  its picture in jumps against the gliding world; the fourth still moved
-  oddly, since the port glides a sheet between the game's frames while
-  its picture is written only at each frame, and its flat plane cut the
-  sloping banks in a straight edge (JackandBeans, Oct 19 2026). The mist
-  is now drawn on the water's and the shore's own triangles instead. Its
-  first cut that way was drawn in the middle of the scene and left its
-  modes to the land drawn after it, which went wrong, drew a seam along
-  every shared edge, and took no fog, so a block coming into view brought
-  a bright veil with it (JackandBeans, Oct 19 2026, "extremely glitchy
-  and choppy"): it is drawn after the whole scene now, under the camera's
-  own matrices, without the edge smoothing, and fogged as the land is.
-  That cut still drew bright lines along the water's rows and glitched
-  (JackandBeans, Oct 19 2026): it was drawn under whatever matrix the
-  scene's last object had left, which the port glides between the game's
-  frames, and the reader of the camera's matrices looked for a view the
-  game folds into its projection, so the fog never reached it. The mist
-  now stands in the world's own frame in a group of its own the port
-  leaves still, writes its depth so that where two of its triangles lie
-  on one pixel the second blends no more, and takes the fog. With that
-  it looked better, with a little flickering and some lines left
-  (JackandBeans, Oct 19 2026): its frame's books now close with its own
-  draw rather than with the sky's, so a model drawn before the sky in a
-  frame keeps its mist; the shore's mist stands a hair nearer than the
-  water's, so the two never tie where they cross; and a block's water
-  coming into the record no longer moves the mist already lying. His
-  pictures of that cut showed a bright hairline along the water's edge
-  under the rock walls and a dashed line across the intro's water: the
-  river's bed within a unit under the water carried mist too, and that
-  mist, pulled nearer than the water's, showed through the water as a
-  band along the walls' feet and a line over a shallow. No mist lies
-  under the water now: a shore corner under it is lifted to the water's
-  level, the water's mist is drawn first and writes its depth, and the
-  shore's, pulled less, stays unseen wherever the two meet. That cut kept
-  the intro's dashed line and glitched the mist on the grass as the cart
-  went (JackandBeans, Oct 20 2026): the water's mist, pulled toward the
-  eye, came through the lowest grass by the water as the view moved, and
-  the River's first stretch is in the record twice, so its mist was laid
-  twice. The shore's mist is now drawn as a decal on the land itself, at
-  the land's own depth and under each part's own matrix, pulled nowhere
-  and lifted nowhere, so it lies only where the land shows: not under the
-  water's mist, nor under the water, nor over what stands on the bank; and
-  a triangle whose corners the frame has drawn already is drawn no more.
-  His pictures of a test build with the water's mist blue and the shore's
-  red showed the intro's line gone and no red at all: the renderer draws a
-  decal only within a tolerance of the depth it finds, and refused every
-  bit of the shore's. The shore's mist is now drawn through the very matrix
-  commands the game drew that part of the land with, so its depths come
-  out the same as the land's, and with a depth test that lets an equal
-  depth through; and the water's mist stands two units over the water
-  instead of being pulled toward the eye, since the pulled mist came
-  through the low grass by the water as the view moved and, where the
-  water runs under a wall's foot, through the wall as a line along it.
-  With that it "looks perfectly fine" near and was too much from a
-  distance (JackandBeans, Oct 20 2026): it now thins from 700 units out
-  and is gone at 1500, where it stood full to 1400 and went at 2600, and
-  its full thickness is a tenth less.
-- In snow every wall holds a dusting: a face steeper than 66 degrees,
-  which held no snow at all, is now its own rock, a little lighter and
-  cooler, and the snow line runs from white to dusted rock. The rock under
-  snow is a little less dark to match. Found by JackandBeans on Oct 20
-  2026: the walls stood bare in a white course.
-- The River's three shimmering panels where Porygon hides, two of rock
-  and one of grass, are land to the mod now: snow lies on them as on the
-  walls around them, and by night they take the walls' light. They share
-  the moving water's material, and the mod took them for water, so the
-  rock panel stood bare and brown in a white wall (JackandBeans's
-  picture, Oct 20 2026). A panel is told from water by its own palette,
-  earth colored where the water's is blue or absent and the lava's red;
-  across the seven courses only those three panels have one.
-- Custom has a **Dawn Mist** row, On or Off: the mist at dawn on the
-  River and the Valley, in the fog and on the water. Simple and Live keep
-  it on, as before. The Effects at Night row now says spray for the
-  game's own water, since mist is the dawn's.
-- A meteor shower on every clear night: streaks every few seconds from
-  one point of the sky, each with its own length and brightness, the
-  radiant drawn for the ride and kept by its photos. Under Live the peak
-  nights of the year's seven showers (the Quadrantids, the Lyrids, the Eta
-  Aquariids, the Perseids, the Orionids, the Leonids and the Geminids)
-  come at their own pace, thickest for the Geminids and the Perseids, and
-  the details page names the shower. The lone shooting star of 1.1.0 is
-  part of it. Asked for by JackandBeans on Oct 23 2026, first as a rare
-  thing, then, having seen it, for every night.
-- A photo keeps the sky it was taken under. The game draws a saved photo's
-  world afresh each time, and the mod made it the rows' sky, so with Time
-  at Night every photo in the album had turned to night (JackandBeans,
-  Oct 23 2026). Now the shutter writes the hour, the weather of that
-  instant, whether an aurora stood and, under Live, the ride's first
-  minute into two bytes of the photo's record that the game leaves empty
-  and saves with it, and the photo is drawn under that sky whatever the
-  rows say, in the album and in Oak's review. A photo from before has no such note and follows the
-  rows, as before. The moon's phase in a photo is by the day it is looked
-  at, not the day it was taken.
-- The moon's dark side is mostly see-through, a faint disc with the halo
-  and the sky showing through it, and its terminator is softer. It was
-  painted solid at a sixth of the light and blotted the halo out as a
-  black patch, and its half-texel edge showed as a stair at the moon's
-  size on a large display (JackandBeans, Oct 24 2026).
-- An aurora on some clear nights: two curtains of light low in the sky a
-  quarter turn around from where the sun sets, each a band bright at a
-  foot that arcs and folds along the curtain, with a soft rose glow under
-  its brightest stretches, and broad rays rising from the band, green to a
-  violet top, that drift along it, brighten and fade as slow waves of light
-  pass, and shimmer, the whole breathing over forty seconds, their light
-  added to the sky so the stars show through undimmed. They are drawn in
-  the N64's own way, strips of colored corners under a tiny picture of
-  the rays (256 by 4, light only, drawn once by the mod) that slides
-  along the curtains, and move by the world's clock, so a photo's night
-  has the curtains its instant had. The first cut, broad soft swells laid
-  over the sky, read as a green haze (JackandBeans, Oct 23 2026). The
-  second was drawn after the sky in a group of its own, which the port
-  moves only at the game's frame rate, and it stuttered as the view
-  turned (JackandBeans, the same night); the curtains are drawn within
-  the sky's own list now, with the stars, and glide as they do. The
-  third drew the rays from the strips alone, two degrees wide, and its
-  waves jumped from strip to strip (JackandBeans, Oct 24 2026); the
-  picture came with the fourth, which slid it by the corners' picture
-  coordinates, and the port, which glides only matrices and a steadily
-  scrolling picture tile between the game's frames, showed that slide at
-  the game's rate (JackandBeans, the same night); the fifth slid the
-  tile, a quarter of a texel a frame, as the River's water scrolls, and
-  was still a little choppy (JackandBeans, Nov 1 2026). The port glides a
-  scroll only while every frame's step is the same, and on the Beach and
-  the Volcano the clock, cut down to whole ticks, could stand still for a
-  frame and then step two, as often as one frame in seven; the port never
-  glides the corners or their colors, and the corners drifted a unit at a
-  time. The sixth counts the slide from the clock rounded to whole ticks,
-  holds the corners still, and makes the shimmer slower and fainter. The
-  world's clock starts over every few minutes, every seven on the Beach
-  and the Volcano, and the sixth's slide and light jumped there; the
-  seventh drifts each curtain's rays one way for half of the clock's round
-  and back for the other half, the two curtains turning a quarter round
-  apart, and turns each wave of light, the breath and the shimmer a whole
-  number of times in a round, so nothing jumps there. JackandBeans asked
-  the same night whether the look suited an N64 game and this one: the
-  game paints its sky with pictures 64 texels wide, six around the sky,
-  about a texel a degree, and the seventh's rays were six times finer,
-  on strips that drew 1,152 triangles a frame where the Beach's whole sky
-  drum has 28. The eighth draws nine broad soft rays to its picture where
-  there were thirty-six, on strips six degrees wide, 384 triangles, with
-  the same colors, waves and slide. JackandBeans's picture of it (Nov 4
-  2026) showed its thin rose fringe running the whole foot and tracing the
-  strips' corners like an outline, the sharpest where a fold twenty-seven
-  degrees long bent as much as thirty degrees at a corner. The ninth makes
-  that fold forty-eight degrees long, so no corner bends more than about
-  ten, and the rose is a soft glow under the brightest stretches only,
-  fading away elsewhere. On a
-  fixed hour one ride in three has one; under Live the latitude decides,
-  most nights beyond 55 degrees
-  north or south and about one in forty near the equator, the same all
-  night and on the other side south of the equator; Custom has an
-  **Aurora** row, Some nights, Every night or Off. The Tunnel has none.
-  Chosen by JackandBeans on Oct 23 2026 from three ways to make the night
-  sky more interesting.
-- Dusk and the mist of a Dawn ride go once through the whole ride. They
-  counted from the world's clock, which starts over every 83 seconds in
-  the Valley, every four minutes on the River and every seven on the Beach
-  and the Volcano, so Dusk went back to sunset each time and the mist came
-  back, and the Valley's Dusk never reached the night. The ride counts the
-  clock's rounds now: Dusk reaches the night two minutes in and stays, and
-  the mist thins once over three minutes, its wisps drifting on without a
-  step. A photo at Dusk or at a misty Dawn keeps its rounds in its stamp
-  and is redrawn at its own moment; a photo from before is drawn as it was.
-  The night's chirps went silent for good at the first restart too, and
-  now run through the ride. Found in a review of the code on Nov 2 2026.
-- The Valley's sky has no line across it at sunset, Dusk and dawn. Its sky
-  is one picture cut in two about ten degrees up, the only course's that
-  is. The clouds' thinning toward the drum's lid ran on the lower picture
-  too, so it lost its clouds right up to the upper one's and the two met
-  in a straight line (JackandBeans, Nov 5 2026, with a picture). The
-  thinning is the upper picture's alone now, and the two pictures' clouds
-  meet along the join, so a cloud runs through it. By day the sky is the
-  cartridge's, as before.
-- The Valley's sky no longer reads as a box at sunset and dawn. Open sky in
-  its cloud masks was never quite nothing, and the thinning toward the lid
-  took all of it across one step of the picture's color in a single row, all
-  the way round, which drew the drum's six-sided rim under a flat ceiling
-  (JackandBeans, Nov 5 2026, "looks like you are in a box"). Open sky is one
-  color in the pictures now, with only the drum's corners carrying its
-  height, and at those hours they are lighter toward the sun. The thinnest
-  haze goes with the floor. The pictures are painted again after the port's
-  own dissolve at the first draw, so the two meet beside the drum's corners
-  too.
-- The Beach, the River, the Volcano and the Tunnel lose the same rim, at
-  every hour but the cartridge's Day. Their pictures hold a haze as well as
-  clouds, and it stood in whole rows, each a step of the color all the way
-  round; the River's rim at sunset was the strongest, nearly seven steps of
-  255. Each row of the picture is now divided by its own open sky and the
-  sky's corners carry that sky, smoothly. Open sky is one color of the picture
-  at every height and every hour, so it no longer crosses a step of the color
-  all at once as the dusk goes on, and a cloud keeps its contrast against the
-  sky around it. Asked for by JackandBeans on Nov 6 2026.
-- No straight line and no six-sided shape in the sky, at any hour but the
-  cartridge's Day. JackandBeans could still see a faint line at every course's
-  sunset (Nov 6 2026, with two pictures), and three things drew it. The top
-  ring's corners rounded apart, so the lid showed straight seams: the lid and
-  the top ring are now one color. The color went by height on six flat faces,
-  so its level lines and the breaks in its slope were six-sided: a drum nine
-  times finer now stands in for the port's, the same pictures in the same
-  places, each corner colored by its direction from the eye, so the level lines
-  are round and the top of the sky is flat before it reaches the lid. And the
-  last rounding to eight bits made steps of those lines: the sky's own draw now
-  adds half a level of noise either way before the rounding, new at each pixel
-  and each frame, so there are no steps, whatever the port's Dither setting
-  says. Corner colors have eight bits, and their rounding showed on so fine a
-  drum, so the faces are drawn a second time at an eighth, under corners that
-  make up what the first pass lost. The Valley's warmth toward the sun evens out
-  around the sky near the top. The Tunnel's painted boxes take the same finer
-  faces and the same noise, colored from each box's middle. The cartridge's Day
-  draws as it did, on the port's own drum, and an hour leaving Day starts from
-  the port's own colors.
-- At night the clouds keep their brightest parts and their height above the
-  sky. The pictures' open sky stood too high for the night's clouds, which
-  stand further above it than the sunset's, so their brightest parts were cut
-  flat at the top of the picture's colors: on the Volcano and the Beach at
-  night, late in the dusk and early in the dawn, and in the rain and the snow
-  on the Beach and in the Tunnel. At night the open sky now stands lower in the
-  pictures, coming down a whole step of their color at a time through the dusk
-  and going back up through the dawn. The night sky's color is the tints' curve
-  times one smooth line of haze up the drum, level where it meets the lid, and
-  each cloud stands on that line by its difference from its row's open sky, so
-  it keeps the height above its sky that the cartridge's picture gives it.
-  Sunset, Dawn and the Day draw as they did. Found by measuring every course's
-  night after JackandBeans asked for every sky to be perfect (Nov 6 2026).
-- At every hour but Day the Pokémon take the hour's light as the land does.
-  Moltres is drawn without the game's fog and lit by nothing but his own fire, yet
-  some of his parts turned fog on, so under the night's dark fog half of him went
-  dark (JackandBeans, Nov 7 2026, with two pictures): outside Day he stays
-  unfogged, fire bright at any distance. Rapidash, drawn without the game's fog
-  too, takes it outside Day as every other Pokémon does, its flames clear. A part
-  that sets its own light colors (the flames
-  of Charmander, Charmeleon and Magmar, and parts of Snorlax, Electabuzz,
-  Electrode and Vileplume) left them set for whatever was drawn after it, which
-  then took a gray day light at night: the hour's light is loaded again after such
-  a part, and those flames are evenly bright all round. The parts the cartridge
-  paints rather than lights (small parts of Butterfree, Meowth, Kakuna, Metapod and
-  Cloyster) take the hour's light; fire, sparks and Starmie's gem keep their own
-  color. By night the key light is the moon's color, or the
-  lava's on the Volcano, where it comes from below and toward the camera; the
-  shaded side takes a third of the sky's color, and it is never less than the
-  cartridge's Day share of the light, so nothing looks lit by day at night and no
-  side goes black. A photo's Pokémon, drawn from the game's other models, take the
-  same. Day is the cartridge's.
-- Outside Day the scene no longer flickers. The renderer reads a frame on a thread
-  of its own after the game has gone on, and the game's next update writes its own
-  light into the one record every camera loads, from behind the camera; the lean
-  toward the sun or the moon came only with the next frame's sky. So a frame read
-  late was lit from behind the camera, and the whole lit scene flickered, most of
-  all in fast-forward (JackandBeans, Nov 8 2026). Each frame now carries its own
-  copy of the light in its own command list, and the stars' twinkle, the aurora's
-  curtains and the rest of what changes from frame to frame are kept for each
-  frame the same way. Through a Dusk the light and the painted land move on with
-  every frame instead of every sixth of a second. Day is the cartridge's.
-- The game's frame buffers keep their room. The game draws each frame into four
-  buffers of fixed size and stops with "DLBuffer over flow" if one runs past its
-  end; the photo review fills its main buffer to 95.5% on its own, and the mod's
-  light took 96 bytes more there. The mod now keeps what it draws in its own
-  memory, a set for each frame, and puts only short calls of 8 to 24 bytes into
-  the game's buffers, where the rain, the snow and the glint used to write their
-  whole lists. It adds them only where the game's own fill in the frame before
-  leaves a margin, a thirty-second of the buffer and never under 512 bytes, and
-  only up to a set amount in one frame. A scene's first frame, with no frame
-  before it, goes by the fullest the game was ever measured to fill such a
-  buffer. Every frame draws as before. Found by measuring the buffers after
-  the flicker report (Nov 8 2026). The call the mod leaves in the game's own
-  sky list, to the stars, the moon and the aurora, now opens the renderer's
-  window to the mod's memory itself, in the first of the two pipe syncs every
-  sky list ends with, and the list it calls shuts it again; the storm's flash
-  and a shooting star take windows of their own too. A first build left that
-  call to the window around the sky, which the guard could hold back, and a
-  scripted run of the River at night stopped the game at the course's first
-  frame (Nov 8 2026).
+- The River's fireflies are fewer and gentler. Each flashes on its own, now
+  and then, and they keep near the water.
+- A mist at Dawn on the River and the Valley. It lies on the water and along
+  the banks, fades the far land into a paler sky, and thins as the ride goes
+  on. Clear weather only.
+- Custom has a **Dawn Mist** row to turn the mist off. The **Effects at
+  Night** row now names the game's own spray.
+- A meteor shower on every clear night. Under Live, the year's own showers
+  come on their peak nights, and the details page names them.
+- An aurora on some clear nights: two curtains of light low in the sky.
+  Custom has an **Aurora** row: Some nights, Every night or Off. The Tunnel
+  has none.
+- A photo keeps the sky it was taken under, in the album and in Oak's
+  review.
+- The moon's dark side is a faint, see-through disc with a softer edge.
+- Dusk runs once through the ride and stays at Night. The chirps at Night go
+  on through the whole ride.
+- In snow, every wall has a dusting of snow.
+- On the River, the three panels where Porygon hides take snow, and the
+  light at Night, like the walls around them.
+- The sky shows no lines, rims or six-sided shapes at Sunset, Dusk, Dawn or
+  Night, on any course. The Valley's sky no longer looks like a box.
+- On the River at Night, the stars reach the top of the sky.
+- The Pokémon take the hour's light as the land does. Moltres stays bright in
+  its own fire, and flames and sparks keep their own color.
+- Apples, Pester Balls and their splashes in water take the hour's light
+  too, and so does the Volcano's gate.
+- The light at Dusk and Dawn now changes smoothly.
 
 ## 1.1.1
 
