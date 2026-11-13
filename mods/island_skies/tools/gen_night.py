@@ -32,7 +32,7 @@ COURSES = {
     'beach': dict(setup=0x8011B914, segs=[(0x8011B050, 0x801B0310, 0x000A74E0)], r_lo=14, r_hi=23,
                   moon=(150, 260, 8.5, 12.5), stars=(700, 260, 9), seed=1999),
     'river': dict(setup=0x8012AC90, segs=[(0x8012A0C0, 0x8019AEE0, 0x0029A190)], r_lo=23, r_hi=27,
-                  moon=(0, 359, 9.0, 16.0), stars=(520, 190, 7), seed=2001),
+                  moon=(0, 359, 9.0, 16.0), stars=(520, 190, 7), seed=2001, stars_high=True),
     'volcano': dict(setup=0x800FFFB8, segs=[(0x800FFF90, 0x801A9900, 0x00326C10)], r_lo=24, r_hi=31,
                     moon=None, stars=(170, 60, 3), seed=2003),
     'valley': dict(setup=0x80100720, segs=[(0x800FFF90, 0x80186B10, 0x003F63D0)], r_lo=14, r_hi=26,
@@ -712,10 +712,16 @@ def build_course(name, cfg, rom_path, show_hist):
     else:
         sky = dict(list=0, tris=[], pics=[], arrays=[], spare=None)     # no drum: open sky everywhere
     clouds = {}
+    clouds_open = {}        # the same, measured from each row's own open sky (stars_high)
     for pic in sky['pics']:
         raw = rom.data(pic, 64 * 32 * 2)
         reds = [(struct.unpack('>H', raw[2 * i:2 * i + 2])[0] >> 11) & 31 for i in range(64 * 32)]
         clouds[pic] = [max(0.0, min(1.0, (r - cfg['r_lo']) / float(cfg['r_hi'] - cfg['r_lo']))) for r in reds]
+        # Each row's open sky is its least red: the haze the night's painting divides out (the mod's
+        # sky_floor), so measured from it a row of haze is open sky and only its clouds stand above.
+        floors = [min(reds[y * 64 + x] for x in range(64)) for y in range(32)]
+        clouds_open[pic] = [max(0.0, min(1.0, (reds[i] - floors[i // 64]) / float(cfg['r_hi'] - floors[i // 64])))
+                            if cfg['r_hi'] > floors[i // 64] else 0.0 for i in range(64 * 32)]
         if show_hist:
             hist = {}
             for r in reds:
@@ -723,7 +729,8 @@ def build_course(name, cfg, rom_path, show_hist):
             print('   %s picture %08X red histogram: %s' % (name, pic, sorted(hist.items())))
             print('      open sky (weight < 0.12): %d%% of texels' % (100 * sum(1 for c in clouds[pic] if c < 0.12) // len(reds)))
 
-    def cloud_at(d, reach):
+    def cloud_at(d, reach, table=None):
+        table = clouds if table is None else table
         if not sky['tris']:
             return 0.0
         h = hit(sky['tris'], d)
@@ -733,7 +740,7 @@ def build_course(name, cfg, rom_path, show_hist):
         worst = 0.0
         for y in range(int(math.floor(cy - reach)), int(math.ceil(cy + reach)) + 1):
             for x in range(int(math.floor(cx - reach)), int(math.ceil(cx + reach)) + 1):
-                worst = max(worst, clouds[pic][min(31, max(0, y)) * 64 + min(63, max(0, x))])
+                worst = max(worst, table[pic][min(31, max(0, y)) * 64 + min(63, max(0, x))])
         return worst
 
     # Each picture row's height above the horizon, 0 (horizon) to 255 (straight up).
@@ -817,7 +824,57 @@ def build_course(name, cfg, rom_path, show_hist):
             bright.append((d, rng.uniform(26.0, 36.0), pastels[rng.randrange(len(pastels))]))
     print('   %s: %d faint, %d middle, %d bright stars; sky list %08X, spare %08X, pictures %s' % (
         name, len(dust), len(mid), len(bright), sky['list'], sky['spare'] or 0, ['%08X' % p for p in sky['pics']]))
-    return dict(sky=sky, rows=row_table, dust=dust, mid=mid, bright=bright, moon=moon_dir, rng=rng)
+    # Stars above 30 degrees where a picture's haze is the open sky the night now paints (each row divided
+    # by its own open sky, as the mod's sky_paint does), as thick as the course's own stars from 15 to 30
+    # degrees. They come from a generator of their own, after every star above, so each of those stands
+    # where it did. The River's picture thickens with haze toward its lid, and measured from the bare
+    # picture its whole sky above 30 degrees was cloud: no star stood there (JackandBeans, Nov 10 2026).
+    dust_hi, mid_hi, bright_hi = [], [], []
+    if cfg.get('stars_high'):
+        rng_hi = random.Random(cfg['seed'] + 30)
+        lo30, lo15 = math.sin(math.radians(30.0)), math.sin(math.radians(15.0))
+        share = (1.0 - lo30) / (lo30 - lo15)        # the sky above 30 degrees, against the band from 15 to 30
+
+        def band_count(stars):
+            return sum(1 for d, _, _ in stars if lo15 <= d[1] < lo30)
+
+        def try_high(reach, others, apart):
+            limit = math.cos(math.radians(apart))
+            for _ in range(40):
+                y = rng_hi.uniform(lo30, 1.0)
+                az = rng_hi.uniform(0.0, 2 * math.pi)
+                c = math.sqrt(1 - y * y)
+                d = (c * math.cos(az), y, c * math.sin(az))
+                if moon_dir and angle_between(d, moon_dir) < 7.5:
+                    continue
+                if any(d[0] * o[0][0] + d[1] * o[0][1] + d[2] * o[0][2] > limit for o in others):
+                    continue
+                if cloud_at(d, reach, clouds_open) > 0.12:
+                    continue
+                return d
+            return None
+
+        for i in range(int(round(band_count(dust) * share))):
+            d = try_high(0.6, dust + dust_hi, 1.5)
+            if d:
+                k = rng_hi.uniform(0.62, 0.95)
+                dust_hi.append((d, rng_hi.uniform(7.5, 10.5), tuple(int(c * k) for c in tones[rng_hi.randrange(len(tones))])))
+        for i in range(int(round(band_count(mid) * share))):
+            d = try_high(0.9, mid + mid_hi, 3.0)
+            if d:
+                k = rng_hi.uniform(0.95, 1.22)
+                tone = pastels[rng_hi.randrange(len(pastels))] if rng_hi.random() < 0.35 else tones[rng_hi.randrange(len(tones))]
+                mid_hi.append((d, rng_hi.uniform(12.5, 18.0), tuple(min(255, int(c * k)) for c in tone)))
+        want = min(BRIGHT_MAX - len(bright), int(round(band_count(bright) * share)))
+        tries = 0
+        while len(bright_hi) < want and tries < 400:
+            tries += 1
+            d = try_high(1.8, bright + bright_hi, 24.0)
+            if d:
+                bright_hi.append((d, rng_hi.uniform(26.0, 36.0), pastels[rng_hi.randrange(len(pastels))]))
+        print('   %s: above 30 degrees, %d faint, %d middle and %d bright stars more' % (name, len(dust_hi), len(mid_hi), len(bright_hi)))
+    return dict(sky=sky, rows=row_table, dust=dust, mid=mid, bright=bright, moon=moon_dir, rng=rng,
+                dust_hi=dust_hi, mid_hi=mid_hi, bright_hi=bright_hi)
 
 
 def main():
@@ -1009,17 +1066,38 @@ def main():
             else:
                 g = rng.randrange(CALM_GROUPS)
             buckets[FAINT_GROUPS + g].append(s)
+        # The stars above 30 degrees (stars_high) take their groups from a generator of their own,
+        # after every other star's, so those keep theirs.
+        rng_hi = random.Random(cfg['seed'] + 31)
+        for s in b['dust_hi']:
+            buckets[rng_hi.randrange(FAINT_GROUPS)].append(s)
+        for s in b['mid_hi']:
+            el = math.degrees(math.asin(max(-1.0, min(1.0, s[0][1]))))
+            shimmer, breathing = (0.20, 0.42) if el < 15 else ((0.11, 0.30) if el < 35 else (0.05, 0.20))
+            roll = rng_hi.random()
+            if roll < shimmer:
+                g = CALM_GROUPS + BREATHING_GROUPS + rng_hi.randrange(SHIMMER_GROUPS)
+            elif roll < shimmer + breathing:
+                g = CALM_GROUPS + rng_hi.randrange(BREATHING_GROUPS)
+            else:
+                g = rng_hi.randrange(CALM_GROUPS)
+            buckets[FAINT_GROUPS + g].append(s)
         for bucket in buckets:
             for d, half, col in bucket:
                 verts += quad(d, half, 16, col)
             groups.append((first, len(bucket), 'star'))
             first += len(bucket)
-        for d, half, col in b['bright']:        # each bright star's steady heart
+        brights = b['bright'] + b['bright_hi']
+        for d, half, col in brights:            # each bright star's steady heart
             verts += quad(d, half * 0.5, 16, col)
-        groups.append((first, len(b['bright']), 'heart'))
-        first += len(b['bright'])
+        groups.append((first, len(brights), 'heart'))
+        first += len(brights)
         for d, half, col in b['bright']:        # and its rays
             verts += quad(d, half, 32, col, rng.uniform(-0.25, 0.25))
+            groups.append((first, 1, 'rays'))
+            first += 1
+        for d, half, col in b['bright_hi']:     # (the stars above 30 degrees' turned by their own generator)
+            verts += quad(d, half, 32, col, rng_hi.uniform(-0.25, 0.25))
             groups.append((first, 1, 'rays'))
             first += 1
         moon_first = first
@@ -1068,7 +1146,7 @@ def main():
 
         band(sun_az, BAND_SUN_COLOR, 'band')
         band(sun_az + 180.0, BAND_DAWN_COLOR, 'dawn_band')
-        n_tw = FAINT_GROUPS + MID_GROUPS + len(b['bright'])
+        n_tw = FAINT_GROUPS + MID_GROUPS + len(b['bright']) + len(b['bright_hi'])
         w('// One command each, rewritten every frame: the brightness of a twinkle group.')
         w('Gfx night_%s_twinkle[][2] = {' % name)
         for i in range(n_tw + 1):        # one more: the bright stars' hearts, faded with the rest

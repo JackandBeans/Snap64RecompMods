@@ -292,6 +292,7 @@ static Mtx photo_sky_mtx[FRAME_CTX * FRAME_SLOTS];   // the sky's place around t
 static u8 tint_away[3];          // the corners' tint at the horizon away from the sun (tint_lo's twin by night)
 static u8 scene_ambient[3], scene_diffuse[3];   // the scene light's colors in force
 static u8 land_diff[3];          // what the sun (or the moon) adds to a painted face that faces it
+static u8 body_diff[3];          // and to a Pokémon's painted corner: the same, rounded with light_body (pal_pairs)
 static f32 relight_dir[3];       // toward the sun, or the moon, in the world's axes
 static u16 fog_near, fog_far;    // the night's fog, to come back to after a flash
 static Mtx storm_mtx[FRAME_CTX * FRAME_SLOTS][2];   // the flash's and the bolt's matrices, a pair a slot
@@ -364,12 +365,13 @@ static s16 glint_world_y[GLINT_VTX];     // each copy's height in the world, for
 static s16 glint_world_x[GLINT_VTX], glint_world_z[GLINT_VTX];   // and its place across, for the mist's floors
 static u8 sky_mask_pic[2][SKY_TEXELS];   // each sky picture's cloud mask, kept for the dusk
 static u8 sky_repaint_due;               // the Valley's pictures to be painted again after this load's first draw (night_sky_ends)
-static u8 pal2_a[11][3], pal2_b[11][3], pal2_d[11][3];   // the three palettes for the weather the island turns to
-static u8 mix_a[11][3], mix_b[11][3], mix_d[11][3];      // the two weathers' palettes mixed, as far as the turn has come
-static u8 palc_a[11][3], palc_b[11][3], palc_d[11][3];   // the three palettes under a clear sky, for a roofed course's cave
-static u8 cave_palette[11][3];   // the live colors the cave takes: the same moment under a clear sky
-static u8 pal_a[11][3], pal_b[11][3];    // the sunset's palette and the night's,
-static u8 pal_d[11][3];                  // and the dawn's: the cycle's three ends (the fourth, the day, is the cartridge)
+#define PAL_N 12                         // a palette's colors: live_palette's
+static u8 pal2_a[PAL_N][3], pal2_b[PAL_N][3], pal2_d[PAL_N][3];   // the three palettes for the weather the island turns to
+static u8 mix_a[PAL_N][3], mix_b[PAL_N][3], mix_d[PAL_N][3];      // the two weathers' palettes mixed, as far as the turn has come
+static u8 palc_a[PAL_N][3], palc_b[PAL_N][3], palc_d[PAL_N][3];   // the three palettes under a clear sky, for a roofed course's cave
+static u8 cave_palette[PAL_N][3];        // the live colors the cave takes: the same moment under a clear sky
+static u8 pal_a[PAL_N][3], pal_b[PAL_N][3];      // the sunset's palette and the night's,
+static u8 pal_d[PAL_N][3];                       // and the dawn's: the cycle's three ends (the fourth, the day, is the cartridge)
 static f32 dir_a[3], dir_b[3], dir_d[3];
 static u8 star_fade = 255;               // how far the stars have come up
 static u32 dusk_last;
@@ -481,16 +483,20 @@ static u32 part(u32 value, u32 of256) {
     return (value * of256) >> 8;
 }
 
-// A light color as the display list carries it: red, green, blue in the
-// top three bytes.
-// A light of 255 is the whole: 256 parts, so a day color comes back exact.
-static u32 whole(u32 light) {
-    return light >= 255 ? 256 : light;
+// A color under a light: a light of 255 or more is the color itself, so a day
+// color comes back exact, and each level below it takes a 255th of the color,
+// rounded down, so a light that moves a level moves the color a level at most.
+// (Taken as 256 parts with 254 as 254, a bright color dropped two levels the
+// frame its light left 255: Nov 10 2026.)
+static u32 under(u32 color, u32 light) {
+    return (color * (light >= 255 ? 255 : light)) / 255;
 }
 
+// A light color as the display list carries it: red, green, blue in the
+// top three bytes.
 static u32 night_word(u32 word) {
-    return (part(word >> 24, whole(light_body[0])) << 24) | (part((word >> 16) & 0xFF, whole(light_body[1])) << 16) |
-           (part((word >> 8) & 0xFF, whole(light_body[2])) << 8) | (word & 0xFF);
+    return (under(word >> 24, light_body[0]) << 24) | (under((word >> 16) & 0xFF, light_body[1]) << 16) |
+           (under((word >> 8) & 0xFF, light_body[2]) << 8) | (word & 0xFF);
 }
 
 // The night's light falls on one painted vertex, once: the scenery's, a
@@ -629,7 +635,7 @@ static void light_vertex(u32 at, s32 steep, s32 toward, u32 snow) {
             for (k = 0; k < 3; k++) {
                 u32 lit = light[k] + (flowing ? 0 : ((diff[k] * (u32) toward) >> 8));
 
-                color[k] = (u8) part(color[k], whole(lit));
+                color[k] = (u8) under(color[k], lit);
             }
         }
         if (steep) {
@@ -988,7 +994,10 @@ static s32 earthen_palette(u32 at, u32 n) {
 // it, and the light colors a list sets for itself. The material in force is
 // followed by its combiner: the one that blends two pictures is the one the
 // courses use for what flows. Lists reached by a call or by the near/far
-// branch are read too.
+// branch are read too. A light color the Pokémon's reader keeps (a shared model's own, given the hour's
+// light by actors_hour) is left to it.
+static s32 actor_word_known(u32 at);
+
 static void walk(u32 list, s32 depth) {
     u32 half = 0;
     s32 budget = 20000;
@@ -1084,7 +1093,7 @@ static void walk(u32 list, s32 depth) {
                 }
                 break;
             case 0xDB:      // G_MOVEWORD, light color
-                if (((w0 >> 16) & 0xFF) == 0x0A && mark(tinted, list)) {
+                if (((w0 >> 16) & 0xFF) == 0x0A && !actor_word_known((u32) &cmd[1]) && mark(tinted, list)) {
                     cmd[1] = night_word(w1);
                 }
                 break;
@@ -1309,6 +1318,63 @@ static void roof_place(GObj* cam) {
 #define ACTOR_MODELS 64
 #define ACTOR_LEAKS 96
 
+// The shared models a course draws besides its own, read as its Pokémon are (Nov 11 2026; JackandBeans's
+// River at Night: the apples he threw lay bright red on the dark bank). Their lists lie outside the course's
+// code, where the reader never went, and they kept the day's colors at every hour:
+// - the apple and the Pester Ball (app_level/items.c:1129-1182; a photo's, app_render/47380.c:1302): each
+//   one picture on one square, drawn with the lighting off, the picture times its corners' color; and the
+//   splash an item makes in water, the same on three squares. Their corners take the painted land's light
+//   at the hour (light_vertex's rule, as flat ground faces it), so an apple on the bank is as dark as the
+//   bank; in a photo, the photo's hour's.
+// - the splash an item makes in lava glows, its own orange and red, and keeps them; it sets the lights'
+//   colors and leaves them set, so the hour's lights are loaded again after it.
+// - the Volcano's gate: its painted parts take the land's light by their faces, its bar too (drawn without
+//   fog all the same); its sign and its lamp's glow keep their color.
+// - the player's cart, in the courses' cutscenes: lit by the scene's light; three of its parts set their own
+//   light colors, which take the hour's light, and the hour's lights are loaded again after them.
+// The Volcano's evolution sparkle glows: it is not read and keeps its colors. The Pester Ball's cloud is
+// one of the game's effects, lit with them (night_cameras_begin).
+#define SHARED_LO 0x800E6C70u       // the world segment's items and gate (from ROM 0x64420)
+#define SHARED_HI 0x800F21C0u       // up to the evolution sparkle's pictures
+#define CART_LO 0x8039D938u         // the cart's materials, lists and corners (app_level's data)
+#define CART_HI 0x803AAA30u
+#define GATE_BAR_TEX 0x800EE178u    // the gate's bar: drawn without fog, painted all the same
+#define SH_ITEM 1                   // its painted corners take the land's light as flat ground faces it
+#define SH_GATE 2                   // its painted corners take the land's light by their faces
+#define SH_LIT 3                    // lit by the scene: only its own light colors take the hour's
+
+typedef struct SharedModel {
+    u32 id;         // its first payload
+    u32 off, w0, w1;    // two of the cartridge's words there, to know it by
+    u8 kind;
+} SharedModel;
+
+static const SharedModel shared_models[6] = {
+    { 0x800E9020u, 16, 0x01008010u, 0x800E8FA0u, SH_ITEM },    // the Pester Ball
+    { 0x800EADB8u, 16, 0x01008010u, 0x800EAD38u, SH_ITEM },    // the apple
+    { 0x800EB400u, 0, 0x00000001u, 0x800EB270u, SH_ITEM },     // an item's splash in water
+    { 0x800EDA80u, 0, 0x00000001u, 0x800ED860u, SH_LIT },      // and in lava
+    { 0x800F1CD0u, 0, 0x00000000u, 0x800F16B0u, SH_GATE },     // the Volcano's gate
+    { 0x803AA670u, 8, 0x803A58D8u, 0x00000004u, SH_LIT },      // the player's cart
+};
+static u8 actor_shared;     // the model being read is one of them: its kind
+static u8 shared_lit[4], shared_fog[4];     // and the lighting and fog of each of the frame's lists as it is read:
+                                            // a part's state carries on in its own list only (the gate's bar is
+                                            // drawn unlit after the body, whatever its lamp left in the other)
+
+static u8 shared_kind(u32 id) {
+    s32 i;
+
+    for (i = 0; i < 6; i++) {
+        const SharedModel* m = &shared_models[i];
+
+        if (id == m->id && ((volatile u32*) (id + m->off))[0] == m->w0 && ((volatile u32*) (id + m->off))[1] == m->w1) {
+            return m->kind;
+        }
+    }
+    return 0;
+}
+
 typedef struct ActorWord {
     u32 at;         // a list's second word
     u32 day;        // as the cartridge has it
@@ -1317,11 +1383,13 @@ typedef struct ActorWord {
 #define AW_FOG 1    // a fire model's fog switch: outside Day it switches nothing
 #define AW_KEY 2    // a flame's own key color
 #define AW_FILL 3   // a flame's own fill
+#define AW_OWN 4    // a shared model's own light color: the hour's light falls on it
 
 typedef struct ActorPaint {
     u32 at;         // a painted corner's color
     u8 day[3];      // as the cartridge has it
     s8 n[3];        // its face's facing, in the model's own frame
+    u8 land;        // a shared model's: it takes the painted land's light
 } ActorPaint;
 
 static ActorWord actor_words[ACTOR_WORDS];
@@ -1347,7 +1415,19 @@ static s32 actor_list(u32 at) {
     if (night == NULL || (at & 3)) {
         return 0;
     }
-    return (at >= night->code_lo && at < night->code_hi) || (at >= night->extra_lo && at < night->extra_hi);
+    return (at >= night->code_lo && at < night->code_hi) || (at >= night->extra_lo && at < night->extra_hi)
+        || (actor_shared && ((at >= SHARED_LO && at < SHARED_HI) || (at >= CART_LO && at < CART_HI)));
+}
+
+static s32 actor_word_known(u32 at) {
+    s32 i;
+
+    for (i = 0; i < actor_word_n; i++) {
+        if (actor_words[i].at == at) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static void actor_word_add(u32 at, u32 day, u8 kind) {
@@ -1390,6 +1470,7 @@ static void actor_paint_add(u32 at, const f32* n) {
     p->n[0] = (s8) (n[0] * 127.0f);
     p->n[1] = (s8) (n[1] * 127.0f);
     p->n[2] = (s8) (n[2] * 127.0f);
+    p->land = (actor_shared == SH_ITEM || actor_shared == SH_GATE);
 }
 
 static void actor_leak_add(u32 list) {
@@ -1413,12 +1494,23 @@ static void actor_face(u32 word) {
     u32 b = ((word >> 8) & 0xFF) >> 1;
     u32 c = (word & 0xFF) >> 1;
 
-    if (actor_lit || a >= 64 || b >= 64 || c >= 64 || actor_slots[a] == 0 || actor_slots[b] == 0 || actor_slots[c] == 0) {
+    if (actor_lit || actor_shared == SH_LIT || a >= 64 || b >= 64 || c >= 64 || actor_slots[a] == 0 || actor_slots[b] == 0 || actor_slots[c] == 0) {
         return;
     }
     // Fire, a blast, a material the cartridge draws with the fog off as well (a spark,
-    // an effect), and Starmie's gem keep their own color.
-    if (actor_fire || actor_blast || !actor_fog || (night->setup == NIGHT_VALLEY_SETUP && actor_tex == STARMIE_GEM)) {
+    // an effect), and Starmie's gem keep their own color. The gate's bar, drawn without
+    // fog, is painted metal all the same.
+    if (actor_fire || actor_blast || (!actor_fog && !(actor_shared == SH_GATE && actor_tex == GATE_BAR_TEX))
+        || (night->setup == NIGHT_VALLEY_SETUP && actor_tex == STARMIE_GEM)) {
+        return;
+    }
+    if (actor_shared == SH_ITEM) {
+        // A picture on a square that turns to the eye: lit as flat ground under it is.
+        static const f32 up[3] = { 0.0f, 1.0f, 0.0f };
+
+        actor_paint_add(actor_slots[a], up);
+        actor_paint_add(actor_slots[b], up);
+        actor_paint_add(actor_slots[c], up);
         return;
     }
     {
@@ -1513,7 +1605,9 @@ static s32 actor_read(u32 list, s32 depth) {
         } else if (op == 0xDB) {    // G_MOVEWORD: a light's color
             if (((w0 >> 16) & 0xFF) == 0x0A) {
                 sets = 1;
-                if (night->embers && (w1 == FIRE_KEY_DAY || w1 == FIRE_FILL_DAY)) {
+                if (actor_shared) {
+                    actor_word_add((u32) &cmd[1], w1, AW_OWN);
+                } else if (night->embers && (w1 == FIRE_KEY_DAY || w1 == FIRE_FILL_DAY)) {
                     actor_word_add((u32) &cmd[1], w1, ((w0 & 0xFFFF) < 0x18) ? AW_KEY : AW_FILL);
                 }
             }
@@ -1547,7 +1641,17 @@ static void actor_payload(DObj* node, s32 kind) {
         s32 guard = 8;
 
         while (actor_list((u32) entry) && entry->dlistID != 4 && guard-- > 0) {
+            s32 in = entry->dlistID & 3;
+
+            if (actor_shared) {
+                actor_lit = shared_lit[in];
+                actor_fog = shared_fog[in];
+            }
             actor_read((u32) entry->dlist, 0);
+            if (actor_shared) {
+                shared_lit[in] = actor_lit;
+                shared_fog[in] = actor_fog;
+            }
             entry++;
         }
     } else if (kind == 'I') {
@@ -1585,8 +1689,15 @@ static u32 blend_light(u32 day, u32 hour, s32 share) {
 // The hour on the Pokémon's words and painted corners: the cartridge's at Day.
 static void actors_hour(void) {
     s32 share = (night != NULL) ? (s32) (nightness * 256.0f) : 0;
+    u32 land_light[3], land_lean[3];
     s32 i, k;
 
+    // The painted land's light where the camera is (light_vertex): the scenery's, and what the sun or the moon
+    // adds to a face that meets it; under a roofed course's roof, the cave's own, with no sun nor moon.
+    for (k = 0; k < 3; k++) {
+        land_light[k] = (u32) ((s32) light_world[k] + (s32) ((f32) ((s32) cave_palette[0][k] - (s32) light_world[k]) * cave_now));
+        land_lean[k] = (u32) ((f32) land_diff[k] * (1.0f - cave_now));
+    }
     for (i = 0; i < actor_word_n; i++) {
         const ActorWord* w = &actor_words[i];
         u32 v = w->day;
@@ -1594,6 +1705,7 @@ static void actors_hour(void) {
         if (share > 0) {
             v = (w->kind == AW_FOG) ? (w->day & ~FOG_BIT)
               : (w->kind == AW_KEY) ? blend_light(w->day, FIRE_KEY_NIGHT, share)
+              : (w->kind == AW_OWN) ? night_word(w->day)
               : blend_light(w->day, FIRE_FILL_NIGHT, share);
         }
         *(volatile u32*) w->at = v;
@@ -1613,9 +1725,9 @@ static void actors_hour(void) {
             u32 toward = d > 0.0f ? (u32) (d * 256.0f) : 0;
 
             for (k = 0; k < 3; k++) {
-                u32 lit = light_body[k] + ((land_diff[k] * toward) >> 8);
+                u32 lit = p->land ? land_light[k] + ((land_lean[k] * toward) >> 8) : light_body[k] + ((body_diff[k] * toward) >> 8);
 
-                color[k] = (u8) part(p->day[k], whole(lit));
+                color[k] = (u8) under(p->day[k], lit);
             }
         }
     }
@@ -1790,15 +1902,26 @@ static u32 gfx_short_n;                // additions left out for room, this scen
 static u8 gfx_short_said;
 
 // The buffer a pointer is in (context * 4 + its kind), the room left there in commands, the margin and the
-// buffer's length; -1 for a pointer in none of them.
+// buffer's length; -1 for a pointer in none of them. The game lays a context's four buffers end to end
+// (gtl.c's gtlMalloc, one after another), so a pointer at one buffer's very end is often the next one's
+// start: it belongs to the buffer it starts, and is a full buffer's end only where no buffer starts there.
+// (Taken for the full one, every first addition to an empty buffer was left out: the fireflies and the
+// falling snow in the photo check's photos, Nov 10 2026.)
 static s32 gfx_buffer(const Gfx* at, s32* room, s32* margin, u32* length) {
-    s32 i;
+    s32 i, full = -1;
 
     for (i = 0; i < 8; i++) {
         u32 start = GTL_DL_BUFFERS[i * 2];
         u32 len = GTL_DL_BUFFERS[i * 2 + 1];
 
-        if (len != 0 && (u32) at >= start && (u32) at <= start + len) {
+        if (len == 0 || (u32) at < start || (u32) at > start + len) {
+            continue;
+        }
+        if ((u32) at == start + len) {
+            full = i;           // this one's end, unless a buffer starts here
+            continue;
+        }
+        {
             u32 keep = len / 32;
 
             *margin = (s32) ((keep > 512 ? keep : 512) / sizeof(Gfx));
@@ -1806,6 +1929,15 @@ static s32 gfx_buffer(const Gfx* at, s32* room, s32* margin, u32* length) {
             *length = len;
             return i;
         }
+    }
+    if (full >= 0) {
+        u32 len = GTL_DL_BUFFERS[full * 2 + 1];
+        u32 keep = len / 32;
+
+        *margin = (s32) ((keep > 512 ? keep : 512) / sizeof(Gfx));
+        *room = 0;
+        *length = len;
+        return full;
     }
     return -1;
 }
@@ -1990,8 +2122,9 @@ static void actor_look(void) {
     }
 }
 
-// A Pokémon about to be drawn: read once a load; outside Day, followed part by part.
-static void actor_enters(DObj* first, s32 kind) {
+// A Pokémon about to be drawn, or a shared model read as they are (`shared`, its kind): read once a
+// load; outside Day, followed part by part.
+static void actor_enters(DObj* first, s32 kind, u8 shared) {
     u32 id = (u32) first->payload.any;
     DObj* node;
     s32 guard = 400;
@@ -2013,9 +2146,15 @@ static void actor_enters(DObj* first, s32 kind) {
         for (i = 0; i < 64; i++) {
             actor_slots[i] = 0;
         }
+        actor_shared = shared;
+        for (i = 0; i < 4; i++) {
+            shared_lit[i] = actor_lit;
+            shared_fog[i] = actor_fog;
+        }
         for (node = first; node != NULL && guard-- > 0; node = after(node)) {
             actor_payload(node, kind);
         }
+        actor_shared = 0;
         actors_hour();
     }
     actor_on = (nightness > 0.0f);
@@ -2074,9 +2213,15 @@ static void model_enters(GObj* obj, s32 kind) {
             break;
         }
     }
-    if (first != NULL && actor_list((u32) first->payload.any)) {
-        actor_enters(first, kind);      // the course's Pokémon: not the walker's
-        return;
+    if (first != NULL) {
+        u8 shared = shared_kind((u32) first->payload.any);
+
+        if (shared != 0 || actor_list((u32) first->payload.any)) {
+            actor_enters(first, kind, shared);      // the course's Pokémon, or a shared model: not the walker's,
+            if (shared != SH_LIT) {                 // but for one lit by the scene, which the walker goes on
+                return;                             // to see as before (the cart: in its range)
+            }
+        }
     }
     if (first == NULL || unit_of((u32) first->payload.any) < 0) {
         return;
@@ -2296,10 +2441,15 @@ static void set_light(const Night* by) {
         s32 day_d = (day_ambient[i] != 0 || day_diffuse[i] != 0) ? day_diffuse[i] : DAY_DIFFUSE;
         s32 share = (s32) (nightness * 256.0f);
         s32 amb = scene_ambient[i] + (s32) ((f32) ((s32) cave_palette[9][i] - scene_ambient[i]) * cave_now);     // in the cave the hour's own
-        s32 dif = scene_diffuse[i] + (s32) ((f32) ((s32) cave_palette[10][i] - scene_diffuse[i]) * cave_now);
+        // A face the light meets full on shows the two together: their sum goes toward the cave and the
+        // day rounded once, and the diffuse is the rest (pal_pairs).
+        s32 both = scene_ambient[i] + scene_diffuse[i];
+        s32 sum = both + (s32) ((f32) ((s32) cave_palette[9][i] + cave_palette[10][i] - both) * cave_now);
         s32 ambient = (by != NULL) ? day_a + ((amb - day_a) * share) / 256 : day_a;
-        s32 diffuse = (by != NULL) ? day_d + ((dif - day_d) * share) / 256 : day_d;
+        s32 total = (by != NULL) ? day_a + day_d + ((sum - day_a - day_d) * share) / 256 : day_a + day_d;
+        s32 diffuse = total - ambient;
 
+        diffuse = diffuse < 0 ? 0 : diffuse > 255 ? 255 : diffuse;
         light[i] = light[4 + i] = (u8) ambient;
         light[8 + i] = light[12 + i] = (u8) diffuse;
     }
@@ -7543,6 +7693,7 @@ static void choose_palette(const Night* by) {
             scene_ambient[i] = (u8) part(NIGHT_AMBIENT, light_body[i]);
             scene_diffuse[i] = (u8) part(NIGHT_DIFFUSE, light_body[i]);
         }
+        body_diff[i] = land_diff[i];
         sky_horizon[i] = (u8) ((pic_sky[i] * (((u32) tint_lo[i] + tint_away[i]) / 2)) / 255);
         sky_top[i] = (u8) ((pic_sky[i] * tint_hi[i]) / 255);
     }
@@ -7578,15 +7729,32 @@ static void choose_palette(const Night* by) {
     cloud_top_fade = sunset ? 255 : 0;
 }
 
-// The dusk. The live colors are eleven triples; both ends are kept and the
+// The dusk. The live colors are twelve triples; both ends are kept and the
 // live ones slid between them as the ride's clock runs.
-static u8* const live_palette[11] = { light_world, light_body, light_flow, land_diff, pic_sky, pic_cloud,
-                                      tint_lo, tint_away, tint_hi, scene_ambient, scene_diffuse };
+static u8* const live_palette[PAL_N] = { light_world, light_body, light_flow, land_diff, pic_sky, pic_cloud,
+                                         tint_lo, tint_away, tint_hi, scene_ambient, scene_diffuse, body_diff };
 
-static void pal_keep(u8 pal[11][3], f32* dir) {
+// The colors that add on the screen, first and second: the land's light and the sun or the moon across
+// it, the light on a Pokémon's painted corners and the same sun, the Pokémon's ambient and diffuse. A
+// face the second meets full on shows their sum, a face in shade the first alone. Rounded each on its
+// own, both could step a level in one frame of a dusk, a lit face two at once (Nov 9 2026). So a blend
+// rounds the first, and the pair's sum once, and gives the second the rest: the shade, the lit face and
+// every face between them step a level at a time.
+static const u8 pal_pairs[3][2] = { { 0, 3 }, { 1, 11 }, { 9, 10 } };
+
+// Pair p's second, channel k, blended from a to b by share: the sum's rounding less the first's.
+static u8 pal_rest(const u8 a[PAL_N][3], const u8 b[PAL_N][3], s32 p, s32 k, f32 share, u8 first) {
+    f32 from = (f32) ((s32) a[pal_pairs[p][0]][k] + a[pal_pairs[p][1]][k]);
+    f32 to = (f32) ((s32) b[pal_pairs[p][0]][k] + b[pal_pairs[p][1]][k]);
+    s32 rest = (s32) (from + (to - from) * share) - (s32) first;
+
+    return (u8) (rest < 0 ? 0 : rest > 255 ? 255 : rest);
+}
+
+static void pal_keep(u8 pal[PAL_N][3], f32* dir) {
     s32 n, k;
 
-    for (n = 0; n < 11; n++) {
+    for (n = 0; n < PAL_N; n++) {
         for (k = 0; k < 3; k++) {
             pal[n][k] = live_palette[n][k];
         }
@@ -7631,13 +7799,21 @@ static void weather_palettes_keep(const Night* by) {
 // The two weathers' palettes mixed as far as the turn has come, for the
 // moment to blend from.
 static void wx_mix(void) {
-    s32 n, k;
+    s32 n, k, p;
 
-    for (n = 0; n < 11; n++) {
+    for (n = 0; n < PAL_N; n++) {
         for (k = 0; k < 3; k++) {
             mix_a[n][k] = (u8) ((f32) pal_a[n][k] + ((f32) pal2_a[n][k] - (f32) pal_a[n][k]) * pal_share);
             mix_b[n][k] = (u8) ((f32) pal_b[n][k] + ((f32) pal2_b[n][k] - (f32) pal_b[n][k]) * pal_share);
             mix_d[n][k] = (u8) ((f32) pal_d[n][k] + ((f32) pal2_d[n][k] - (f32) pal_d[n][k]) * pal_share);
+        }
+    }
+    for (p = 0; p < 3; p++) {
+        n = pal_pairs[p][1];
+        for (k = 0; k < 3; k++) {
+            mix_a[n][k] = pal_rest(pal_a, pal2_a, p, k, pal_share, mix_a[pal_pairs[p][0]][k]);
+            mix_b[n][k] = pal_rest(pal_b, pal2_b, p, k, pal_share, mix_b[pal_pairs[p][0]][k]);
+            mix_d[n][k] = pal_rest(pal_d, pal2_d, p, k, pal_share, mix_d[pal_pairs[p][0]][k]);
         }
     }
 }
@@ -7698,7 +7874,7 @@ static void relight_record(void) {
             for (k = 0; k < 3; k++) {
                 u32 lit = light[k] + (flow ? 0 : ((diff[k] * (u32) toward) >> 8));
 
-                c[k] = (u8) part(c[k], whole(lit));
+                c[k] = (u8) under(c[k], lit);
             }
             if (steep) {
                 c[0] = (u8) part(c[0], steep_shade[0]);
@@ -7887,7 +8063,7 @@ static void spare_point(Gfx* list) {
     }
 }
 
-// How far each of the eleven colors has gone at a moment of the dusk. The
+// How far each of the twelve colors has gone at a moment of the dusk. The
 // land and its lights are dark once the sun is down (the sun sinks until six
 // tenths); the clouds lose the sun's warmth early; the top of the sky darkens
 // before the horizon; the sky's picture and the horizon's tints take the
@@ -7896,7 +8072,7 @@ static f32 dusk_share(s32 n, f32 t) {
     f32 e;
 
     switch (n) {
-        case 0: case 1: case 2: case 3: case 9: case 10: e = t / 0.55f; break;
+        case 0: case 1: case 2: case 3: case 9: case 10: case 11: e = t / 0.55f; break;
         case 5: e = (t - 0.15f) / 0.4f; break;
         case 8: e = t / 0.8f; break;
         default: e = t; break;
@@ -7905,17 +8081,26 @@ static f32 dusk_share(s32 n, f32 t) {
 }
 
 // The live colors slid between two palettes, on the dusk's curves or straight.
-static void palette_blend(const u8 pa[11][3], const f32* da, const u8 pb[11][3], const f32* db,
-                          const u8 ca[11][3], const u8 cb[11][3], f32 t, s32 curved) {
+static void palette_blend(const u8 pa[PAL_N][3], const f32* da, const u8 pb[PAL_N][3], const f32* db,
+                          const u8 ca[PAL_N][3], const u8 cb[PAL_N][3], f32 t, s32 curved) {
     f32 len;
-    s32 n, k;
+    s32 n, k, p;
 
-    for (n = 0; n < 11; n++) {
+    for (n = 0; n < PAL_N; n++) {
         f32 share = curved ? dusk_share(n, t) : (t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t);
 
         for (k = 0; k < 3; k++) {
             live_palette[n][k] = (u8) ((f32) pa[n][k] + ((f32) pb[n][k] - (f32) pa[n][k]) * share);
             cave_palette[n][k] = (u8) ((f32) ca[n][k] + ((f32) cb[n][k] - (f32) ca[n][k]) * share);
+        }
+    }
+    for (p = 0; p < 3; p++) {
+        f32 share = curved ? dusk_share(pal_pairs[p][0], t) : (t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t);
+
+        n = pal_pairs[p][1];
+        for (k = 0; k < 3; k++) {
+            live_palette[n][k] = pal_rest(pa, pb, p, k, share, live_palette[pal_pairs[p][0]][k]);
+            cave_palette[n][k] = pal_rest(ca, cb, p, k, share, cave_palette[pal_pairs[p][0]][k]);
         }
     }
     for (k = 0; k < 3; k++) {
@@ -7937,8 +8122,14 @@ static void palette_blend(const u8 pa[11][3], const f32* da, const u8 pb[11][3],
 // stands between them and the day.
 static void lights_toward_day(void) {
     s32 share = (s32) (nightness * 256.0f);
-    s32 n, k;
+    s32 n, k, p;
+    s32 sum[2][3];
 
+    for (p = 0; p < 2; p++) {           // the land's pair and the painted corners' (pal_pairs)
+        for (k = 0; k < 3; k++) {
+            sum[p][k] = (s32) live_palette[pal_pairs[p][0]][k] + live_palette[pal_pairs[p][1]][k];
+        }
+    }
     for (n = 0; n < 3; n++) {
         for (k = 0; k < 3; k++) {
             live_palette[n][k] = (u8) (255 + (((s32) live_palette[n][k] - 255) * share) / 256);
@@ -7946,8 +8137,15 @@ static void lights_toward_day(void) {
         }
     }
     for (k = 0; k < 3; k++) {
-        land_diff[k] = (u8) (((s32) land_diff[k] * share) / 256);
         cave_palette[3][k] = (u8) (((s32) cave_palette[3][k] * share) / 256);
+    }
+    // The sun goes as its light comes to the whole: each sum toward 255 rounded once, the sun the rest.
+    for (p = 0; p < 2; p++) {
+        for (k = 0; k < 3; k++) {
+            s32 rest = 255 + ((sum[p][k] - 255) * share) / 256 - live_palette[pal_pairs[p][0]][k];
+
+            live_palette[pal_pairs[p][1]][k] = (u8) (rest < 0 ? 0 : rest > 255 ? 255 : rest);
+        }
     }
 }
 

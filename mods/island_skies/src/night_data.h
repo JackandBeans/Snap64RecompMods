@@ -101,7 +101,7 @@ extern Gfx night_river_dawn[];
 #define NIGHT_RIVER_SKY_VTX_N { 30, 24 }
 #define NIGHT_RIVER_R_LO 23
 #define NIGHT_RIVER_R_SCALE 64
-#define NIGHT_RIVER_TWINKLES 45
+#define NIGHT_RIVER_TWINKLES 53
 extern Gfx night_river_sky[];
 extern Gfx night_river_twinkle[][2];
 extern const u8 night_river_rows0[32];
