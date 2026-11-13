@@ -104,7 +104,15 @@ it on or off, and Z there opens a mod's own settings.
   the weather's turns, the moon and the sounds were checked frame by frame
   in captured rides, and so were 1.1.1's Tunnel photos in rain, its storm
   over the Tunnel, and the River by day under Island's own, which matched
-  the game without the mod pixel for pixel.
+  the game without the mod pixel for pixel. For 1.1.2, scripted rides
+  scored their photos line for line and point for point as without the
+  mod: at its defaults on the released 1.1.6, and at its defaults, at Dawn
+  and in snow on a development build. That was measured before 1.1.2's last
+  changes, which do not touch what the scoring reads (from the code). The
+  photo check keeps the River's fireflies at night (measured) and the
+  falling snow (from the code). The River at Night was ridden on 1.1.7's
+  code. By day the mod leaves the cartridge's bytes as they are: its code
+  was run on the cartridge's own data, not in a game.
 
 ## Building
 
