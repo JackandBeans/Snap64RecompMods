@@ -3,7 +3,8 @@
 Mods for [Snap64 Recomp](https://github.com/JackandBeans/Snap64Recomp), the
 native PC port of Pokémon Snap. Each mod is one `.nrm` file, also packed as
 a Thunderstore zip, and each has a page of its own with its options and its
-changelog.
+changelog. All three are on Thunderstore too, on the port's page there,
+[Pokémon Snap: Recompiled](https://thunderstore.io/c/pokemon-snap-recompiled/).
 
 <p>
 <img src="mods/island_skies/pictures/lapras.png" width="49%" alt="Lapras on the sea at sunset">
@@ -16,13 +17,14 @@ Island Skies: the Beach at sunset, the River at night, the Valley in rain
 and the Volcano in snow. More pictures are on
 [its page](mods/island_skies/thunderstore/README.md).
 
-| Mod | Version | Needs | Download |
-| --- | --- | --- | --- |
-| [Island Skies](mods/island_skies/thunderstore/README.md) | 1.1.2 | Snap64 Recomp 1.1.3 or later | [snap64_island_skies.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_island_skies.nrm) |
-| [Unlimited Film](mods/unlimited_film/thunderstore/README.md) | 1.0.2 | Snap64 Recomp 1.0.9 or later | [snap64_unlimited_film.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_unlimited_film.nrm) |
-| [Unlock Everything](mods/unlock_everything/thunderstore/README.md) | 1.0.2 | Snap64 Recomp 1.0.9 or later | [snap64_unlock_everything.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_unlock_everything.nrm) |
+| Mod | Version | Needs | Download | Thunderstore |
+| --- | --- | --- | --- | --- |
+| [Island Skies](mods/island_skies/thunderstore/README.md) | 1.1.2 | Snap64 Recomp 1.1.3 or later | [snap64_island_skies.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_island_skies.nrm) | [Island Skies](https://thunderstore.io/c/pokemon-snap-recompiled/p/JackandBeans/Island_Skies/) |
+| [Unlimited Film](mods/unlimited_film/thunderstore/README.md) | 1.0.2 | Snap64 Recomp 1.0.9 or later | [snap64_unlimited_film.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_unlimited_film.nrm) | [Unlimited Film](https://thunderstore.io/c/pokemon-snap-recompiled/p/JackandBeans/Unlimited_Film/) |
+| [Unlock Everything](mods/unlock_everything/thunderstore/README.md) | 1.0.2 | Snap64 Recomp 1.0.9 or later | [snap64_unlock_everything.nrm](https://github.com/JackandBeans/Snap64RecompMods/releases/latest/download/snap64_unlock_everything.nrm) | [Unlock Everything](https://thunderstore.io/c/pokemon-snap-recompiled/p/JackandBeans/Unlock_Everything/) |
 
-The links are the latest release's files. Every
+The Download links are the latest release's files, and each mod's
+Thunderstore page carries its zip. Every
 [release](https://github.com/JackandBeans/Snap64RecompMods/releases)
 carries all three mods, each as its `.nrm` and as a Thunderstore zip; the
 release's name says which mod changed and its new version, and the tag
@@ -73,7 +75,9 @@ not touched. Copy `saves/` somewhere safe first if you may want to go back.
 Download a mod from the
 [Releases](https://github.com/JackandBeans/Snap64RecompMods/releases) page:
 the `.nrm`, or the Thunderstore zip, which carries the `.nrm` with an icon
-and a README.
+and a README. Or take the zip from the mod's page on
+[Thunderstore](https://thunderstore.io/c/pokemon-snap-recompiled/), with the
+page's Download; no mod manager is needed.
 
 - Snap64 Recomp 1.1.0 or later: drop the `.nrm` or the zip on the game
   window, or put either in the `mods/` folder next to `Snap64Recomp.exe`
